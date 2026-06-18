@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "main": {
+      ".read": true,
+      "Users": {
+        ".write": "auth != null"
+      },
+      "Config": {
+        ".write": "auth != null"
+      },
+      "$other": {
+        ".write": true
+      }
+    },
+    "evtData": {
+      ".read": true,
+      ".write": true
+    },
+    "$other": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
