@@ -1037,8 +1037,9 @@ async function doLogin(id,pw,keep,silent){
   if(typeof loadModDefs==='function') loadModDefs(function(){modLoadAll();mkTabs();draw()});
   mkTabs();drawEventBar();draw();
   if(keep)saveAuth(id,pw); else clearAuth();
-  // 앱(모바일)은 무활동 자동 로그아웃 안 함 (로그아웃 누를 때까지 유지) / PC는 기존대로 자동 로그아웃
-  if(!IS_MOBILE) startIdleWatch();
+  // 가문굴비: PC·앱 모두 로그아웃 누를 때까지 유지 (무활동 자동 로그아웃 없음)
+  // (단, 로그인 상태 유지 체크 해제하면 그땐 자동 로그아웃)
+  if(!keep) startIdleWatch();
   // 비밀번호가 1234면 변경할 때까지 상단 빨간 배너 + 메뉴이동마다 모달
   _pwIsDefault=(String(pw)==='1234');
   if(_pwIsDefault) _showPwWarnBanner(); else _hidePwWarnBanner();
@@ -1226,13 +1227,13 @@ function showEvtSwitchModal(){
 async function tryAutoLogin(){
   var a=loadAuth();
   if(!a||!a.id||!a.pw)return;
-  // 앱(모바일)은 시간 만료 없이 계속 자동 로그인 (로그아웃 전까지) / PC는 1시간 TTL 유지
+  // 가문굴비: PC·앱 모두 시간 만료 없이 계속 자동 로그인 (로그아웃 전까지 유지)
   // 자동로그인은 silent라 텔레그램 알림도 안 감
   var ts = Number(a.ts)||0;
-  if(!ts || (!IS_MOBILE && (Date.now() - ts) > AUTO_LOGIN_TTL_MS)){
+  if(!ts){
     clearAuth();
     var er0=document.getElementById("loginErr");
-    if(er0){ er0.style.color="#6b7280"; er0.textContent=IS_MOBILE?"다시 로그인해주세요.":"세션이 만료되었습니다. 다시 로그인해주세요."; }
+    if(er0){ er0.style.color="#6b7280"; er0.textContent="다시 로그인해주세요."; }
     return;
   }
   // 자동로그인 중 UI — 로그인 폼 잠금 + 풀스크린 로딩
