@@ -20740,7 +20740,7 @@ function renderPcLog(){
   var keys=Object.keys(PCLIC_LOG);
   if(!keys.length){ el.innerHTML='로그 없음 (엑셀에서 로그인하면 쌓입니다)'; return; }
   keys.sort().reverse();
-  var h='<table class="tbl" style="width:100%"><thead><tr><th>시간</th><th>프로그램</th><th>업체</th><th>PC/사용자</th><th>MAC</th><th>버전</th></tr></thead><tbody>';
+  var h='<table class="tbl" style="width:100%"><thead><tr><th>시간</th><th>프로그램</th><th>아이디</th><th>PC/사용자</th><th>MAC</th><th>버전</th></tr></thead><tbody>';
   keys.forEach(function(k){
     var l=PCLIC_LOG[k]||{};
     h+='<tr><td style="font-size:12px;white-space:nowrap">'+(l.t||'')+'</td><td style="font-weight:600">'+(l.app||'')+'</td><td>'+(l.co||'')+'</td><td>'+(l.pc||'')+' / '+(l.user||'')+'</td><td style="font-family:monospace;font-size:11px">'+(l.mac||'')+'</td><td>'+(l.ver||'')+'</td></tr>';
