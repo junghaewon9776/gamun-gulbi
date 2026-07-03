@@ -20914,14 +20914,15 @@ function renderPcVer(){
     h+='<td><input id="pclv_ver_'+sid+'" value="'+(v.ver||'')+'" placeholder="1.1" style="width:70px"></td>';
     h+='<td><input type="file" id="pclv_file_'+sid+'" accept=".xlsm,.xls,.xlsx,.exe,.zip" style="width:210px;font-size:12px"></td>';
     h+='<td><input id="pclv_note_'+sid+'" value="'+(v.note||'')+'" placeholder="예: 자동매핑 개선" style="width:150px"></td>';
-    h+='<td style="white-space:nowrap"><button class="btn" id="pclv_btn_'+sid+'" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerUpload(\''+app+'\')">⬆ 업로드+등록</button> ';
+    h+='<td style="white-space:nowrap"><button class="btn" style="background:#16a34a;color:#fff;font-weight:700" onclick="pcVerSaveOnly(\''+app+'\')" title="파일 없이 버전/메모만 저장">💾 저장</button> ';
+    h+='<button class="btn" id="pclv_btn_'+sid+'" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerUpload(\''+app+'\')" title="파일도 같이 올리고 저장">⬆ 파일+저장</button> ';
     h+='<button class="btn" style="background:#6b7280;color:#fff;font-weight:600" onclick="pcVerRename(\''+app+'\')">✏ 이름</button> ';
     h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcVerDel(\''+app+'\')">🗑</button></td>';
     h+='<td style="font-size:12px">'+(v.fileName?('<a href="'+(v.url||'#')+'" target="_blank">'+v.fileName+'</a> ('+(v.ver?'v'+v.ver:'')+')'):(v.url?'<a href="'+v.url+'" target="_blank">링크</a>':'-'))+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table>';
-  h+='<div class="muted" style="font-size:11px;margin-top:4px">파일은 구글드라이브에 저장됩니다. 파일 없이 버전/메모만 바꾸려면 파일 선택 안 하고 [업로드+등록] (기존 파일 유지).</div>';
+  h+='<div class="muted" style="font-size:11px;margin-top:4px">💾 저장 = 버전/메모만 저장(기존 파일 유지) · ⬆ 파일+저장 = 새 파일도 드라이브에 올리고 저장.</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;align-items:center"><input id="pclv_newapp" placeholder="새 프로그램 이름" style="width:140px"><button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcVerAddApp()">+ 프로그램 추가</button></div>';
   // Drive 프록시 상태
   if(PCLIC_PROXY){
@@ -20941,6 +20942,19 @@ function pcVerSaveProxy(){
   if(u.indexOf('https://script.google.com/')!==0){ alert('Apps Script 웹앱 URL(https://script.google.com/...)을 넣어주세요.'); return; }
   fbDb.ref('/main/DriveProxyUrl').set(u).then(function(){ alert('드라이브 프록시 등록 완료!'); loadPcLic(); })
     .catch(function(e){ alert('실패: '+e.message); });
+}
+
+// 파일 없이 버전/메모만 저장 (기존 다운로드 링크는 유지)
+function pcVerSaveOnly(app){
+  var sid=app.replace(/[^0-9A-Za-z가-힣]/g,'');
+  var ver=(document.getElementById('pclv_ver_'+sid).value||'').trim();
+  var note=(document.getElementById('pclv_note_'+sid).value||'').trim();
+  if(!ver){ alert('버전을 적어주세요 (예: 1.1)'); return; }
+  var prev=PCLIC_VER[app]||{};
+  var obj={ver:ver, url:prev.url||'', note:note, fileName:prev.fileName||'', updated:new Date().toISOString().slice(0,16).replace('T',' ')};
+  fbDb.ref('/excel_version/'+app).set(obj)
+    .then(function(){ PCLIC_VER[app]=obj; alert(app+' v'+ver+' 저장 완료!'); renderPcVer(); })
+    .catch(function(e){ alert('저장 실패: '+e.message); });
 }
 
 function pcVerUpload(app){
