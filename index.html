@@ -21056,12 +21056,26 @@ function renderShipSummary(fileKeys){
   el.innerHTML=h;
 }
 
+var SHIP_OPEN_KEY=null;
 function shipOpen(k){
-  var d=SHIP_DATA[k]||{};
   var card=document.getElementById('ship_rows_card');
+  // 토글: 같은 파일 다시 클릭하면 닫기
+  if(SHIP_OPEN_KEY===k && card.style.display!=='none'){ card.style.display='none'; SHIP_OPEN_KEY=null; return; }
+  SHIP_OPEN_KEY=k;
+  var d=SHIP_DATA[k]||{};
   document.getElementById('ship_rows_title').textContent='📄 '+(d.file||'')+' — '+(d.cnt||0)+'건';
   var heads=d.headers||[], rows=d.rows||[];
-  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th>';
+  // 이 파일에 받는분+전화 열이 있으면 문자발송 버튼 노출 (특정 업체 요청 시)
+  var ni=heads.findIndex(function(x){return /받는분|수취인/.test(x);});
+  var ti=heads.findIndex(function(x){return /전화|연락처|휴대/.test(x);});
+  var bar='';
+  if(ni>=0 && ti>=0){
+    bar='<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+    bar+='<span style="font-weight:700;font-size:12px">이 파일 받는분들께:</span>';
+    bar+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\')">📨 발송안내 문자</button>';
+    bar+='<span class="muted" style="font-size:11px">업체 요청 시에만 — 이 파일 받는분 전화로 발송</span></div>';
+  }
+  var h=bar+'<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th>';
   heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
   h+='</tr></thead><tbody>';
   rows.forEach(function(r,i){
@@ -21073,6 +21087,47 @@ function shipOpen(k){
   document.getElementById('ship_rows').innerHTML=h;
   card.style.display='';
   card.scrollIntoView({behavior:'smooth'});
+}
+
+// 이 파일(업체)의 받는분들에게만 문자 — 요청 왔을 때
+async function shipFileSms(k){
+  var d=SHIP_DATA[k]||{};
+  var heads=d.headers||[], rows=d.rows||[];
+  var ni=heads.findIndex(function(x){return /받는분|수취인/.test(x);});
+  var ti=heads.findIndex(function(x){return /전화|연락처|휴대/.test(x);});
+  var si=heads.findIndex(function(x){return /상품|품목|내용품/.test(x);});
+  var qi=heads.findIndex(function(x){return /수량|개수/.test(x);});
+  if(ni<0||ti<0){ alert('이 파일엔 받는분/전화 열이 없어 문자 발송이 안 됩니다.'); return; }
+  // 전화별로 묶기
+  var grp={};
+  rows.forEach(function(r){
+    var tel=String(r[ti]||'').replace(/[^0-9]/g,'');
+    if(tel.length<10) return;
+    var nm=r[ni]||'';
+    var item=(si>=0?(r[si]||''):'')+(qi>=0&&r[qi]?(' '+r[qi]+'개'):'');
+    if(!grp[tel]) grp[tel]={name:nm, lines:[]};
+    grp[tel].lines.push(nm+'님'+(item?(' '+item):''));
+  });
+  var tels=Object.keys(grp);
+  if(!tels.length){ alert('전화번호가 있는 받는분이 없습니다.'); return; }
+  if(!confirm('['+(d.file||'')+']\n받는분 '+tels.length+'명에게 발송안내 문자를 보낼까요?\n(업체 요청 시에만 · 건당 요금)')) return;
+  var tg=(await fbDb.ref('/excel_config/telegram').once('value')).val()||{}; // 프록시는 main/Config
+  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
+  var proxy=cfg.SMS_PROXY_URL||'';
+  if(!proxy){ alert('SMS_PROXY_URL 설정이 없습니다.'); return; }
+  var ok=0, fail=0;
+  for(var i=0;i<tels.length;i++){
+    var g=grp[tels[i]];
+    var msg='[가문굴비] 상품이 발송되었습니다\n\n'+g.lines.join('\n');
+    try{
+      var r=await fetch(proxy,{method:'POST',body:JSON.stringify({action:'send',
+        serviceId:cfg.NAVER_SENS_SERVICE_ID||'',accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
+        secretKey:cfg.NAVER_SENS_SECRET_KEY||'',sender:cfg.NAVER_SENS_SENDER||'',
+        tels:[tels[i]],msg:msg})});
+      if((await r.json()).ok) ok++; else fail++;
+    }catch(e){ fail++; }
+  }
+  alert('발송 완료! 성공 '+ok+'통 / 실패 '+fail+'통');
 }
 
 function shipDel(k){
