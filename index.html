@@ -449,7 +449,8 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<!-- firebase-storage 제거: 구글 드라이브 프록시로 대체 -->
+<!-- storage: PC관리 버전 파일 업로드용 (사진은 드라이브 프록시 유지) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="common.js?v=20260618a"></script>
 <script src="mod-engine.js?v=20260619v131"></script>
@@ -20730,36 +20731,60 @@ function pcLicDel(app, mac){
     .catch(function(e){ alert('실패: '+e.message); });
 }
 
-// ── 버전 관리 ──
+// ── 버전 관리 (파일 업로드 = Firebase Storage) ──
 function renderPcVer(){
   var el=document.getElementById('pcl_ver'); if(!el) return;
   var apps=pcLicApps();
-  var h='<table class="tbl" style="width:100%"><thead><tr><th>프로그램</th><th>최신 버전</th><th>다운로드 링크</th><th>변경 내용</th><th></th></tr></thead><tbody>';
+  var h='<table class="tbl" style="width:100%"><thead><tr><th>프로그램</th><th>최신 버전</th><th>새 파일 업로드</th><th>변경 내용</th><th></th><th>현재 파일</th></tr></thead><tbody>';
   apps.forEach(function(app){
     var v=PCLIC_VER[app]||{};
     var sid=app.replace(/[^0-9A-Za-z가-힣]/g,'');
     h+='<tr>';
     h+='<td style="font-weight:700">'+app+'</td>';
     h+='<td><input id="pclv_ver_'+sid+'" value="'+(v.ver||'')+'" placeholder="1.1" style="width:70px"></td>';
-    h+='<td><input id="pclv_url_'+sid+'" value="'+(v.url||'')+'" placeholder="https://드라이브 공유링크 등" style="width:260px"></td>';
-    h+='<td><input id="pclv_note_'+sid+'" value="'+(v.note||'')+'" placeholder="예: 자동매핑 개선" style="width:160px"></td>';
-    h+='<td><button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerSave(\''+app+'\')">저장</button></td>';
+    h+='<td><input type="file" id="pclv_file_'+sid+'" accept=".xlsm,.xls,.xlsx,.exe,.zip" style="width:210px;font-size:12px"></td>';
+    h+='<td><input id="pclv_note_'+sid+'" value="'+(v.note||'')+'" placeholder="예: 자동매핑 개선" style="width:150px"></td>';
+    h+='<td><button class="btn" id="pclv_btn_'+sid+'" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerUpload(\''+app+'\')">⬆ 업로드+등록</button></td>';
+    h+='<td style="font-size:12px">'+(v.fileName?('<a href="'+(v.url||'#')+'" target="_blank">'+v.fileName+'</a> ('+(v.ver?'v'+v.ver:'')+')'):(v.url?'<a href="'+v.url+'" target="_blank">링크</a>':'-'))+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table>';
+  h+='<div class="muted" style="font-size:11px;margin-top:4px">파일 없이 버전/메모만 바꾸려면 파일 선택 안 하고 [업로드+등록] 누르면 됩니다 (기존 파일 유지).</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;align-items:center"><input id="pclv_newapp" placeholder="새 프로그램 이름" style="width:140px"><button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcVerAddApp()">+ 프로그램 추가</button></div>';
   el.innerHTML=h;
 }
 
-function pcVerSave(app){
+function pcVerUpload(app){
   var sid=app.replace(/[^0-9A-Za-z가-힣]/g,'');
   var ver=(document.getElementById('pclv_ver_'+sid).value||'').trim();
-  var url=(document.getElementById('pclv_url_'+sid).value||'').trim();
   var note=(document.getElementById('pclv_note_'+sid).value||'').trim();
+  var fileEl=document.getElementById('pclv_file_'+sid);
+  var btn=document.getElementById('pclv_btn_'+sid);
   if(!ver){ alert('버전을 적어주세요 (예: 1.1)'); return; }
-  fbDb.ref('/excel_version/'+app).set({ver:ver, url:url, note:note})
-    .then(function(){ alert(app+' v'+ver+' 등록 완료!\n이보다 낮은 버전 파일이 열리면 업데이트 알림이 뜹니다.'); loadPcLic(); })
-    .catch(function(e){ alert('실패: '+e.message); });
+  var prev=PCLIC_VER[app]||{};
+
+  function saveMeta(url, fileName){
+    fbDb.ref('/excel_version/'+app).set({ver:ver, url:url||'', note:note, fileName:fileName||'', updated:new Date().toISOString().slice(0,16).replace('T',' ')})
+      .then(function(){ alert(app+' v'+ver+' 등록 완료!\n낮은 버전 파일이 열리면 업데이트 알림 + 이 파일 다운로드로 연결됩니다.'); loadPcLic(); })
+      .catch(function(e){ alert('저장 실패: '+e.message); if(btn){btn.disabled=false;btn.textContent='⬆ 업로드+등록';} });
+  }
+
+  if(fileEl && fileEl.files && fileEl.files.length){
+    var f=fileEl.files[0];
+    if(btn){ btn.disabled=true; btn.textContent='업로드 중...'; }
+    var path='excel_apps/'+app+'/'+ver+'/'+f.name;
+    firebase.storage().ref(path).put(f).then(function(snap){
+      return snap.ref.getDownloadURL();
+    }).then(function(url){
+      saveMeta(url, f.name);
+    }).catch(function(e){
+      alert('파일 업로드 실패: '+e.message+'\n\nFirebase 콘솔 > Storage 가 활성화됐는지, 규칙이 열려있는지 확인하세요.');
+      if(btn){ btn.disabled=false; btn.textContent='⬆ 업로드+등록'; }
+    });
+  } else {
+    // 파일 없이 버전/메모만 갱신 (기존 파일 링크 유지)
+    saveMeta(prev.url||'', prev.fileName||'');
+  }
 }
 
 function pcVerAddApp(){
