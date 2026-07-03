@@ -20548,114 +20548,152 @@ function _smsTplNewFromPicker(targetId){
 // ============================================================================
 // ===== 📋 범용 폼 관리 (Form Builder) ======================================
 // ============================================================================
-// PC관리 (엑셀 라이선스) — /excel_license/<MAC>: {company, allowed, expire, memo}
-// super/admin 전용. 택배변환 엑셀이 파일 열 때 이 목록을 조회해서 허용 여부 판단.
+// PC관리 (엑셀 라이선스) — 프로그램별 승인 + 버전 관리
+// /excel_license/<APP>/<MAC>: {company, allowed, expire, memo}  (_ALL = 모든 프로그램)
+// /excel_license_requests/<APP>/<MAC>: {pc, user, requested}
+// /excel_version/<APP>: {ver, url, note}
+// super/admin 전용. 각 엑셀 파일(APP_ID)이 열릴 때 자기 프로그램+_ALL 을 확인.
 // ============================================================================
 var PCLIC_DATA = {};
 var PCLIC_REQ = {};
+var PCLIC_VER = {};
 
 function dPcLic(){
   var h='';
   h+='<div class="card" style="margin-bottom:10px">';
-  h+='  <h3 style="margin:0 0 4px">💻 PC관리 — 택배변환 엑셀 사용 허용 PC</h3>';
-  h+='  <div class="muted" style="font-size:12px">엑셀 파일이 열릴 때 이 목록의 PC번호(MAC)와 대조합니다. 미등록 PC는 "PC번호를 관리자에게 보내라"는 안내가 뜹니다.</div>';
-  h+='</div>';
-  // 등록 폼
-  h+='<div class="card" style="margin-bottom:10px">';
-  h+='  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">';
-  h+='    <div><label style="font-size:11px;color:#666">PC번호(MAC)</label><br><input id="pcl_mac" placeholder="70-85-C2-DD-3E-81" style="width:180px" oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,\'\').replace(/(..)(?=.)/g,\'$1-\').slice(0,17)"></div>';
-  h+='    <div><label style="font-size:11px;color:#666">업체/이름</label><br><input id="pcl_co" placeholder="예: 거래처A 사무실" style="width:160px"></div>';
-  h+='    <div><label style="font-size:11px;color:#666">사용 기한</label><br><input id="pcl_exp" type="date" style="width:140px"></div>';
-  h+='    <div><label style="font-size:11px;color:#666">메모</label><br><input id="pcl_memo" placeholder="(선택)" style="width:140px"></div>';
-  h+='    <button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcLicAdd()">+ PC 등록</button>';
-  h+='  </div>';
-  h+='  <div class="muted" style="font-size:11px;margin-top:6px">기한: 비우면 무제한. 지난 날짜면 그 PC는 "기간 만료"로 잠깁니다.</div>';
+  h+='  <h3 style="margin:0 0 4px">💻 PC관리 — 엑셀 프로그램별 사용 허용</h3>';
+  h+='  <div class="muted" style="font-size:12px">프로그램(파일)별로 PC를 승인합니다. 프로그램을 <b>_ALL</b> 로 등록하면 그 PC는 모든 프로그램 사용 가능.</div>';
   h+='</div>';
   h+='<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 6px">🔔 승인 대기</h4><div id="pcl_req" class="muted">불러오는 중...</div></div>';
-  h+='<div class="card"><h4 style="margin:0 0 6px">등록된 PC</h4><div id="pcl_list" class="muted">불러오는 중...</div></div>';
+  // 수동 등록 폼
+  h+='<div class="card" style="margin-bottom:10px">';
+  h+='  <h4 style="margin:0 0 6px">직접 등록</h4>';
+  h+='  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">';
+  h+='    <div><label style="font-size:11px;color:#666">프로그램</label><br><input id="pcl_app" list="pcl_apps" placeholder="택배변환 / _ALL" style="width:120px"><datalist id="pcl_apps"></datalist></div>';
+  h+='    <div><label style="font-size:11px;color:#666">PC번호(MAC)</label><br><input id="pcl_mac" placeholder="70-85-C2-DD-3E-81" style="width:170px" oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,\'\').replace(/(..)(?=.)/g,\'$1-\').slice(0,17)"></div>';
+  h+='    <div><label style="font-size:11px;color:#666">업체/이름</label><br><input id="pcl_co" placeholder="예: 거래처A" style="width:130px"></div>';
+  h+='    <div><label style="font-size:11px;color:#666">사용 기한</label><br><input id="pcl_exp" type="date" style="width:135px"></div>';
+  h+='    <div><label style="font-size:11px;color:#666">메모</label><br><input id="pcl_memo" placeholder="(선택)" style="width:110px"></div>';
+  h+='    <button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcLicAdd()">+ 등록</button>';
+  h+='  </div>';
+  h+='  <div class="muted" style="font-size:11px;margin-top:6px">기한 비우면 무제한.</div>';
+  h+='</div>';
+  h+='<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 6px">등록된 PC</h4><div id="pcl_list" class="muted">불러오는 중...</div></div>';
+  h+='<div class="card"><h4 style="margin:0 0 6px">📦 프로그램 버전 관리</h4><div class="muted" style="font-size:12px;margin-bottom:6px">여기 등록한 버전보다 낮은 파일이 열리면 "새 버전 받으세요" 알림이 뜹니다.</div><div id="pcl_ver">불러오는 중...</div></div>';
   return h;
 }
 
 function loadPcLic(){
   Promise.all([
     fbDb.ref('/excel_license').once('value'),
-    fbDb.ref('/excel_license_requests').once('value')
+    fbDb.ref('/excel_license_requests').once('value'),
+    fbDb.ref('/excel_version').once('value')
   ]).then(function(snaps){
     PCLIC_DATA = snaps[0].val()||{};
     PCLIC_REQ = snaps[1].val()||{};
+    PCLIC_VER = snaps[2].val()||{};
     renderPcLicReq();
     renderPcLic();
+    renderPcVer();
+    // 프로그램 datalist
+    var dl=document.getElementById('pcl_apps');
+    if(dl){ dl.innerHTML='<option value="_ALL">'; pcLicApps().forEach(function(a){ dl.innerHTML+='<option value="'+a+'">'; }); }
   }).catch(function(e){
     var el=document.getElementById('pcl_list');
-    if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_license / excel_license_requests 노드(.read/.write)가 열려있는지 확인하세요.</span>';
+    if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_license / excel_license_requests / excel_version (.read/.write) 확인.</span>';
   });
+}
+
+// 알려진 프로그램 이름들 (라이선스+요청+버전 노드의 합집합, _ALL 제외)
+function pcLicApps(){
+  var s={};
+  Object.keys(PCLIC_DATA).forEach(function(a){ if(a!=='_ALL') s[a]=1; });
+  Object.keys(PCLIC_REQ).forEach(function(a){ s[a]=1; });
+  Object.keys(PCLIC_VER).forEach(function(a){ s[a]=1; });
+  return Object.keys(s).sort();
 }
 
 function renderPcLicReq(){
   var el=document.getElementById('pcl_req'); if(!el) return;
-  // 이미 등록된 MAC 의 요청은 무시
-  var keys=Object.keys(PCLIC_REQ).filter(function(m){ return !PCLIC_DATA[m]; });
-  if(!keys.length){ el.innerHTML='대기 중인 요청 없음'; return; }
-  var h='<table class="tbl" style="width:100%"><thead><tr><th>PC번호(MAC)</th><th>PC이름/사용자</th><th>요청일시</th><th>업체/이름</th><th>사용 기한</th><th></th></tr></thead><tbody>';
-  keys.sort().forEach(function(mac){
-    var d=PCLIC_REQ[mac]||{};
-    var sid=mac.replace(/-/g,'');
+  var rows=[];
+  Object.keys(PCLIC_REQ).forEach(function(app){
+    Object.keys(PCLIC_REQ[app]||{}).forEach(function(mac){
+      var already=(PCLIC_DATA[app]&&PCLIC_DATA[app][mac])||(PCLIC_DATA['_ALL']&&PCLIC_DATA['_ALL'][mac]);
+      if(!already) rows.push({app:app, mac:mac, d:PCLIC_REQ[app][mac]||{}});
+    });
+  });
+  if(!rows.length){ el.innerHTML='대기 중인 요청 없음'; return; }
+  var h='<table class="tbl" style="width:100%"><thead><tr><th>프로그램</th><th>PC번호(MAC)</th><th>PC/사용자</th><th>요청일시</th><th>업체/이름</th><th>기한</th><th>전체허용</th><th></th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var sid=(r.app+'_'+r.mac).replace(/[^0-9A-Za-z가-힣]/g,'');
     h+='<tr style="background:#fefce8">';
-    h+='<td style="font-family:monospace;font-weight:700">'+mac+'</td>';
-    h+='<td>'+(d.pc||'')+' / '+(d.user||'')+'</td>';
-    h+='<td>'+(d.requested||'')+'</td>';
-    h+='<td><input id="pclr_co_'+sid+'" placeholder="예: 거래처A" style="width:130px"></td>';
+    h+='<td style="font-weight:700">'+r.app+'</td>';
+    h+='<td style="font-family:monospace">'+r.mac+'</td>';
+    h+='<td>'+(r.d.pc||'')+' / '+(r.d.user||'')+'</td>';
+    h+='<td>'+(r.d.requested||'')+'</td>';
+    h+='<td><input id="pclr_co_'+sid+'" placeholder="예: 거래처A" style="width:110px"></td>';
     h+='<td><input id="pclr_exp_'+sid+'" type="date" style="width:130px"></td>';
+    h+='<td style="text-align:center"><input type="checkbox" id="pclr_all_'+sid+'" title="체크하면 이 PC는 모든 프로그램 사용 가능(_ALL)"></td>';
     h+='<td style="white-space:nowrap">';
-    h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcLicApprove(\''+mac+'\')">✅ 승인</button> ';
-    h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcLicReject(\''+mac+'\')">거절</button>';
+    h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcLicApprove(\''+r.app+'\',\''+r.mac+'\')">✅ 승인</button> ';
+    h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcLicReject(\''+r.app+'\',\''+r.mac+'\')">거절</button>';
     h+='</td></tr>';
   });
-  h+='</tbody></table><div class="muted" style="font-size:11px;margin-top:4px">기한 비우면 무제한. 승인하면 그 PC에서 엑셀을 다시 열 때 바로 사용됩니다.</div>';
+  h+='</tbody></table><div class="muted" style="font-size:11px;margin-top:4px">기한 비우면 무제한 · [전체허용] 체크 시 그 PC는 모든 프로그램(_ALL)에 등록됩니다.</div>';
   el.innerHTML=h;
 }
 
-function pcLicApprove(mac){
-  var sid=mac.replace(/-/g,'');
+function pcLicApprove(app, mac){
+  var sid=(app+'_'+mac).replace(/[^0-9A-Za-z가-힣]/g,'');
   var co=(document.getElementById('pclr_co_'+sid).value||'').trim();
   var exp=(document.getElementById('pclr_exp_'+sid).value||'').trim();
+  var toAll=document.getElementById('pclr_all_'+sid).checked;
   if(!co){ alert('업체/이름을 적어주세요.'); return; }
-  var req=PCLIC_REQ[mac]||{};
-  fbDb.ref('/excel_license/'+mac).set({company:co, allowed:true, expire:exp||'', memo:'요청승인 ('+(req.pc||'')+')'})
-    .then(function(){ return fbDb.ref('/excel_license_requests/'+mac).remove(); })
+  var req=(PCLIC_REQ[app]||{})[mac]||{};
+  var target = toAll ? '_ALL' : app;
+  fbDb.ref('/excel_license/'+target+'/'+mac).set({company:co, allowed:true, expire:exp||'', memo:'요청승인 ('+(req.pc||'')+')'})
+    .then(function(){ return fbDb.ref('/excel_license_requests/'+app+'/'+mac).remove(); })
     .then(loadPcLic)
     .catch(function(e){ alert('실패: '+e.message); });
 }
 
-function pcLicReject(mac){
-  if(!confirm(mac+' 요청을 거절(삭제)할까요?')) return;
-  fbDb.ref('/excel_license_requests/'+mac).remove().then(loadPcLic)
+function pcLicReject(app, mac){
+  if(!confirm('['+app+'] '+mac+' 요청을 거절(삭제)할까요?')) return;
+  fbDb.ref('/excel_license_requests/'+app+'/'+mac).remove().then(loadPcLic)
     .catch(function(e){ alert('실패: '+e.message); });
 }
 
 function renderPcLic(){
   var el=document.getElementById('pcl_list'); if(!el) return;
-  var keys=Object.keys(PCLIC_DATA);
-  if(!keys.length){ el.innerHTML='등록된 PC 없음 — 위에서 등록하세요.'; return; }
+  var rows=[];
+  Object.keys(PCLIC_DATA).forEach(function(app){
+    Object.keys(PCLIC_DATA[app]||{}).forEach(function(mac){
+      rows.push({app:app, mac:mac, d:PCLIC_DATA[app][mac]||{}});
+    });
+  });
+  if(!rows.length){ el.innerHTML='등록된 PC 없음 — 위에서 등록하거나 승인 대기에서 승인하세요.'; return; }
   var today=new Date().toISOString().slice(0,10);
-  var h='<table class="tbl" style="width:100%"><thead><tr><th>PC번호(MAC)</th><th>업체/이름</th><th>상태</th><th>기한</th><th>메모</th><th></th></tr></thead><tbody>';
-  keys.sort().forEach(function(mac){
-    var d=PCLIC_DATA[mac]||{};
+  rows.sort(function(a,b){ return (a.app+a.mac)<(b.app+b.mac)?-1:1; });
+  var h='<table class="tbl" style="width:100%"><thead><tr><th>프로그램</th><th>PC번호(MAC)</th><th>업체/이름</th><th>상태</th><th>기한</th><th>메모</th><th></th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var d=r.d;
     var expired = d.expire && d.expire < today;
     var st;
     if(!d.allowed) st='<span style="color:#dc2626;font-weight:700">차단</span>';
     else if(expired) st='<span style="color:#d97706;font-weight:700">기간만료</span>';
     else st='<span style="color:#16a34a;font-weight:700">허용</span>';
+    var appLabel = r.app==='_ALL' ? '<span style="color:#7c3aed;font-weight:700">전체(_ALL)</span>' : r.app;
     h+='<tr>';
-    h+='<td style="font-family:monospace">'+mac+'</td>';
+    h+='<td>'+appLabel+'</td>';
+    h+='<td style="font-family:monospace">'+r.mac+'</td>';
     h+='<td>'+(d.company||'')+'</td>';
     h+='<td>'+st+'</td>';
-    h+='<td><input type="date" value="'+(d.expire||'')+'" onchange="pcLicSetExp(\''+mac+'\',this.value)" style="width:130px"></td>';
+    h+='<td><input type="date" value="'+(d.expire||'')+'" onchange="pcLicSetExp(\''+r.app+'\',\''+r.mac+'\',this.value)" style="width:130px"></td>';
     h+='<td>'+(d.memo||'')+'</td>';
     h+='<td style="white-space:nowrap">';
-    if(d.allowed) h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="pcLicToggle(\''+mac+'\',false)">차단</button> ';
-    else h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcLicToggle(\''+mac+'\',true)">허용</button> ';
-    h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcLicDel(\''+mac+'\')">삭제</button>';
+    if(d.allowed) h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="pcLicToggle(\''+r.app+'\',\''+r.mac+'\',false)">차단</button> ';
+    else h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcLicToggle(\''+r.app+'\',\''+r.mac+'\',true)">허용</button> ';
+    h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcLicDel(\''+r.app+'\',\''+r.mac+'\')">삭제</button>';
     h+='</td></tr>';
   });
   h+='</tbody></table>';
@@ -20663,31 +20701,72 @@ function renderPcLic(){
 }
 
 function pcLicAdd(){
+  var app=(document.getElementById('pcl_app').value||'').trim();
   var mac=(document.getElementById('pcl_mac').value||'').trim().toUpperCase();
   var co=(document.getElementById('pcl_co').value||'').trim();
   var exp=(document.getElementById('pcl_exp').value||'').trim();
   var memo=(document.getElementById('pcl_memo').value||'').trim();
+  if(!app){ alert('프로그램 이름을 적어주세요. (모든 프로그램 허용이면 _ALL)'); return; }
   if(!/^([0-9A-F]{2}-){5}[0-9A-F]{2}$/.test(mac)){ alert('PC번호(MAC) 형식이 아닙니다.\n예: 70-85-C2-DD-3E-81'); return; }
   if(!co){ alert('업체/이름을 적어주세요.'); return; }
-  fbDb.ref('/excel_license/'+mac).set({company:co, allowed:true, expire:exp||'', memo:memo})
+  fbDb.ref('/excel_license/'+app+'/'+mac).set({company:co, allowed:true, expire:exp||'', memo:memo})
     .then(function(){ document.getElementById('pcl_mac').value=''; document.getElementById('pcl_co').value=''; document.getElementById('pcl_memo').value=''; loadPcLic(); })
     .catch(function(e){ alert('저장 실패: '+e.message); });
 }
 
-function pcLicToggle(mac, val){
-  fbDb.ref('/excel_license/'+mac+'/allowed').set(val).then(loadPcLic)
+function pcLicToggle(app, mac, val){
+  fbDb.ref('/excel_license/'+app+'/'+mac+'/allowed').set(val).then(loadPcLic)
     .catch(function(e){ alert('실패: '+e.message); });
 }
 
-function pcLicSetExp(mac, val){
-  fbDb.ref('/excel_license/'+mac+'/expire').set(val||'').then(loadPcLic)
+function pcLicSetExp(app, mac, val){
+  fbDb.ref('/excel_license/'+app+'/'+mac+'/expire').set(val||'').then(loadPcLic)
     .catch(function(e){ alert('실패: '+e.message); });
 }
 
-function pcLicDel(mac){
-  if(!confirm(mac+' 를 목록에서 삭제할까요?\n(그 PC는 엑셀을 못 열게 됩니다)')) return;
-  fbDb.ref('/excel_license/'+mac).remove().then(loadPcLic)
+function pcLicDel(app, mac){
+  if(!confirm('['+app+'] '+mac+' 를 삭제할까요?\n(그 PC는 이 프로그램을 못 열게 됩니다)')) return;
+  fbDb.ref('/excel_license/'+app+'/'+mac).remove().then(loadPcLic)
     .catch(function(e){ alert('실패: '+e.message); });
+}
+
+// ── 버전 관리 ──
+function renderPcVer(){
+  var el=document.getElementById('pcl_ver'); if(!el) return;
+  var apps=pcLicApps();
+  var h='<table class="tbl" style="width:100%"><thead><tr><th>프로그램</th><th>최신 버전</th><th>다운로드 링크</th><th>변경 내용</th><th></th></tr></thead><tbody>';
+  apps.forEach(function(app){
+    var v=PCLIC_VER[app]||{};
+    var sid=app.replace(/[^0-9A-Za-z가-힣]/g,'');
+    h+='<tr>';
+    h+='<td style="font-weight:700">'+app+'</td>';
+    h+='<td><input id="pclv_ver_'+sid+'" value="'+(v.ver||'')+'" placeholder="1.1" style="width:70px"></td>';
+    h+='<td><input id="pclv_url_'+sid+'" value="'+(v.url||'')+'" placeholder="https://드라이브 공유링크 등" style="width:260px"></td>';
+    h+='<td><input id="pclv_note_'+sid+'" value="'+(v.note||'')+'" placeholder="예: 자동매핑 개선" style="width:160px"></td>';
+    h+='<td><button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerSave(\''+app+'\')">저장</button></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  h+='<div style="margin-top:8px;display:flex;gap:8px;align-items:center"><input id="pclv_newapp" placeholder="새 프로그램 이름" style="width:140px"><button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcVerAddApp()">+ 프로그램 추가</button></div>';
+  el.innerHTML=h;
+}
+
+function pcVerSave(app){
+  var sid=app.replace(/[^0-9A-Za-z가-힣]/g,'');
+  var ver=(document.getElementById('pclv_ver_'+sid).value||'').trim();
+  var url=(document.getElementById('pclv_url_'+sid).value||'').trim();
+  var note=(document.getElementById('pclv_note_'+sid).value||'').trim();
+  if(!ver){ alert('버전을 적어주세요 (예: 1.1)'); return; }
+  fbDb.ref('/excel_version/'+app).set({ver:ver, url:url, note:note})
+    .then(function(){ alert(app+' v'+ver+' 등록 완료!\n이보다 낮은 버전 파일이 열리면 업데이트 알림이 뜹니다.'); loadPcLic(); })
+    .catch(function(e){ alert('실패: '+e.message); });
+}
+
+function pcVerAddApp(){
+  var app=(document.getElementById('pclv_newapp').value||'').trim();
+  if(!app){ alert('프로그램 이름을 적어주세요.'); return; }
+  PCLIC_VER[app]=PCLIC_VER[app]||{};
+  renderPcVer();
 }
 
 // ============================================================================
