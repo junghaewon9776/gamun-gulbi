@@ -1423,7 +1423,6 @@ function mkTabs(){
   if(!isA()) c5.push({k:"myinfo",l:"내 정보"});
   if(_isEvtAdmin()) c5.push({k:"evtMgr",l:"행사관리"});
   if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"forms",l:"폼 관리"});
-  if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"pcLic",l:"💻 PC관리"});
   if(_isSuperAdmin()) c5.push({k:"linkTabs",l:"🔗 연동 탭"});
   if(_isSuperAdmin()) c5.push({k:"modMgr",l:"📦 모듈 관리"});
   // ── 택배주문관리 (super/admin 전용) ──
@@ -1431,6 +1430,9 @@ function mkTabs(){
     cats.push({id:"tkbMgr",label:"🚚 택배주문관리",items:[
       {k:"orderHist",l:"🧾 주문히스토리"},
       {k:"shipData",l:"📦 접수데이터"}
+    ]});
+    cats.push({id:"pcMgr",label:"💻 PC관리",items:[
+      {k:"pcLic",l:"💻 PC관리"}
     ]});
   }
 
