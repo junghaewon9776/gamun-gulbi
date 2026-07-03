@@ -20911,11 +20911,64 @@ function pcVerAddApp(){
 // ============================================================================
 var SHIP_DATA = {};
 var SHIP_CUR = null;
+var SHIP_VIEW = 'file';   // 'file'=파일별 / 'all'=전체 내역
+
+function shipView(v){
+  SHIP_VIEW = v;
+  var bf=document.getElementById('ship_vf'), ba=document.getElementById('ship_va');
+  if(bf&&ba){
+    bf.style.background = v==='file' ? '#2563eb' : '#e5e7eb';
+    bf.style.color = v==='file' ? '#fff' : '#333';
+    ba.style.background = v==='all' ? '#2563eb' : '#e5e7eb';
+    ba.style.color = v==='all' ? '#fff' : '#333';
+  }
+  var card=document.getElementById('ship_rows_card');
+  if(card) card.style.display='none';
+  if(v==='all') renderShipAll(); else renderShipFiles();
+}
+
+// 전체 내역 — 모든 파일의 행을 쫙 나열 (파일명 칼럼 포함)
+function renderShipAll(){
+  var el=document.getElementById('ship_files'); if(!el) return;
+  var keys=Object.keys(SHIP_DATA);
+  if(!keys.length){ el.innerHTML='접수 데이터 없음'; return; }
+  keys.sort().reverse();
+  // 헤더 합집합 (순서는 첫 파일 기준 + 새로운 건 뒤에)
+  var allHeads=[];
+  keys.forEach(function(k){
+    ((SHIP_DATA[k]||{}).headers||[]).forEach(function(hd){
+      if(allHeads.indexOf(hd)<0) allHeads.push(hd);
+    });
+  });
+  var h='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>파일명</th><th>시간</th>';
+  allHeads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
+  h+='</tr></thead><tbody>';
+  var total=0;
+  keys.forEach(function(k){
+    var d=SHIP_DATA[k]||{};
+    var heads=d.headers||[];
+    (d.rows||[]).forEach(function(r,i){
+      total++;
+      h+='<tr style="cursor:pointer" ondblclick="SHIP_CUR=\''+k+'\';shipDetail('+i+')">';
+      h+='<td style="font-size:11px;color:#2563eb">'+(d.file||'')+'</td>';
+      h+='<td style="font-size:11px">'+(d.t||'')+'</td>';
+      allHeads.forEach(function(hd){
+        var idx=heads.indexOf(hd);
+        h+='<td>'+(idx>=0?(r[idx]||''):'')+'</td>';
+      });
+      h+='</tr>';
+    });
+  });
+  h+='</tbody></table></div><div class="muted" style="font-size:11px;margin-top:4px">총 '+total+'건 · 행 더블클릭 = 상세</div>';
+  el.innerHTML=h;
+}
 
 function dShipData(){
   var h='';
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📦 택배 접수 데이터</h3>';
-  h+='<div class="muted" style="font-size:12px">엑셀에서 [변환 출력] 하면 자동으로 여기 쌓입니다. 파일 클릭 = 내역 보기 · 행 더블클릭 = 상세</div></div>';
+  h+='<div class="muted" style="font-size:12px">엑셀에서 [변환 출력] 하면 자동으로 여기 쌓입니다. 파일 클릭 = 내역 보기 · 행 더블클릭 = 상세</div>';
+  h+='<div style="margin-top:8px"><button class="btn" id="ship_vf" style="background:#2563eb;color:#fff;font-weight:600" onclick="shipView(\'file\')">📁 파일별</button> ';
+  h+='<button class="btn" id="ship_va" style="background:#e5e7eb;color:#333;font-weight:600" onclick="shipView(\'all\')">📜 전체 내역</button></div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div id="ship_files" class="muted">불러오는 중...</div></div>';
   h+='<div class="card" id="ship_rows_card" style="display:none"><h4 id="ship_rows_title" style="margin:0 0 6px"></h4><div id="ship_rows" style="overflow-x:auto"></div></div>';
   h+='<div id="ship_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999" onclick="this.style.display=\'none\'">';
@@ -20929,7 +20982,7 @@ function dShipData(){
 function loadShipData(){
   fbDb.ref('/excel_ship').orderByKey().limitToLast(100).once('value').then(function(s){
     SHIP_DATA = s.val()||{};
-    renderShipFiles();
+    shipView(SHIP_VIEW);
   }).catch(function(e){
     var el=document.getElementById('ship_files');
     if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_ship (.read/.write) 추가됐는지 확인.</span>';
