@@ -20613,41 +20613,52 @@ function dPcLic(){
   return h;
 }
 
-var PCLIC_TG={}, PCLIC_TGA={};
-var PCLIC_LISTEN=false;
 function loadPcLic(){
-  // 최초 1회만 실시간 리스너 부착 → 승인요청/로그인이 오면 탭 열려있어도 즉시 반영
-  if(!PCLIC_LISTEN){
-    PCLIC_LISTEN=true;
-    var onErr=function(e){ var el=document.getElementById('pcl_list'); if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_license / excel_license_requests / excel_version (.read/.write) 확인.</span>'; };
-    fbDb.ref('/excel_license').on('value', function(s){ PCLIC_DATA=s.val()||{}; _pcLicRerender(); }, onErr);
-    fbDb.ref('/excel_license_requests').on('value', function(s){ PCLIC_REQ=s.val()||{}; _pcLicRerender(); }, onErr);
-    fbDb.ref('/excel_version').on('value', function(s){ PCLIC_VER=s.val()||{}; _pcLicRerender(); }, function(){});
-    fbDb.ref('/excel_login_log').orderByKey().limitToLast(50).on('value', function(s){ PCLIC_LOG=s.val()||{}; _pcLicRerender(); }, function(){});
-    fbDb.ref('/excel_config/telegram').on('value', function(s){ PCLIC_TG=s.val()||{}; _pcTgFill(); }, function(){});
-    fbDb.ref('/excel_config/telegram_admin').on('value', function(s){ PCLIC_TGA=s.val()||{}; _pcTgFill(); }, function(){});
-    fbDb.ref('/main/DriveProxyUrl').once('value').then(function(s){ PCLIC_PROXY=s.val()||""; _pcLicRerender(); }).catch(function(){});
-  }
-  _pcLicRerender(); _pcTgFill();
+  Promise.all([
+    fbDb.ref('/excel_license').once('value'),
+    fbDb.ref('/excel_license_requests').once('value'),
+    fbDb.ref('/excel_version').once('value'),
+    fbDb.ref('/main/DriveProxyUrl').once('value'),
+    fbDb.ref('/excel_login_log').orderByKey().limitToLast(50).once('value'),
+    fbDb.ref('/excel_config/telegram').once('value'),
+    fbDb.ref('/excel_config/telegram_admin').once('value')
+  ]).then(function(snaps){
+    PCLIC_DATA = snaps[0].val()||{};
+    PCLIC_REQ = snaps[1].val()||{};
+    PCLIC_VER = snaps[2].val()||{};
+    PCLIC_PROXY = snaps[3].val()||"";
+    PCLIC_LOG = snaps[4].val()||{};
+    var tg = snaps[5].val()||{};
+    var tga = snaps[6].val()||{};
+    var tk=document.getElementById('pcl_tg_token'), tc=document.getElementById('pcl_tg_chat');
+    if(tk) tk.value=tg.token||'';
+    if(tc) tc.value=tg.chat_id||'';
+    var tka=document.getElementById('pcl_tg_atoken'), tca=document.getElementById('pcl_tg_achat');
+    if(tka) tka.value=tga.token||'';
+    if(tca) tca.value=tga.chat_id||'';
+    renderPcLicReq();
+    renderPcView();
+    renderPcLic();
+    renderPcVer();
+    renderPcLog();
+    var dl=document.getElementById('pcl_apps');
+    if(dl){ dl.innerHTML='<option value="_ALL">'; pcLicApps().forEach(function(a){ dl.innerHTML+='<option value="'+a+'">'; }); }
+    _pcLicReqLive();   // 승인대기만 실시간 유지 (버전/라이선스 표는 입력값 보존 위해 재렌더 안 함)
+  }).catch(function(e){
+    var el=document.getElementById('pcl_list');
+    if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_license / excel_license_requests / excel_version (.read/.write) 확인.</span>';
+  });
 }
-function _pcTgFill(){
-  var tk=document.getElementById('pcl_tg_token'), tc=document.getElementById('pcl_tg_chat');
-  if(tk) tk.value=PCLIC_TG.token||'';
-  if(tc) tc.value=PCLIC_TG.chat_id||'';
-  var tka=document.getElementById('pcl_tg_atoken'), tca=document.getElementById('pcl_tg_achat');
-  if(tka) tka.value=PCLIC_TGA.token||'';
-  if(tca) tca.value=PCLIC_TGA.chat_id||'';
-}
-function _pcLicRerender(){
-  if(CTAB!=='pcLic') return;               // 다른 탭이면 전역만 갱신, 화면 그리기 skip
-  if(!document.getElementById('pcl_req')) return;
-  renderPcLicReq();
-  renderPcView();
-  renderPcLic();
-  renderPcVer();
-  renderPcLog();
-  var dl=document.getElementById('pcl_apps');
-  if(dl){ dl.innerHTML='<option value="_ALL">'; pcLicApps().forEach(function(a){ dl.innerHTML+='<option value="'+a+'">'; }); }
+
+// 승인대기(승인요청)만 실시간 리스너 — 새 요청 오면 즉시 뜸. 버전/라이선스 표는 안 건드림(입력값 보존)
+var PCLIC_REQ_LISTEN=false;
+function _pcLicReqLive(){
+  if(PCLIC_REQ_LISTEN) return;
+  PCLIC_REQ_LISTEN=true;
+  fbDb.ref('/excel_license_requests').on('value', function(s){
+    PCLIC_REQ=s.val()||{};
+    if(CTAB==='pcLic' && document.getElementById('pcl_req')) renderPcLicReq();
+  }, function(){});
 }
 
 // 알려진 프로그램 이름들 (라이선스+요청+버전 노드의 합집합, _ALL 제외)
