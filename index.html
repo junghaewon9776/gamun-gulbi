@@ -20930,194 +20930,180 @@ function pcVerAddApp(){
 }
 
 // ============================================================================
-// 접수데이터 (/excel_ship) — 엑셀 [변환 출력] 때 자동 업로드된 접수 내역
-// 파일명별 목록 -> 클릭 = N건 내역 -> 행 더블클릭 = 상세
+// 접수데이터 (/excel_ship) — 날짜별 · 파일/플랫폼별 · 파일클릭 상세 · 통합요약
 // ============================================================================
 var SHIP_DATA = {};
-var SHIP_CUR = null;
-var SHIP_VIEW = 'file';   // 'file'=파일별 / 'all'=전체 내역
 
-function shipView(v){
-  SHIP_VIEW = v;
-  var bf=document.getElementById('ship_vf'), ba=document.getElementById('ship_va');
-  if(bf&&ba){
-    bf.style.background = v==='file' ? '#2563eb' : '#e5e7eb';
-    bf.style.color = v==='file' ? '#fff' : '#333';
-    ba.style.background = v==='all' ? '#2563eb' : '#e5e7eb';
-    ba.style.color = v==='all' ? '#fff' : '#333';
-  }
-  var card=document.getElementById('ship_rows_card');
-  if(card) card.style.display='none';
-  if(v==='all') renderShipAll(); else renderShipFiles();
-}
-
-// 전체 내역 — 모든 파일의 행을 쫙 나열 (파일명 칼럼 포함)
-function renderShipAll(){
-  var el=document.getElementById('ship_files'); if(!el) return;
-  var keys=Object.keys(SHIP_DATA);
-  if(!keys.length){ el.innerHTML='접수 데이터 없음'; return; }
-  keys.sort().reverse();
-  // 헤더 합집합 (순서는 첫 파일 기준 + 새로운 건 뒤에)
-  var allHeads=[];
-  keys.forEach(function(k){
-    ((SHIP_DATA[k]||{}).headers||[]).forEach(function(hd){
-      if(allHeads.indexOf(hd)<0) allHeads.push(hd);
-    });
-  });
-  var h='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>파일명</th><th>시간</th>';
-  allHeads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
-  h+='</tr></thead><tbody>';
-  var total=0;
-  keys.forEach(function(k){
-    var d=SHIP_DATA[k]||{};
-    var heads=d.headers||[];
-    (d.rows||[]).forEach(function(r,i){
-      total++;
-      h+='<tr style="cursor:pointer" ondblclick="SHIP_CUR=\''+k+'\';shipDetail('+i+')">';
-      h+='<td style="font-size:11px;color:#2563eb">'+(d.file||'')+'</td>';
-      h+='<td style="font-size:11px">'+(d.t||'')+'</td>';
-      allHeads.forEach(function(hd){
-        var idx=heads.indexOf(hd);
-        h+='<td>'+(idx>=0?(r[idx]||''):'')+'</td>';
-      });
-      h+='</tr>';
-    });
-  });
-  h+='</tbody></table></div><div class="muted" style="font-size:11px;margin-top:4px">총 '+total+'건 · 행 더블클릭 = 상세</div>';
-  el.innerHTML=h;
+function shipDates(){
+  var s={};
+  Object.keys(SHIP_DATA).forEach(function(k){ var t=(SHIP_DATA[k]||{}).t||''; if(t) s[t.slice(0,10)]=1; });
+  return Object.keys(s).sort().reverse();
 }
 
 function dShipData(){
   var h='';
-  h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📦 택배 접수 데이터</h3>';
-  h+='<div class="muted" style="font-size:12px">엑셀에서 [변환 출력] 하면 자동으로 여기 쌓입니다. 파일 클릭 = 내역 보기 · 행 더블클릭 = 상세</div>';
-  h+='<div style="margin-top:8px"><button class="btn" id="ship_vf" style="background:#2563eb;color:#fff;font-weight:600" onclick="shipView(\'file\')">📁 파일별</button> ';
-  h+='<button class="btn" id="ship_va" style="background:#e5e7eb;color:#333;font-weight:600" onclick="shipView(\'all\')">📜 전체 내역</button> ';
+  h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📦 접수 데이터</h3>';
+  h+='<div class="muted" style="font-size:12px">엑셀/와꾸에서 저장하면 자동으로 쌓입니다. 파일 클릭 = 그 파일 데이터 · 요약 = 통합 수량</div>';
+  h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  h+='날짜 <select id="ship_date" onchange="renderShip()" style="width:auto"></select> ';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData()">🔄 새로고침</button> ';
-  h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">📨 재계산 텔레그램</button></div></div>';
-  h+='<div class="card" style="margin-bottom:10px"><div id="ship_files" class="muted">불러오는 중...</div></div>';
-  h+='<div class="card" id="ship_rows_card" style="display:none"><h4 id="ship_rows_title" style="margin:0 0 6px"></h4><div id="ship_rows" style="overflow-x:auto"></div></div>';
-  h+='<div id="ship_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999" onclick="this.style.display=\'none\'">';
-  h+='<div style="background:#fff;max-width:460px;margin:60px auto;padding:18px;border-radius:12px;max-height:75vh;overflow:auto" onclick="event.stopPropagation()">';
-  h+='<h4 style="margin:0 0 10px">📋 상세 내역</h4><div id="ship_modal_body"></div>';
-  h+='<div style="text-align:right;margin-top:10px"><button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="document.getElementById(\'ship_modal\').style.display=\'none\'">닫기</button></div>';
+  h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">📨 재계산 텔레그램</button>';
+  h+='<span id="ship_cnt" class="muted" style="font-size:12px;margin-left:auto"></span>';
   h+='</div></div>';
+  h+='<div class="grid2" style="gap:12px;align-items:start">';
+  h+='<div class="card"><h4 style="margin:0 0 6px">📄 파일 목록 (플랫폼별)</h4><div id="ship_files" class="muted">불러오는 중...</div></div>';
+  h+='<div class="card"><h4 style="margin:0 0 6px">📊 통합 요약 (선택 날짜)</h4><div id="ship_summary" class="muted"></div></div>';
+  h+='</div>';
+  h+='<div class="card" id="ship_rows_card" style="display:none;margin-top:12px"><h4 id="ship_rows_title" style="margin:0 0 6px"></h4><div id="ship_rows" style="overflow-x:auto"></div></div>';
   return h;
 }
 
 var SHIP_LISTENER=null;
 function loadShipData(){
-  var ref=fbDb.ref('/excel_ship').orderByKey().limitToLast(100);
-  // 실시간 리스너 (한 번만 연결) — 엑셀에서 쌓이면 자동 반영
+  var ref=fbDb.ref('/excel_ship').orderByKey().limitToLast(500);
   if(!SHIP_LISTENER){
     SHIP_LISTENER=ref;
-    ref.on('value', function(s){
-      SHIP_DATA = s.val()||{};
-      if(CTAB==='shipData') shipView(SHIP_VIEW);
-    }, function(e){
-      var el=document.getElementById('ship_files');
-      if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'</span>';
-    });
-  } else {
-    // 이미 리스너 있으면 현재 데이터로 즉시 그림
-    shipView(SHIP_VIEW);
-  }
+    ref.on('value', function(s){ SHIP_DATA=s.val()||{}; if(CTAB==='shipData') renderShip(); },
+      function(e){ var el=document.getElementById('ship_files'); if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'</span>'; });
+  } else if(CTAB==='shipData') renderShip();
 }
 
-function renderShipFiles(){
-  var el=document.getElementById('ship_files'); if(!el) return;
-  var keys=Object.keys(SHIP_DATA);
-  if(!keys.length){ el.innerHTML='접수 데이터 없음 (엑셀에서 [변환 출력] 하면 쌓입니다)'; return; }
-  keys.sort().reverse();
-  var h='<table class="tbl" style="width:100%"><thead><tr><th>파일명</th><th>시간</th><th>프로그램</th><th>건수</th><th></th></tr></thead><tbody>';
-  keys.forEach(function(k){
-    var d=SHIP_DATA[k]||{};
-    h+='<tr style="cursor:pointer" onclick="shipOpen(\''+k+'\')">';
-    h+='<td style="font-weight:700;color:#2563eb">📄 '+(d.file||'(이름없음)')+'</td>';
-    h+='<td style="font-size:12px">'+(d.t||'')+'</td>';
-    h+='<td>'+(d.app||'')+'</td>';
-    h+='<td style="font-weight:700">'+(d.cnt||0)+'건</td>';
-    h+='<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="event.stopPropagation();shipDel(\''+k+'\')">삭제</button></td>';
-    h+='</tr>';
+function renderShip(){
+  // 날짜 드롭다운 채우기 (처음/갱신)
+  var sel=document.getElementById('ship_date'); if(!sel) return;
+  var dates=shipDates();
+  var cur=sel.value;
+  if(sel.options.length!==dates.length || !dates.includes(cur)){
+    sel.innerHTML=dates.map(function(d){return '<option value="'+d+'">'+d+'</option>';}).join('');
+    if(cur && dates.includes(cur)) sel.value=cur; else if(dates.length) sel.value=dates[0];
+    cur=sel.value;
+  }
+  var day=sel.value;
+  // 그 날짜 파일들
+  var files=Object.keys(SHIP_DATA).filter(function(k){ return ((SHIP_DATA[k]||{}).t||'').slice(0,10)===day; });
+  files.sort(function(a,b){ return ((SHIP_DATA[b]||{}).t||'')<((SHIP_DATA[a]||{}).t||'')?-1:1; });
+
+  // 플랫폼별 그룹
+  var byPlat={};
+  files.forEach(function(k){ var p=(SHIP_DATA[k]||{}).app||'(기타)'; (byPlat[p]=byPlat[p]||[]).push(k); });
+
+  var fh='';
+  if(!files.length){ fh='이 날짜 데이터 없음'; }
+  else Object.keys(byPlat).sort().forEach(function(p){
+    fh+='<div style="font-weight:700;color:#2563eb;margin:6px 0 2px">'+p+' ('+byPlat[p].length+'개)</div>';
+    fh+='<table class="tbl" style="width:100%"><tbody>';
+    byPlat[p].forEach(function(k){
+      var d=SHIP_DATA[k]||{};
+      fh+='<tr style="cursor:pointer" onclick="shipOpen(\''+k+'\')">';
+      fh+='<td style="color:#2563eb;font-weight:600">📄 '+(d.file||'(이름없음)')+'</td>';
+      fh+='<td style="font-size:12px;white-space:nowrap">'+((d.t||'').slice(11))+'</td>';
+      fh+='<td style="font-weight:700">'+(d.cnt||0)+'건</td>';
+      fh+='<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="event.stopPropagation();shipDel(\''+k+'\')">🗑</button></td>';
+      fh+='</tr>';
+    });
+    fh+='</tbody></table>';
   });
-  h+='</tbody></table>';
+  document.getElementById('ship_files').innerHTML=fh;
+  var cnt=document.getElementById('ship_cnt'); if(cnt) cnt.textContent='파일 '+files.length+'개';
+
+  renderShipSummary(files);
+}
+
+// 통합 요약 — 텔레그램 문자처럼 (사용자별 합계 + 전체 품목수량)
+function renderShipSummary(fileKeys){
+  var el=document.getElementById('ship_summary'); if(!el) return;
+  if(!fileKeys.length){ el.innerHTML='없음'; return; }
+  var userN={}, userP={}, totP={}, totalCnt=0;
+  fileKeys.forEach(function(k){
+    var d=SHIP_DATA[k]||{};
+    var user=(d.file||'').match(/^\(([^)]+)\)/); // (사용자)... 형태면 추출
+    user=user?user[1]:(d.app||'미지정');
+    var heads=d.headers||[], rows=d.rows||[];
+    var gi=heads.indexOf('구분'), ni=heads.indexOf('이름'), qi=heads.indexOf('수량');
+    // 와꾸 요약형(구분/이름/수량): 품명 행만 집계
+    if(gi>=0 && qi>=0){
+      rows.forEach(function(r){
+        if(r[gi]==='품명'){
+          var nm=r[ni]||'', q=Number(r[qi])||0;
+          userN[user]=(userN[user]||0); // 건수는 파일 cnt로
+          if(!userP[user]) userP[user]={};
+          userP[user][nm]=(userP[user][nm]||0)+q;
+          totP[nm]=(totP[nm]||0)+q;
+        }
+      });
+    } else {
+      // 택배변환 출력형: 상품명/수량 열 추정
+      var si=heads.findIndex(function(x){return /상품|품목|내용품/.test(x);});
+      var qi2=heads.findIndex(function(x){return /수량|개수/.test(x);});
+      if(si>=0){ rows.forEach(function(r){
+        var nm=r[si]||'', q=qi2>=0?(Number(r[qi2])||1):1;
+        if(!userP[user]) userP[user]={};
+        userP[user][nm]=(userP[user][nm]||0)+q;
+        totP[nm]=(totP[nm]||0)+q;
+      }); }
+    }
+    totalCnt+=Number(d.cnt||0);
+    userN[user]=(userN[user]||0)+Number(d.cnt||0);
+  });
+  var h='';
+  Object.keys(userN).forEach(function(u){
+    h+='<div style="font-weight:700;color:#7c3aed;margin-top:6px">👤 '+u+' ('+userN[u]+'건)</div>';
+    Object.keys(userP[u]||{}).forEach(function(nm){ h+='<div style="font-size:13px"> - '+nm+': <b>'+userP[u][nm]+'</b>개</div>'; });
+  });
+  h+='<div style="border-top:2px solid #333;margin-top:8px;padding-top:6px;font-weight:700">전체 품목</div>';
+  Object.keys(totP).forEach(function(nm){ h+='<div style="font-size:13px"> - '+nm+': <b>'+totP[nm]+'</b>개</div>'; });
+  h+='<div style="margin-top:6px;font-weight:700;color:#dc2626">총 '+totalCnt+'건</div>';
   el.innerHTML=h;
 }
 
 function shipOpen(k){
-  SHIP_CUR=k;
   var d=SHIP_DATA[k]||{};
   var card=document.getElementById('ship_rows_card');
-  var title=document.getElementById('ship_rows_title');
-  var el=document.getElementById('ship_rows');
-  if(!card||!el) return;
-  card.style.display='';
-  title.textContent='📄 '+(d.file||'')+' — '+(d.cnt||0)+'건 (행 더블클릭 = 상세)';
+  document.getElementById('ship_rows_title').textContent='📄 '+(d.file||'')+' — '+(d.cnt||0)+'건';
   var heads=d.headers||[], rows=d.rows||[];
   var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th>';
   heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
   h+='</tr></thead><tbody>';
   rows.forEach(function(r,i){
-    h+='<tr style="cursor:pointer" ondblclick="shipDetail('+i+')"><td>'+(i+1)+'</td>';
+    h+='<tr><td>'+(i+1)+'</td>';
     (r||[]).forEach(function(v){ h+='<td>'+(v||'')+'</td>'; });
     h+='</tr>';
   });
   h+='</tbody></table>';
-  el.innerHTML=h;
+  document.getElementById('ship_rows').innerHTML=h;
+  card.style.display='';
   card.scrollIntoView({behavior:'smooth'});
-}
-
-function shipDetail(idx){
-  var d=SHIP_DATA[SHIP_CUR]||{};
-  var heads=d.headers||[], row=(d.rows||[])[idx]||[];
-  var b='';
-  heads.forEach(function(hd,i){
-    b+='<div style="display:flex;border-bottom:1px solid #eee;padding:6px 0">';
-    b+='<div style="width:120px;color:#666;font-size:12px;flex-shrink:0">'+hd+'</div>';
-    b+='<div style="font-weight:600">'+(row[i]||'-')+'</div></div>';
-  });
-  document.getElementById('ship_modal_body').innerHTML=b;
-  document.getElementById('ship_modal').style.display='';
 }
 
 function shipDel(k){
   var d=SHIP_DATA[k]||{};
-  if(!confirm((d.file||k)+' 접수 데이터를 삭제할까요?\n(그날 누적 합계에서도 빠집니다 — 삭제 후 [재계산 텔레그램] 누르면 갱신 알림)')) return;
+  if(!confirm((d.file||k)+' 삭제할까요?\n(그날 누적에서도 빠짐 — 삭제 후 [재계산 텔레그램])')) return;
   var dateStr=(d.t||'').slice(0,10);
-  // 접수데이터 삭제 (핵심). 일별기록은 있으면 같이 지우되 실패해도 무시
   fbDb.ref('/excel_ship/'+k).remove().then(function(){
-    if(dateStr){ fbDb.ref('/excel_daily/'+dateStr+'/'+k).remove().catch(function(){}); }
-    loadShipData();
+    if(dateStr) fbDb.ref('/excel_daily/'+dateStr+'/'+k).remove().catch(function(){});
   }).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
-// ── 재계산 텔레그램: 오늘 누적 합계 다시 계산해서 발송 (와꾸 GAS 재계산 버튼과 동일) ──
 async function shipRecalc(){
-  var dateStr=new Date().toISOString().slice(0,10);
+  var sel=document.getElementById('ship_date');
+  var dateStr=sel && sel.value ? sel.value : new Date().toISOString().slice(0,10);
   var raws={};
   try{ raws=(await fbDb.ref('/excel_daily/'+dateStr).once('value')).val()||{}; }
-  catch(e){ alert('일별 데이터를 읽을 수 없습니다.\nFirebase 규칙에 excel_daily 추가가 필요해요.\n('+e.message+')'); return; }
+  catch(e){ alert('일별 데이터를 읽을 수 없습니다: '+e.message); return; }
   var keys=Object.keys(raws);
-  if(!keys.length){ alert('오늘('+dateStr+') 누적 데이터가 없습니다.'); return; }
-
+  if(!keys.length){ alert(dateStr+' 누적 데이터가 없습니다.'); return; }
   var userN={}, userP={}, totP={}, totalSum=0;
   keys.forEach(function(k){
     var f=String(raws[k]||'').split('|');
     if(f.length<5) return;
     var u=f[0], pStr=f[3], c=Number(f[4])||0;
-    totalSum+=c;
-    userN[u]=(userN[u]||0)+c;
+    totalSum+=c; userN[u]=(userN[u]||0)+c;
     if(!userP[u]) userP[u]={};
     pStr.split(',').forEach(function(item){
       var m=item.trim().match(/(.+):\s*(\d+)개/);
-      if(m){
-        var nm=m[1].trim(), cnt=Number(m[2]);
-        userP[u][nm]=(userP[u][nm]||0)+cnt;
-        totP[nm]=(totP[nm]||0)+cnt;
-      }
+      if(m){ var nm=m[1].trim(), cnt=Number(m[2]); userP[u][nm]=(userP[u][nm]||0)+cnt; totP[nm]=(totP[nm]||0)+cnt; }
     });
   });
-
   var msg='[📊 재계산 결과]\n'+dateStr+'\n=======================\n\n[사용자별 합계]\n';
   Object.keys(userN).forEach(function(u){
     msg+='👤 '+u+' ('+userN[u]+'건)\n';
@@ -21127,24 +21113,17 @@ async function shipRecalc(){
   msg+='=======================\n[전체 누적]\n';
   Object.keys(totP).forEach(function(nm){ msg+=' - '+nm+': '+totP[nm]+'개\n'; });
   msg+='=======================\n누적 총 '+totalSum+'건';
-
-  if(!confirm('오늘 합계를 텔레그램으로 보낼까요?\n\n'+msg.slice(0,300)+(msg.length>300?'\n...':''))) return;
-
+  if(!confirm('['+dateStr+'] 합계를 텔레그램(택배봇)으로 보낼까요?\n\n'+msg.slice(0,300)+(msg.length>300?'\n...':''))) return;
   var tg=(await fbDb.ref('/excel_config/telegram').once('value')).val()||{};
-  if(!tg.token||!tg.chat_id){ alert('PC관리 탭에서 텔레그램 봇 설정을 먼저 해주세요.'); return; }
+  if(!tg.token||!tg.chat_id){ alert('PC관리에서 택배봇 설정을 먼저 해주세요.'); return; }
   var chats=String(tg.chat_id).split(',').map(function(c){return c.trim();}).filter(Boolean);
   var ok=0;
   for(var i=0;i<chats.length;i++){
-    try{
-      var r=await fetch('https://api.telegram.org/bot'+tg.token+'/sendMessage',{
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({chat_id:chats[i], text:msg})
-      });
-      if((await r.json()).ok) ok++;
-    }catch(e){}
+    try{ var r=await fetch('https://api.telegram.org/bot'+tg.token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chats[i],text:msg})}); if((await r.json()).ok) ok++; }catch(e){}
   }
   alert('재계산 텔레그램 발송: '+ok+'/'+chats.length+'통');
 }
+
 
 // ============================================================================
 // 주문히스토리 (/excel_orders) — 엑셀 주문히스토리와 동기화 (가져오기/송장등록 때 반영)
