@@ -20552,6 +20552,7 @@ function _smsTplNewFromPicker(targetId){
 // super/admin 전용. 택배변환 엑셀이 파일 열 때 이 목록을 조회해서 허용 여부 판단.
 // ============================================================================
 var PCLIC_DATA = {};
+var PCLIC_REQ = {};
 
 function dPcLic(){
   var h='';
@@ -20570,18 +20571,66 @@ function dPcLic(){
   h+='  </div>';
   h+='  <div class="muted" style="font-size:11px;margin-top:6px">기한: 비우면 무제한. 지난 날짜면 그 PC는 "기간 만료"로 잠깁니다.</div>';
   h+='</div>';
-  h+='<div class="card"><div id="pcl_list" class="muted">불러오는 중...</div></div>';
+  h+='<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 6px">🔔 승인 대기</h4><div id="pcl_req" class="muted">불러오는 중...</div></div>';
+  h+='<div class="card"><h4 style="margin:0 0 6px">등록된 PC</h4><div id="pcl_list" class="muted">불러오는 중...</div></div>';
   return h;
 }
 
 function loadPcLic(){
-  fbDb.ref('/excel_license').once('value').then(function(snap){
-    PCLIC_DATA = snap.val()||{};
+  Promise.all([
+    fbDb.ref('/excel_license').once('value'),
+    fbDb.ref('/excel_license_requests').once('value')
+  ]).then(function(snaps){
+    PCLIC_DATA = snaps[0].val()||{};
+    PCLIC_REQ = snaps[1].val()||{};
+    renderPcLicReq();
     renderPcLic();
   }).catch(function(e){
     var el=document.getElementById('pcl_list');
-    if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_license 노드(.read/.write)가 열려있는지 확인하세요.</span>';
+    if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_license / excel_license_requests 노드(.read/.write)가 열려있는지 확인하세요.</span>';
   });
+}
+
+function renderPcLicReq(){
+  var el=document.getElementById('pcl_req'); if(!el) return;
+  // 이미 등록된 MAC 의 요청은 무시
+  var keys=Object.keys(PCLIC_REQ).filter(function(m){ return !PCLIC_DATA[m]; });
+  if(!keys.length){ el.innerHTML='대기 중인 요청 없음'; return; }
+  var h='<table class="tbl" style="width:100%"><thead><tr><th>PC번호(MAC)</th><th>PC이름/사용자</th><th>요청일시</th><th>업체/이름</th><th>사용 기한</th><th></th></tr></thead><tbody>';
+  keys.sort().forEach(function(mac){
+    var d=PCLIC_REQ[mac]||{};
+    var sid=mac.replace(/-/g,'');
+    h+='<tr style="background:#fefce8">';
+    h+='<td style="font-family:monospace;font-weight:700">'+mac+'</td>';
+    h+='<td>'+(d.pc||'')+' / '+(d.user||'')+'</td>';
+    h+='<td>'+(d.requested||'')+'</td>';
+    h+='<td><input id="pclr_co_'+sid+'" placeholder="예: 거래처A" style="width:130px"></td>';
+    h+='<td><input id="pclr_exp_'+sid+'" type="date" style="width:130px"></td>';
+    h+='<td style="white-space:nowrap">';
+    h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcLicApprove(\''+mac+'\')">✅ 승인</button> ';
+    h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcLicReject(\''+mac+'\')">거절</button>';
+    h+='</td></tr>';
+  });
+  h+='</tbody></table><div class="muted" style="font-size:11px;margin-top:4px">기한 비우면 무제한. 승인하면 그 PC에서 엑셀을 다시 열 때 바로 사용됩니다.</div>';
+  el.innerHTML=h;
+}
+
+function pcLicApprove(mac){
+  var sid=mac.replace(/-/g,'');
+  var co=(document.getElementById('pclr_co_'+sid).value||'').trim();
+  var exp=(document.getElementById('pclr_exp_'+sid).value||'').trim();
+  if(!co){ alert('업체/이름을 적어주세요.'); return; }
+  var req=PCLIC_REQ[mac]||{};
+  fbDb.ref('/excel_license/'+mac).set({company:co, allowed:true, expire:exp||'', memo:'요청승인 ('+(req.pc||'')+')'})
+    .then(function(){ return fbDb.ref('/excel_license_requests/'+mac).remove(); })
+    .then(loadPcLic)
+    .catch(function(e){ alert('실패: '+e.message); });
+}
+
+function pcLicReject(mac){
+  if(!confirm(mac+' 요청을 거절(삭제)할까요?')) return;
+  fbDb.ref('/excel_license_requests/'+mac).remove().then(loadPcLic)
+    .catch(function(e){ alert('실패: '+e.message); });
 }
 
 function renderPcLic(){
