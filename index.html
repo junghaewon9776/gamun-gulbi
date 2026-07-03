@@ -20854,7 +20854,9 @@ function renderPcVer(){
     h+='<td><input id="pclv_ver_'+sid+'" value="'+(v.ver||'')+'" placeholder="1.1" style="width:70px"></td>';
     h+='<td><input type="file" id="pclv_file_'+sid+'" accept=".xlsm,.xls,.xlsx,.exe,.zip" style="width:210px;font-size:12px"></td>';
     h+='<td><input id="pclv_note_'+sid+'" value="'+(v.note||'')+'" placeholder="예: 자동매핑 개선" style="width:150px"></td>';
-    h+='<td><button class="btn" id="pclv_btn_'+sid+'" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerUpload(\''+app+'\')">⬆ 업로드+등록</button></td>';
+    h+='<td style="white-space:nowrap"><button class="btn" id="pclv_btn_'+sid+'" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerUpload(\''+app+'\')">⬆ 업로드+등록</button> ';
+    h+='<button class="btn" style="background:#6b7280;color:#fff;font-weight:600" onclick="pcVerRename(\''+app+'\')">✏ 이름</button> ';
+    h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcVerDel(\''+app+'\')">🗑</button></td>';
     h+='<td style="font-size:12px">'+(v.fileName?('<a href="'+(v.url||'#')+'" target="_blank">'+v.fileName+'</a> ('+(v.ver?'v'+v.ver:'')+')'):(v.url?'<a href="'+v.url+'" target="_blank">링크</a>':'-'))+'</td>';
     h+='</tr>';
   });
@@ -20927,6 +20929,43 @@ function pcVerAddApp(){
   if(!app){ alert('프로그램 이름을 적어주세요.'); return; }
   PCLIC_VER[app]=PCLIC_VER[app]||{};
   renderPcVer();
+}
+
+// 버전 등록 삭제 (버전정보만 지움 - 라이선스/승인은 그대로)
+function pcVerDel(app){
+  if(!confirm('['+app+'] 버전 등록을 삭제할까요?\n(이 프로그램 업데이트 알림이 없어집니다. 승인된 PC는 그대로)')) return;
+  fbDb.ref('/excel_version/'+app).remove().then(function(){
+    delete PCLIC_VER[app];
+    loadPcLic();
+  }).catch(function(e){ alert('삭제 실패: '+e.message); });
+}
+
+// 프로그램 이름 변경 (버전 + 라이선스 + 승인요청 전부 이동)
+function pcVerRename(oldApp){
+  var newApp=prompt('새 프로그램 이름을 입력하세요:', oldApp);
+  if(!newApp) return;
+  newApp=newApp.trim();
+  if(!newApp || newApp===oldApp) return;
+  if((PCLIC_VER[newApp]) || (PCLIC_DATA[newApp])){ if(!confirm('"'+newApp+'"이(가) 이미 있어요. 합칠까요?')) return; }
+  if(!confirm('"'+oldApp+'" → "'+newApp+'" 로 바꿀까요?\n(버전+승인된 PC+승인요청 전부 이동)\n\n⚠️ 엑셀 VBA의 APP_ID도 "'+newApp+'"로 똑같이 바꿔야 연결됩니다!')) return;
+
+  Promise.all([
+    fbDb.ref('/excel_version/'+oldApp).once('value'),
+    fbDb.ref('/excel_license/'+oldApp).once('value'),
+    fbDb.ref('/excel_license_requests/'+oldApp).once('value')
+  ]).then(function(s){
+    var up={};
+    if(s[0].val()) up['/excel_version/'+newApp]=s[0].val();
+    if(s[1].val()) up['/excel_license/'+newApp]=s[1].val();
+    if(s[2].val()) up['/excel_license_requests/'+newApp]=s[2].val();
+    up['/excel_version/'+oldApp]=null;
+    up['/excel_license/'+oldApp]=null;
+    up['/excel_license_requests/'+oldApp]=null;
+    return fbDb.ref().update(up);
+  }).then(function(){
+    alert('이름 변경 완료: '+newApp+'\n\n⚠️ 엑셀 VBA의 Const APP_ID 도 "'+newApp+'"로 바꿔주세요!');
+    loadPcLic();
+  }).catch(function(e){ alert('변경 실패: '+e.message); });
 }
 
 // ============================================================================
