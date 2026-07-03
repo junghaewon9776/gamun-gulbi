@@ -21142,7 +21142,15 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 받는분께 발송 문자</button>';
   h+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ordh_trkfile\').click()">📤 송장 업로드</button>';
   h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
-  h+='<span class="muted" style="font-size:11px;align-self:center">접수/송장=구매자에게 · 받는분=수취인에게 · 건당 요금</span>';
+  h+='</div>';
+  h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
+  h+='<span style="font-weight:700;font-size:12px">☑ 선택한 것만:</span>';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\',true)">📩 접수문자</button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSms(\'송장\',true)">🚚 송장문자</button>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\',true)">🎁 받는분문자</button>';
+  h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="ordhDelSelected()">🗑 선택 삭제</button>';
+  h+='<span id="ordh_seln" class="muted" style="font-size:11px"></span>';
+  h+='<span class="muted" style="font-size:11px;margin-left:auto">접수/송장=구매자 · 받는분=수취인 · 건당 요금</span>';
   h+='</div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<input id="ordh_q" placeholder="검색 (수취인/주문번호/상품명/송장...)" style="width:240px" oninput="renderOrderHist()">';
@@ -21181,11 +21189,33 @@ function ordhTel(s){
   return t;
 }
 
-async function ordhSms(kind){
+// 체크박스: 전체선택 / 선택된 키 목록 / 카운트
+function ordhCheckAll(on){ document.querySelectorAll('.ordh_ck').forEach(function(c){c.checked=on;}); ordhSelCount(); }
+function ordhSelectedKeys(){ return Array.prototype.map.call(document.querySelectorAll('.ordh_ck:checked'), function(c){return c.value;}); }
+function ordhSelCount(){ var n=ordhSelectedKeys().length; var el=document.getElementById('ordh_seln'); if(el) el.textContent=n?(n+'개 선택됨'):''; }
+document.addEventListener('change', function(e){ if(e.target && e.target.classList && e.target.classList.contains('ordh_ck')) ordhSelCount(); });
+
+function ordhDelSelected(){
+  var keys=ordhSelectedKeys();
+  if(!keys.length){ alert('삭제할 행을 체크하세요.'); return; }
+  if(!confirm(keys.length+'건을 삭제할까요?')) return;
+  var up={};
+  keys.forEach(function(k){ up['/excel_orders/'+k]=null; });
+  fbDb.ref().update(up).catch(function(e){ alert('삭제 실패: '+e.message); });
+}
+
+async function ordhSms(kind, selectedOnly){
   // 대상 모으기 (구매자별 그룹)
   var toReceiver = (kind==='받는분');   // 수취인에게 / 아니면 구매자에게
+  var selSet=null;
+  if(selectedOnly){
+    var sk=ordhSelectedKeys();
+    if(!sk.length){ alert('문자 보낼 행을 체크하세요.'); return; }
+    selSet={}; sk.forEach(function(k){selSet[k]=1;});
+  }
   var grp={};   // tel -> {keys:[], lines:[], name}
   Object.keys(ORDH_DATA).forEach(function(k){
+    if(selSet && !selSet[k]) return;   // 선택모드면 체크된 것만
     var d=ORDH_DATA[k]||{};
     var tel=ordhTel(toReceiver ? d['수취인전화'] : d['구매자전화']);
     if(!tel) return;
@@ -21263,7 +21293,7 @@ function renderOrderHist(){
   var cnt=document.getElementById('ordh_cnt');
   if(cnt) cnt.textContent='총 '+keys.length+'건 중 '+rows.length+'건 표시';
   var show=rows.slice(0,300);
-  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>등록일시</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
+  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
   show.forEach(function(row){
     var d=row.d;
     var trk=d['송장번호']||'';
@@ -21271,6 +21301,7 @@ function renderOrderHist(){
     var rtel=(d['수취인전화']||'').replace(/[^0-9]/g,'');
     var btel=(d['구매자전화']||'').replace(/[^0-9]/g,'');
     h+='<tr>';
+    h+='<td><input type="checkbox" class="ordh_ck" value="'+row.k+'"></td>';
     h+='<td style="font-size:12px">'+(d['등록일시']||'')+'</td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
