@@ -21056,11 +21056,17 @@ function shipDel(k){
 // 주문히스토리 (/excel_orders) — 엑셀 주문히스토리와 동기화 (가져오기/송장등록 때 반영)
 // ============================================================================
 var ORDH_DATA = {};
+var ORDH_SENT = {};   // /excel_sms_sent/<주문키>: {접수:시간, 송장:시간}
 
 function dOrderHist(){
   var h='';
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">🧾 주문히스토리</h3>';
-  h+='<div class="muted" style="font-size:12px">엑셀에서 [주문 가져오기]/[송장 등록] 하면 자동 반영됩니다. (엑셀이 원본, 여긴 조회용)</div></div>';
+  h+='<div class="muted" style="font-size:12px">엑셀에서 [주문 가져오기]/[송장 등록] 하면 자동 반영됩니다. (엑셀이 원본, 여긴 조회용)</div>';
+  h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 접수 문자 보내기</button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSms(\'송장\')">🚚 송장번호 문자 보내기</button>';
+  h+='<span class="muted" style="font-size:11px;align-self:center">구매자별로 묶어 한 통 · 보낸 건 다시 안 감 · 건당 요금 발생</span>';
+  h+='</div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<input id="ordh_q" placeholder="검색 (수취인/주문번호/상품명/송장...)" style="width:240px" oninput="renderOrderHist()">';
   h+='<select id="ordh_f" onchange="renderOrderHist()" style="width:auto"><option value="">전체</option><option value="no">송장 없음 (미발송)</option><option value="yes">송장 있음 (발송)</option></select>';
@@ -21071,13 +21077,77 @@ function dOrderHist(){
 }
 
 function loadOrderHist(){
-  fbDb.ref('/excel_orders').once('value').then(function(s){
-    ORDH_DATA = s.val()||{};
+  Promise.all([
+    fbDb.ref('/excel_orders').once('value'),
+    fbDb.ref('/excel_sms_sent').once('value')
+  ]).then(function(snaps){
+    ORDH_DATA = snaps[0].val()||{};
+    ORDH_SENT = snaps[1].val()||{};
     renderOrderHist();
   }).catch(function(e){
     var el=document.getElementById('ordh_list');
-    if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_orders (.read/.write) 추가됐는지 확인.</span>';
+    if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_orders / excel_sms_sent (.read/.write) 추가됐는지 확인.</span>';
   });
+}
+
+// ── 문자 발송 (kind: '접수' | '송장') — 구매자별로 묶어 한 통 ──
+function ordhTel(s){
+  var t=String(s||'').replace(/[^0-9]/g,'');
+  if(t.length===10 && t.indexOf('10')===0) t='0'+t;
+  return t;
+}
+
+async function ordhSms(kind){
+  // 대상 모으기 (구매자별 그룹)
+  var grp={};   // tel -> {keys:[], lines:[], name}
+  Object.keys(ORDH_DATA).forEach(function(k){
+    var d=ORDH_DATA[k]||{};
+    var tel=ordhTel(d['구매자전화']);
+    if(!tel) return;
+    if(kind==='송장' && !d['송장번호']) return;
+    if(ORDH_SENT[k] && ORDH_SENT[k][kind]) return;   // 이미 보냄
+    if(!grp[tel]) grp[tel]={keys:[], lines:[], name:d['구매자명']||''};
+    grp[tel].keys.push(k);
+    if(kind==='송장'){
+      grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['택배사']||'')+' '+(d['송장번호']||''));
+    } else {
+      grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['상품명']||'')+(d['수량']?(' '+d['수량']+'개'):''));
+    }
+  });
+  var tels=Object.keys(grp);
+  if(!tels.length){ alert('보낼 대상이 없습니다.\n(조건: 구매자전화 있음'+(kind==='송장'?' + 송장번호 있음':'')+' + 아직 안 보냄)'); return; }
+  var totalRows=0; tels.forEach(function(t){ totalRows+=grp[t].keys.length; });
+  if(!confirm(tels.length+'명(구매자)에게 '+kind+' 문자 '+tels.length+'통을 보냅니다.\n(주문 '+totalRows+'건 / 건당 요금 발생)\n계속할까요?')) return;
+
+  // SENS 설정 (main/Config 재사용)
+  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
+  var proxy=cfg.SMS_PROXY_URL||'';
+  if(!proxy){ alert('SMS_PROXY_URL 이 없습니다. SMS 설정 확인.'); return; }
+
+  var ok=0, fail=0;
+  for(var i=0;i<tels.length;i++){
+    var g=grp[tels[i]];
+    var msg = kind==='송장'
+      ? '[가문굴비] 발송이 완료되었습니다\n\n'+g.lines.join('\n')
+      : '[가문굴비] 주문이 접수되었습니다\n\n'+g.lines.join('\n')+'\n\n감사합니다.';
+    try{
+      var r=await fetch(proxy,{method:'POST',body:JSON.stringify({
+        action:'send', serviceId:cfg.NAVER_SENS_SERVICE_ID||'', accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
+        secretKey:cfg.NAVER_SENS_SECRET_KEY||'', sender:cfg.NAVER_SENS_SENDER||'',
+        tels:[tels[i]], msg:msg
+      })});
+      var res=await r.json();
+      if(res.ok){
+        ok++;
+        var now=new Date().toISOString().slice(5,16).replace('T',' ');
+        for(var j2=0;j2<g.keys.length;j2++){
+          await fbDb.ref('/excel_sms_sent/'+g.keys[j2]+'/'+kind).set(now);
+        }
+      } else fail++;
+    }catch(e){ fail++; }
+  }
+  alert(kind+' 문자 발송 완료!\n성공 '+ok+'통 / 실패 '+fail+'통');
+  loadOrderHist();
 }
 
 function renderOrderHist(){
@@ -21095,24 +21165,28 @@ function renderOrderHist(){
       var hay=((d['수취인명']||'')+' '+(d['주문번호']||'')+' '+(d['상품명']||'')+' '+(d['송장번호']||'')+' '+(d['플랫폼']||'')+' '+(d['수취인전화']||'')).toLowerCase();
       if(hay.indexOf(q)<0) return;
     }
-    rows.push(d);
+    rows.push({k:k, d:d});
   });
-  rows.sort(function(a,b){ return (b['등록일시']||'')<(a['등록일시']||'')?-1:1; });
+  rows.sort(function(a,b){ return ((b.d['등록일시'])||'')<((a.d['등록일시'])||'')?-1:1; });
   var cnt=document.getElementById('ordh_cnt');
   if(cnt) cnt.textContent='총 '+keys.length+'건 중 '+rows.length+'건 표시';
   var show=rows.slice(0,300);
-  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>등록일시</th><th>플랫폼</th><th>주문번호</th><th>수취인</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th></tr></thead><tbody>';
-  show.forEach(function(d){
+  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>등록일시</th><th>플랫폼</th><th>주문번호</th><th>수취인</th><th>구매자</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th></tr></thead><tbody>';
+  show.forEach(function(row){
+    var d=row.d;
     var trk=d['송장번호']||'';
+    var sent=ORDH_SENT[row.k]||{};
     h+='<tr>';
     h+='<td style="font-size:12px">'+(d['등록일시']||'')+'</td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
     h+='<td style="font-family:monospace;font-size:12px">'+(d['주문번호']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
+    h+='<td>'+(d['구매자명']||'')+'</td>';
     h+='<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">'+(d['상품명']||'')+'</td>';
     h+='<td>'+(d['수량']||'')+'</td>';
     h+='<td>'+(d['택배사']||'')+'</td>';
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+trk+'</td>'):('<td style="color:#d97706;font-weight:600">미발송</td>');
+    h+='<td style="font-size:11px">'+(sent['접수']?'<span style="color:#7c3aed;font-weight:700">접수✓</span> ':'')+(sent['송장']?'<span style="color:#16a34a;font-weight:700">송장✓</span>':'')+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table>'+(rows.length>300?'<div class="muted" style="font-size:11px;margin-top:4px">최근 300건만 표시 — 검색으로 좁혀보세요</div>':'');
