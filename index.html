@@ -21058,16 +21058,19 @@ function shipDel(k){
   var d=SHIP_DATA[k]||{};
   if(!confirm((d.file||k)+' 접수 데이터를 삭제할까요?\n(그날 누적 합계에서도 빠집니다 — 삭제 후 [재계산 텔레그램] 누르면 갱신 알림)')) return;
   var dateStr=(d.t||'').slice(0,10);
-  var jobs=[fbDb.ref('/excel_ship/'+k).remove()];
-  if(dateStr) jobs.push(fbDb.ref('/excel_daily/'+dateStr+'/'+k).remove());
-  Promise.all(jobs).then(loadShipData)
-    .catch(function(e){ alert('실패: '+e.message); });
+  // 접수데이터 삭제 (핵심). 일별기록은 있으면 같이 지우되 실패해도 무시
+  fbDb.ref('/excel_ship/'+k).remove().then(function(){
+    if(dateStr){ fbDb.ref('/excel_daily/'+dateStr+'/'+k).remove().catch(function(){}); }
+    loadShipData();
+  }).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
 // ── 재계산 텔레그램: 오늘 누적 합계 다시 계산해서 발송 (와꾸 GAS 재계산 버튼과 동일) ──
 async function shipRecalc(){
   var dateStr=new Date().toISOString().slice(0,10);
-  var raws=(await fbDb.ref('/excel_daily/'+dateStr).once('value')).val()||{};
+  var raws={};
+  try{ raws=(await fbDb.ref('/excel_daily/'+dateStr).once('value')).val()||{}; }
+  catch(e){ alert('일별 데이터를 읽을 수 없습니다.\nFirebase 규칙에 excel_daily 추가가 필요해요.\n('+e.message+')'); return; }
   var keys=Object.keys(raws);
   if(!keys.length){ alert('오늘('+dateStr+') 누적 데이터가 없습니다.'); return; }
 
