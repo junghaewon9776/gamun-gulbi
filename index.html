@@ -20572,6 +20572,7 @@ var PCLIC_REQ = {};
 var PCLIC_VER = {};
 var PCLIC_PROXY = "";   // Drive 업로드 프록시 URL (/main/DriveProxyUrl)
 var PCLIC_LOG = {};     // 로그인 로그 (최근 50)
+var PCLIC_IGNORE = {};  // /excel_version_ignore/<APP>=true — 목록에서 숨긴 프로그램(삭제한 것)
 
 function dPcLic(){
   var h='';
@@ -20621,13 +20622,15 @@ function loadPcLic(){
     fbDb.ref('/main/DriveProxyUrl').once('value'),
     fbDb.ref('/excel_login_log').orderByKey().limitToLast(50).once('value'),
     fbDb.ref('/excel_config/telegram').once('value'),
-    fbDb.ref('/excel_config/telegram_admin').once('value')
+    fbDb.ref('/excel_config/telegram_admin').once('value'),
+    fbDb.ref('/excel_version_ignore').once('value')
   ]).then(function(snaps){
     PCLIC_DATA = snaps[0].val()||{};
     PCLIC_REQ = snaps[1].val()||{};
     PCLIC_VER = snaps[2].val()||{};
     PCLIC_PROXY = snaps[3].val()||"";
     PCLIC_LOG = snaps[4].val()||{};
+    PCLIC_IGNORE = snaps[7].val()||{};
     var tg = snaps[5].val()||{};
     var tga = snaps[6].val()||{};
     var tk=document.getElementById('pcl_tg_token'), tc=document.getElementById('pcl_tg_chat');
@@ -20692,6 +20695,8 @@ function pcLicApps(){
   Object.keys(PCLIC_VER).forEach(function(a){ s[a]=1; });
   // 로그인 기록에 찍힌 프로그램도 (승인된 _ALL PC에서 실행만 해도 여기서 잡힘)
   Object.keys(PCLIC_LOG).forEach(function(k){ var a=(PCLIC_LOG[k]||{}).app; if(a && a!=='_ALL') s[a]=1; });
+  // 삭제(숨김)한 프로그램은 제외 — 단, 버전이 실제로 등록돼 있으면 유지
+  Object.keys(PCLIC_IGNORE).forEach(function(a){ if(PCLIC_IGNORE[a] && !(PCLIC_VER[a]&&PCLIC_VER[a].ver)) delete s[a]; });
   return Object.keys(s).sort();
 }
 
@@ -20986,15 +20991,22 @@ function pcVerAddApp(){
   var app=(document.getElementById('pclv_newapp').value||'').trim();
   if(!app){ alert('프로그램 이름을 적어주세요.'); return; }
   PCLIC_VER[app]=PCLIC_VER[app]||{};
+  // 예전에 숨긴 이름이면 다시 보이게 (무시목록에서 해제)
+  if(PCLIC_IGNORE[app]){ delete PCLIC_IGNORE[app]; fbDb.ref('/excel_version_ignore/'+app).remove().catch(function(){}); }
+  document.getElementById('pclv_newapp').value='';
   renderPcVer();
 }
 
-// 버전 등록 삭제 (버전정보만 지움 - 라이선스/승인은 그대로)
+// 버전관리 목록에서 삭제(숨김) — 버전등록 지우고 무시목록에 넣어 다시 안 뜨게. 라이선스/승인은 그대로
 function pcVerDel(app){
-  if(!confirm('['+app+'] 버전 등록을 삭제할까요?\n(이 프로그램 업데이트 알림이 없어집니다. 승인된 PC는 그대로)')) return;
-  fbDb.ref('/excel_version/'+app).remove().then(function(){
+  if(!confirm('['+app+'] 를 버전관리 목록에서 삭제할까요?\n(업데이트 알림 없어지고 목록에서 숨겨집니다. 승인된 PC·데이터는 그대로,\n나중에 [+ 프로그램 추가]로 다시 넣을 수 있어요)')) return;
+  var up={};
+  up['/excel_version/'+app]=null;      // 버전 등록 제거
+  up['/excel_version_ignore/'+app]=true; // 목록에서 숨김(로그인기록/요청으로 다시 안 뜨게)
+  fbDb.ref().update(up).then(function(){
     delete PCLIC_VER[app];
-    loadPcLic();
+    PCLIC_IGNORE[app]=true;
+    renderPcVer();
   }).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
