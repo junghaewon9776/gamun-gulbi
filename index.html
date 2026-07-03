@@ -20650,15 +20650,30 @@ function loadPcLic(){
   });
 }
 
-// 승인대기(승인요청)만 실시간 리스너 — 새 요청 오면 즉시 뜸. 버전/라이선스 표는 안 건드림(입력값 보존)
+// 승인대기(승인요청) 실시간 리스너 — 새 요청 오면 즉시 뜨고, 새 프로그램이면 버전관리에도 자동 추가
 var PCLIC_REQ_LISTEN=false;
 function _pcLicReqLive(){
   if(PCLIC_REQ_LISTEN) return;
   PCLIC_REQ_LISTEN=true;
   fbDb.ref('/excel_license_requests').on('value', function(s){
     PCLIC_REQ=s.val()||{};
-    if(CTAB==='pcLic' && document.getElementById('pcl_req')) renderPcLicReq();
+    if(CTAB!=='pcLic' || !document.getElementById('pcl_req')) return;
+    renderPcLicReq();
+    _verAutoRefresh();   // 새 프로그램이면 버전관리에도 자동 반영 (편집 중이면 건너뜀)
   }, function(){});
+}
+
+// 버전관리 표 자동 갱신 — 단, 파일 골랐거나 입력 중이면 건드리지 않음(입력값 보존)
+function _verAutoRefresh(){
+  var el=document.getElementById('pcl_ver'); if(!el) return;
+  var files=el.querySelectorAll('input[type=file]');
+  for(var i=0;i<files.length;i++){ if(files[i].files && files[i].files.length) return; } // 파일 고르는 중 → skip
+  if(document.activeElement && el.contains(document.activeElement)) return;                // 입력칸 포커스 중 → skip
+  // 타이핑해둔 버전/메모 값 보존
+  var vals={};
+  el.querySelectorAll('input[id^="pclv_ver_"],input[id^="pclv_note_"]').forEach(function(inp){ vals[inp.id]=inp.value; });
+  renderPcVer();
+  Object.keys(vals).forEach(function(id){ var inp=document.getElementById(id); if(inp && vals[id]!=='') inp.value=vals[id]; });
 }
 
 // 알려진 프로그램 이름들 (라이선스+요청+버전 노드의 합집합, _ALL 제외)
