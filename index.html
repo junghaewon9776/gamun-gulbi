@@ -21161,7 +21161,9 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 접수 문자 보내기</button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSms(\'송장\')">🚚 송장번호 문자 보내기</button>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 받는분께 발송 문자</button>';
-  h+='<span class="muted" style="font-size:11px;align-self:center">접수/송장=구매자에게 · 받는분=수취인에게 · 보낸 건 다시 안 감 · 건당 요금</span>';
+  h+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ordh_trkfile\').click()">📤 송장 업로드</button>';
+  h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
+  h+='<span class="muted" style="font-size:11px;align-self:center">접수/송장=구매자에게 · 받는분=수취인에게 · 건당 요금</span>';
   h+='</div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<input id="ordh_q" placeholder="검색 (수취인/주문번호/상품명/송장...)" style="width:240px" oninput="renderOrderHist()">';
@@ -21282,7 +21284,7 @@ function renderOrderHist(){
   var cnt=document.getElementById('ordh_cnt');
   if(cnt) cnt.textContent='총 '+keys.length+'건 중 '+rows.length+'건 표시';
   var show=rows.slice(0,300);
-  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>등록일시</th><th>플랫폼</th><th>주문번호</th><th>수취인</th><th>구매자</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th></tr></thead><tbody>';
+  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>등록일시</th><th>플랫폼</th><th>수취인</th><th>구매자</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
   show.forEach(function(row){
     var d=row.d;
     var trk=d['송장번호']||'';
@@ -21290,7 +21292,6 @@ function renderOrderHist(){
     h+='<tr>';
     h+='<td style="font-size:12px">'+(d['등록일시']||'')+'</td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
-    h+='<td style="font-family:monospace;font-size:12px">'+(d['주문번호']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
     h+='<td>'+(d['구매자명']||'')+'</td>';
     h+='<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">'+(d['상품명']||'')+'</td>';
@@ -21298,10 +21299,86 @@ function renderOrderHist(){
     h+='<td>'+(d['택배사']||'')+'</td>';
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+trk+'</td>'):('<td style="color:#d97706;font-weight:600">미발송</td>');
     h+='<td style="font-size:11px">'+(sent['접수']?'<span style="color:#7c3aed;font-weight:700">접수✓</span> ':'')+(sent['송장']?'<span style="color:#16a34a;font-weight:700">송장✓</span> ':'')+(sent['받는분']?'<span style="color:#0ea5e9;font-weight:700">받는분✓</span>':'')+'</td>';
+    h+='<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhDel(\''+row.k+'\')">🗑</button></td>';
     h+='</tr>';
   });
   h+='</tbody></table>'+(rows.length>300?'<div class="muted" style="font-size:11px;margin-top:4px">최근 300건만 표시 — 검색으로 좁혀보세요</div>':'');
   el.innerHTML=h;
+}
+
+// 주문히스토리 행 삭제
+function ordhDel(k){
+  var d=ORDH_DATA[k]||{};
+  if(!confirm((d['수취인명']||'')+' / '+(d['상품명']||'')+' 이 주문을 삭제할까요?')) return;
+  fbDb.ref('/excel_orders/'+k).remove()
+    .catch(function(e){ alert('삭제 실패: '+e.message); });
+  // 실시간 리스너가 화면 자동 갱신
+}
+
+// 송장 업로드: 택배사 결과 엑셀 -> 수취인명+전화로 매칭해서 송장번호 채움
+function ordhTrackUpload(file){
+  if(!file) return;
+  if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패 — 새로고침 후 다시 시도하세요.'); return; }
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      // 헤더행 찾기 (수취인/받는분 + 송장/운송장 둘 다 있는 행)
+      var hr=-1, nameCol=-1, telCol=-1, trkCol=-1, carCol=-1;
+      for(var r=0;r<Math.min(rows.length,6);r++){
+        var row=rows[r].map(function(x){return String(x).replace(/\s/g,'');});
+        var nc=-1,tc=-1,kc=-1,cc=-1;
+        row.forEach(function(h,i){
+          if(nc<0 && /받는분|수취인|수령인|받는사람|고객명/.test(h)) nc=i;
+          if(tc<0 && /전화|연락처|휴대|핸드폰/.test(h)) tc=i;
+          if(kc<0 && /운송장|송장|tracking/i.test(h)) kc=i;
+          if(cc<0 && /택배사|배송사/.test(h)) cc=i;
+        });
+        if(nc>=0 && kc>=0){ hr=r; nameCol=nc; telCol=tc; trkCol=kc; carCol=cc; break; }
+      }
+      if(hr<0){ alert('송장 파일에서 "수취인명"과 "송장번호" 열을 못 찾았어요.\n헤더에 받는분/수취인 + 송장/운송장 이 있어야 합니다.'); return; }
+
+      // 매칭용 인덱스: 수취인명+전화 뒷4자리 -> 주문키들
+      function tail(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
+      var idx={};
+      Object.keys(ORDH_DATA).forEach(function(key){
+        var o=ORDH_DATA[key]||{};
+        if(o['송장번호']) return; // 이미 있는 건 건너뜀
+        var k1=(o['수취인명']||'').trim()+'|'+tail(o['수취인전화']);
+        (idx[k1]=idx[k1]||[]).push(key);
+      });
+
+      var ok=0, miss=0, updates={};
+      for(var r2=hr+1;r2<rows.length;r2++){
+        var row=rows[r2];
+        var nm=String(row[nameCol]||'').trim();
+        var trk=String(row[trkCol]||'').replace(/[^0-9]/g,'');
+        var tel=telCol>=0?tail(row[telCol]):'';
+        var car=carCol>=0?String(row[carCol]||'').trim():'';
+        if(!nm||!trk) continue;
+        var hit=idx[nm+'|'+tel] || idx[nm+'|']; // 전화 매칭 우선, 없으면 이름만
+        if(!hit){
+          // 이름만으로 재시도
+          var byName=Object.keys(idx).filter(function(kk){return kk.indexOf(nm+'|')===0;});
+          if(byName.length) hit=idx[byName[0]];
+        }
+        if(hit && hit.length){
+          var key=hit.shift();
+          updates['/excel_orders/'+key+'/송장번호']=trk;
+          if(car) updates['/excel_orders/'+key+'/택배사']=car;
+          ok++;
+        } else miss++;
+      }
+      if(ok===0){ alert('매칭된 주문이 없습니다. (수취인명/전화가 일치하는 미발송 주문이 없음)'); return; }
+      fbDb.ref().update(updates).then(function(){
+        alert('송장 등록 완료!\n'+ok+'건 입력'+(miss?(' / '+miss+'건 매칭실패'):''));
+      }).catch(function(err){ alert('저장 실패: '+err.message); });
+    }catch(err){ alert('파일 읽기 실패: '+err.message); }
+    document.getElementById('ordh_trkfile').value='';
+  };
+  rd.readAsArrayBuffer(file);
 }
 
 // ============================================================================
