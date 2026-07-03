@@ -20976,7 +20976,8 @@ function dShipData(){
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📦 택배 접수 데이터</h3>';
   h+='<div class="muted" style="font-size:12px">엑셀에서 [변환 출력] 하면 자동으로 여기 쌓입니다. 파일 클릭 = 내역 보기 · 행 더블클릭 = 상세</div>';
   h+='<div style="margin-top:8px"><button class="btn" id="ship_vf" style="background:#2563eb;color:#fff;font-weight:600" onclick="shipView(\'file\')">📁 파일별</button> ';
-  h+='<button class="btn" id="ship_va" style="background:#e5e7eb;color:#333;font-weight:600" onclick="shipView(\'all\')">📜 전체 내역</button></div></div>';
+  h+='<button class="btn" id="ship_va" style="background:#e5e7eb;color:#333;font-weight:600" onclick="shipView(\'all\')">📜 전체 내역</button> ';
+  h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">🔄 재계산 텔레그램</button></div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div id="ship_files" class="muted">불러오는 중...</div></div>';
   h+='<div class="card" id="ship_rows_card" style="display:none"><h4 id="ship_rows_title" style="margin:0 0 6px"></h4><div id="ship_rows" style="overflow-x:auto"></div></div>';
   h+='<div id="ship_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999" onclick="this.style.display=\'none\'">';
@@ -21055,9 +21056,65 @@ function shipDetail(idx){
 
 function shipDel(k){
   var d=SHIP_DATA[k]||{};
-  if(!confirm((d.file||k)+' 접수 데이터를 삭제할까요?')) return;
-  fbDb.ref('/excel_ship/'+k).remove().then(loadShipData)
+  if(!confirm((d.file||k)+' 접수 데이터를 삭제할까요?\n(그날 누적 합계에서도 빠집니다 — 삭제 후 [재계산 텔레그램] 누르면 갱신 알림)')) return;
+  var dateStr=(d.t||'').slice(0,10);
+  var jobs=[fbDb.ref('/excel_ship/'+k).remove()];
+  if(dateStr) jobs.push(fbDb.ref('/excel_daily/'+dateStr+'/'+k).remove());
+  Promise.all(jobs).then(loadShipData)
     .catch(function(e){ alert('실패: '+e.message); });
+}
+
+// ── 재계산 텔레그램: 오늘 누적 합계 다시 계산해서 발송 (와꾸 GAS 재계산 버튼과 동일) ──
+async function shipRecalc(){
+  var dateStr=new Date().toISOString().slice(0,10);
+  var raws=(await fbDb.ref('/excel_daily/'+dateStr).once('value')).val()||{};
+  var keys=Object.keys(raws);
+  if(!keys.length){ alert('오늘('+dateStr+') 누적 데이터가 없습니다.'); return; }
+
+  var userN={}, userP={}, totP={}, totalSum=0;
+  keys.forEach(function(k){
+    var f=String(raws[k]||'').split('|');
+    if(f.length<5) return;
+    var u=f[0], pStr=f[3], c=Number(f[4])||0;
+    totalSum+=c;
+    userN[u]=(userN[u]||0)+c;
+    if(!userP[u]) userP[u]={};
+    pStr.split(',').forEach(function(item){
+      var m=item.trim().match(/(.+):\s*(\d+)개/);
+      if(m){
+        var nm=m[1].trim(), cnt=Number(m[2]);
+        userP[u][nm]=(userP[u][nm]||0)+cnt;
+        totP[nm]=(totP[nm]||0)+cnt;
+      }
+    });
+  });
+
+  var msg='[📊 재계산 결과]\n'+dateStr+'\n=======================\n\n[사용자별 합계]\n';
+  Object.keys(userN).forEach(function(u){
+    msg+='👤 '+u+' ('+userN[u]+'건)\n';
+    Object.keys(userP[u]).forEach(function(nm){ msg+=' - '+nm+': '+userP[u][nm]+'개\n'; });
+    msg+='\n';
+  });
+  msg+='=======================\n[전체 누적]\n';
+  Object.keys(totP).forEach(function(nm){ msg+=' - '+nm+': '+totP[nm]+'개\n'; });
+  msg+='=======================\n누적 총 '+totalSum+'건';
+
+  if(!confirm('오늘 합계를 텔레그램으로 보낼까요?\n\n'+msg.slice(0,300)+(msg.length>300?'\n...':''))) return;
+
+  var tg=(await fbDb.ref('/excel_config/telegram').once('value')).val()||{};
+  if(!tg.token||!tg.chat_id){ alert('PC관리 탭에서 텔레그램 봇 설정을 먼저 해주세요.'); return; }
+  var chats=String(tg.chat_id).split(',').map(function(c){return c.trim();}).filter(Boolean);
+  var ok=0;
+  for(var i=0;i<chats.length;i++){
+    try{
+      var r=await fetch('https://api.telegram.org/bot'+tg.token+'/sendMessage',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({chat_id:chats[i], text:msg})
+      });
+      if((await r.json()).ok) ok++;
+    }catch(e){}
+  }
+  alert('재계산 텔레그램 발송: '+ok+'/'+chats.length+'통');
 }
 
 // ============================================================================
