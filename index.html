@@ -20977,7 +20977,8 @@ function dShipData(){
   h+='<div class="muted" style="font-size:12px">엑셀에서 [변환 출력] 하면 자동으로 여기 쌓입니다. 파일 클릭 = 내역 보기 · 행 더블클릭 = 상세</div>';
   h+='<div style="margin-top:8px"><button class="btn" id="ship_vf" style="background:#2563eb;color:#fff;font-weight:600" onclick="shipView(\'file\')">📁 파일별</button> ';
   h+='<button class="btn" id="ship_va" style="background:#e5e7eb;color:#333;font-weight:600" onclick="shipView(\'all\')">📜 전체 내역</button> ';
-  h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">🔄 재계산 텔레그램</button></div></div>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData()">🔄 새로고침</button> ';
+  h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">📨 재계산 텔레그램</button></div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div id="ship_files" class="muted">불러오는 중...</div></div>';
   h+='<div class="card" id="ship_rows_card" style="display:none"><h4 id="ship_rows_title" style="margin:0 0 6px"></h4><div id="ship_rows" style="overflow-x:auto"></div></div>';
   h+='<div id="ship_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999" onclick="this.style.display=\'none\'">';
@@ -21131,6 +21132,7 @@ function dOrderHist(){
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">🧾 주문히스토리</h3>';
   h+='<div class="muted" style="font-size:12px">엑셀에서 [주문 가져오기]/[송장 등록] 하면 자동 반영됩니다. (엑셀이 원본, 여긴 조회용)</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadOrderHist()">🔄 새로고침</button> ';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 접수 문자 보내기</button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSms(\'송장\')">🚚 송장번호 문자 보내기</button>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 받는분께 발송 문자</button>';
