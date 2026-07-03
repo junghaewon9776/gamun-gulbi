@@ -20596,13 +20596,19 @@ function dPcLic(){
   h+='<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 6px">등록된 PC (프로그램별 상세)</h4><div id="pcl_list" class="muted">불러오는 중...</div></div>';
   h+='<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 6px">📦 프로그램 버전 관리</h4><div class="muted" style="font-size:12px;margin-bottom:6px">여기 등록한 버전보다 낮은 파일이 열리면 "새 버전 받으세요" 알림이 뜹니다.</div><div id="pcl_ver">불러오는 중...</div></div>';
   h+='<div class="card" style="margin-bottom:10px"><h4 style="margin:0 0 6px">📜 로그인 로그 (최근 50건)</h4><div id="pcl_log" class="muted">불러오는 중...</div></div>';
-  h+='<div class="card"><h4 style="margin:0 0 6px">✈ 텔레그램 알림 설정</h4>';
-  h+='<div class="muted" style="font-size:12px;margin-bottom:6px">설정하면 로그인/승인요청 때 텔레그램으로 알림이 옵니다.</div>';
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">';
+  h+='<div class="card"><h4 style="margin:0 0 6px">✈ 텔레그램 알림 설정 (용도별 봇 분리)</h4>';
+  h+='<div style="margin-bottom:10px"><div style="font-weight:600;color:#2563eb;font-size:13px">📦 택배수량 봇 (접수/품목 수량)</div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:4px">';
   h+='<div><label style="font-size:11px;color:#666">봇 토큰</label><br><input id="pcl_tg_token" placeholder="123456:ABC..." style="width:280px"></div>';
   h+='<div><label style="font-size:11px;color:#666">chat_id</label><br><input id="pcl_tg_chat" placeholder="123456789" style="width:130px"></div>';
-  h+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcTgSave()">저장</button>';
   h+='</div></div>';
+  h+='<div style="margin-bottom:10px"><div style="font-weight:600;color:#7c3aed;font-size:13px">🖥 VBA 봇 (로그인/사용/승인요청)</div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:4px">';
+  h+='<div><label style="font-size:11px;color:#666">봇 토큰</label><br><input id="pcl_tg_atoken" placeholder="123456:ABC..." style="width:280px"></div>';
+  h+='<div><label style="font-size:11px;color:#666">chat_id</label><br><input id="pcl_tg_achat" placeholder="123456789" style="width:130px"></div>';
+  h+='</div></div>';
+  h+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcTgSave()">둘 다 저장</button>';
+  h+='</div>';
   return h;
 }
 
@@ -20613,7 +20619,8 @@ function loadPcLic(){
     fbDb.ref('/excel_version').once('value'),
     fbDb.ref('/main/DriveProxyUrl').once('value'),
     fbDb.ref('/excel_login_log').orderByKey().limitToLast(50).once('value'),
-    fbDb.ref('/excel_config/telegram').once('value')
+    fbDb.ref('/excel_config/telegram').once('value'),
+    fbDb.ref('/excel_config/telegram_admin').once('value')
   ]).then(function(snaps){
     PCLIC_DATA = snaps[0].val()||{};
     PCLIC_REQ = snaps[1].val()||{};
@@ -20621,9 +20628,13 @@ function loadPcLic(){
     PCLIC_PROXY = snaps[3].val()||"";
     PCLIC_LOG = snaps[4].val()||{};
     var tg = snaps[5].val()||{};
+    var tga = snaps[6].val()||{};
     var tk=document.getElementById('pcl_tg_token'), tc=document.getElementById('pcl_tg_chat');
     if(tk) tk.value=tg.token||'';
     if(tc) tc.value=tg.chat_id||'';
+    var tka=document.getElementById('pcl_tg_atoken'), tca=document.getElementById('pcl_tg_achat');
+    if(tka) tka.value=tga.token||'';
+    if(tca) tca.value=tga.chat_id||'';
     renderPcLicReq();
     renderPcView();
     renderPcLic();
@@ -20749,13 +20760,18 @@ function renderPcLog(){
   el.innerHTML=h;
 }
 
-// 텔레그램 설정 저장
+// 텔레그램 설정 저장 (택배봇 + VBA봇 둘 다)
 function pcTgSave(){
   var token=(document.getElementById('pcl_tg_token').value||'').trim();
   var chat=(document.getElementById('pcl_tg_chat').value||'').trim();
-  fbDb.ref('/excel_config/telegram').set({token:token, chat_id:chat})
-    .then(function(){ alert('텔레그램 설정 저장!'+(token?'\n이제 로그인/승인요청 때 알림이 옵니다.':'\n(비워서 알림 끔)')); })
-    .catch(function(e){ alert('실패: '+e.message); });
+  var atoken=(document.getElementById('pcl_tg_atoken').value||'').trim();
+  var achat=(document.getElementById('pcl_tg_achat').value||'').trim();
+  Promise.all([
+    fbDb.ref('/excel_config/telegram').set({token:token, chat_id:chat}),
+    fbDb.ref('/excel_config/telegram_admin').set({token:atoken, chat_id:achat})
+  ]).then(function(){
+    alert('텔레그램 설정 저장!\n📦 택배수량 → 택배봇\n🖥 로그인/승인 → VBA봇');
+  }).catch(function(e){ alert('실패: '+e.message); });
 }
 
 function renderPcLic(){
