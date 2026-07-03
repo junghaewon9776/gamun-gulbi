@@ -21263,17 +21263,21 @@ function renderOrderHist(){
   var cnt=document.getElementById('ordh_cnt');
   if(cnt) cnt.textContent='총 '+keys.length+'건 중 '+rows.length+'건 표시';
   var show=rows.slice(0,300);
-  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>등록일시</th><th>플랫폼</th><th>수취인</th><th>구매자</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
+  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>등록일시</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
   show.forEach(function(row){
     var d=row.d;
     var trk=d['송장번호']||'';
     var sent=ORDH_SENT[row.k]||{};
+    var rtel=(d['수취인전화']||'').replace(/[^0-9]/g,'');
+    var btel=(d['구매자전화']||'').replace(/[^0-9]/g,'');
     h+='<tr>';
     h+='<td style="font-size:12px">'+(d['등록일시']||'')+'</td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
+    h+='<td style="font-family:monospace;font-size:12px'+(rtel.length<10?';color:#dc2626':'')+'">'+(d['수취인전화']||'<b>없음</b>')+'</td>';
     h+='<td>'+(d['구매자명']||'')+'</td>';
-    h+='<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">'+(d['상품명']||'')+'</td>';
+    h+='<td style="font-family:monospace;font-size:12px'+(btel.length<10?';color:#dc2626':'')+'">'+(d['구매자전화']||'<b>없음</b>')+'</td>';
+    h+='<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">'+(d['상품명']||'')+'</td>';
     h+='<td>'+(d['수량']||'')+'</td>';
     h+='<td>'+(d['택배사']||'')+'</td>';
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+trk+'</td>'):('<td style="color:#d97706;font-weight:600">미발송</td>');
