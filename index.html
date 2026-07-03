@@ -449,8 +449,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<!-- storage: PC관리 버전 파일 업로드용 (사진은 드라이브 프록시 유지) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<!-- firebase-storage 제거: 구글 드라이브 프록시로 대체 (버전 파일 업로드도 드라이브) -->
 <script src="firebase-config.js"></script>
 <script src="common.js?v=20260618a"></script>
 <script src="mod-engine.js?v=20260619v131"></script>
@@ -20558,6 +20557,7 @@ function _smsTplNewFromPicker(targetId){
 var PCLIC_DATA = {};
 var PCLIC_REQ = {};
 var PCLIC_VER = {};
+var PCLIC_PROXY = "";   // Drive 업로드 프록시 URL (/main/DriveProxyUrl)
 
 function dPcLic(){
   var h='';
@@ -20588,11 +20588,13 @@ function loadPcLic(){
   Promise.all([
     fbDb.ref('/excel_license').once('value'),
     fbDb.ref('/excel_license_requests').once('value'),
-    fbDb.ref('/excel_version').once('value')
+    fbDb.ref('/excel_version').once('value'),
+    fbDb.ref('/main/DriveProxyUrl').once('value')
   ]).then(function(snaps){
     PCLIC_DATA = snaps[0].val()||{};
     PCLIC_REQ = snaps[1].val()||{};
     PCLIC_VER = snaps[2].val()||{};
+    PCLIC_PROXY = snaps[3].val()||"";
     renderPcLicReq();
     renderPcLic();
     renderPcVer();
@@ -20749,9 +20751,26 @@ function renderPcVer(){
     h+='</tr>';
   });
   h+='</tbody></table>';
-  h+='<div class="muted" style="font-size:11px;margin-top:4px">파일 없이 버전/메모만 바꾸려면 파일 선택 안 하고 [업로드+등록] 누르면 됩니다 (기존 파일 유지).</div>';
+  h+='<div class="muted" style="font-size:11px;margin-top:4px">파일은 구글드라이브에 저장됩니다. 파일 없이 버전/메모만 바꾸려면 파일 선택 안 하고 [업로드+등록] (기존 파일 유지).</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;align-items:center"><input id="pclv_newapp" placeholder="새 프로그램 이름" style="width:140px"><button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="pcVerAddApp()">+ 프로그램 추가</button></div>';
+  // Drive 프록시 상태
+  if(PCLIC_PROXY){
+    h+='<div class="muted" style="font-size:11px;margin-top:8px">🟢 드라이브 연결됨</div>';
+  } else {
+    h+='<div style="margin-top:10px;padding:8px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px">';
+    h+='<b style="color:#b91c1c">⚠ 드라이브 프록시 미설정 — 파일 업로드하려면 필요</b>';
+    h+='<div class="muted" style="font-size:11px;margin:4px 0">DriveUpload_GAS.js 를 Apps Script 웹앱으로 배포하고 그 URL을 등록하세요.</div>';
+    h+='<div style="display:flex;gap:6px"><input id="pclv_proxy" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1"><button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerSaveProxy()">등록</button></div>';
+    h+='</div>';
+  }
   el.innerHTML=h;
+}
+
+function pcVerSaveProxy(){
+  var u=(document.getElementById('pclv_proxy').value||'').trim();
+  if(u.indexOf('https://script.google.com/')!==0){ alert('Apps Script 웹앱 URL(https://script.google.com/...)을 넣어주세요.'); return; }
+  fbDb.ref('/main/DriveProxyUrl').set(u).then(function(){ alert('드라이브 프록시 등록 완료!'); loadPcLic(); })
+    .catch(function(e){ alert('실패: '+e.message); });
 }
 
 function pcVerUpload(app){
@@ -20770,17 +20789,25 @@ function pcVerUpload(app){
   }
 
   if(fileEl && fileEl.files && fileEl.files.length){
+    if(!PCLIC_PROXY){ alert('드라이브 프록시가 미설정입니다. 아래 빨간 박스에서 먼저 등록하세요.'); return; }
     var f=fileEl.files[0];
     if(btn){ btn.disabled=true; btn.textContent='업로드 중...'; }
-    var path='excel_apps/'+app+'/'+ver+'/'+f.name;
-    firebase.storage().ref(path).put(f).then(function(snap){
-      return snap.ref.getDownloadURL();
-    }).then(function(url){
-      saveMeta(url, f.name);
-    }).catch(function(e){
-      alert('파일 업로드 실패: '+e.message+'\n\nFirebase 콘솔 > Storage 가 활성화됐는지, 규칙이 열려있는지 확인하세요.');
-      if(btn){ btn.disabled=false; btn.textContent='⬆ 업로드+등록'; }
-    });
+    var rd=new FileReader();
+    rd.onload=function(e){
+      fetch(PCLIC_PROXY, {
+        method:'POST',
+        body: JSON.stringify({action:'upload', dataUrl:e.target.result, filename:f.name, subFolder:'엑셀버전/'+app+'/v'+ver})
+      }).then(function(r){ return r.json(); }).then(function(res){
+        if(!res.ok){ throw new Error(res.err||'업로드 실패'); }
+        // 바로 다운로드되는 링크로 저장 (드라이브 뷰어 안 거침)
+        var dlUrl='https://drive.google.com/uc?export=download&id='+res.fileId;
+        saveMeta(dlUrl, f.name);
+      }).catch(function(err){
+        alert('파일 업로드 실패: '+err.message);
+        if(btn){ btn.disabled=false; btn.textContent='⬆ 업로드+등록'; }
+      });
+    };
+    rd.readAsDataURL(f);
   } else {
     // 파일 없이 버전/메모만 갱신 (기존 파일 링크 유지)
     saveMeta(prev.url||'', prev.fileName||'');
