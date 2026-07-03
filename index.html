@@ -20661,6 +20661,14 @@ function _pcLicReqLive(){
     renderPcLicReq();
     _verAutoRefresh();   // 새 프로그램이면 버전관리에도 자동 반영 (편집 중이면 건너뜀)
   }, function(){});
+  // 로그인 기록도 실시간 — _ALL PC에서 새 프로그램 실행하면 요청 없이도 버전관리에 뜨게
+  fbDb.ref('/excel_login_log').orderByKey().limitToLast(50).on('value', function(s){
+    PCLIC_LOG=s.val()||{};
+    if(CTAB!=='pcLic' || !document.getElementById('pcl_req')) return;
+    renderPcLog();
+    renderPcView();
+    _verAutoRefresh();
+  }, function(){});
 }
 
 // 버전관리 표 자동 갱신 — 단, 파일 골랐거나 입력 중이면 건드리지 않음(입력값 보존)
@@ -20682,6 +20690,8 @@ function pcLicApps(){
   Object.keys(PCLIC_DATA).forEach(function(a){ if(a!=='_ALL') s[a]=1; });
   Object.keys(PCLIC_REQ).forEach(function(a){ s[a]=1; });
   Object.keys(PCLIC_VER).forEach(function(a){ s[a]=1; });
+  // 로그인 기록에 찍힌 프로그램도 (승인된 _ALL PC에서 실행만 해도 여기서 잡힘)
+  Object.keys(PCLIC_LOG).forEach(function(k){ var a=(PCLIC_LOG[k]||{}).app; if(a && a!=='_ALL') s[a]=1; });
   return Object.keys(s).sort();
 }
 
