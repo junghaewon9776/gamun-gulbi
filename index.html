@@ -1424,10 +1424,16 @@ function mkTabs(){
   if(_isEvtAdmin()) c5.push({k:"evtMgr",l:"행사관리"});
   if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"forms",l:"폼 관리"});
   if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"pcLic",l:"💻 PC관리"});
-  if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"shipData",l:"📦 접수데이터"});
-  if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"orderHist",l:"🧾 주문히스토리"});
   if(_isSuperAdmin()) c5.push({k:"linkTabs",l:"🔗 연동 탭"});
   if(_isSuperAdmin()) c5.push({k:"modMgr",l:"📦 모듈 관리"});
+  // ── 택배주문관리 (super/admin 전용) ──
+  if(ME && (ME.r==="super" || ME.r==="admin")){
+    cats.push({id:"tkbMgr",label:"🚚 택배주문관리",items:[
+      {k:"orderHist",l:"🧾 주문히스토리"},
+      {k:"shipData",l:"📦 접수데이터"}
+    ]});
+  }
+
   cats.push({id:"sys",label:"⚙️ 시스템",items:c5});
 
   // ── 커스텀 모듈 탭 ──
