@@ -21065,7 +21065,8 @@ function dOrderHist(){
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 접수 문자 보내기</button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSms(\'송장\')">🚚 송장번호 문자 보내기</button>';
-  h+='<span class="muted" style="font-size:11px;align-self:center">구매자별로 묶어 한 통 · 보낸 건 다시 안 감 · 건당 요금 발생</span>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 받는분께 발송 문자</button>';
+  h+='<span class="muted" style="font-size:11px;align-self:center">접수/송장=구매자에게 · 받는분=수취인에게 · 보낸 건 다시 안 감 · 건당 요금</span>';
   h+='</div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<input id="ordh_q" placeholder="검색 (수취인/주문번호/상품명/송장...)" style="width:240px" oninput="renderOrderHist()">';
@@ -21099,25 +21100,28 @@ function ordhTel(s){
 
 async function ordhSms(kind){
   // 대상 모으기 (구매자별 그룹)
+  var toReceiver = (kind==='받는분');   // 수취인에게 / 아니면 구매자에게
   var grp={};   // tel -> {keys:[], lines:[], name}
   Object.keys(ORDH_DATA).forEach(function(k){
     var d=ORDH_DATA[k]||{};
-    var tel=ordhTel(d['구매자전화']);
+    var tel=ordhTel(toReceiver ? d['수취인전화'] : d['구매자전화']);
     if(!tel) return;
-    if(kind==='송장' && !d['송장번호']) return;
+    if((kind==='송장'||toReceiver) && !d['송장번호']) return;
     if(ORDH_SENT[k] && ORDH_SENT[k][kind]) return;   // 이미 보냄
-    if(!grp[tel]) grp[tel]={keys:[], lines:[], name:d['구매자명']||''};
+    if(!grp[tel]) grp[tel]={keys:[], lines:[], name:(toReceiver?d['수취인명']:d['구매자명'])||'', buyer:d['구매자명']||''};
     grp[tel].keys.push(k);
-    if(kind==='송장'){
+    if(toReceiver){
+      grp[tel].lines.push((d['택배사']||'')+' '+(d['송장번호']||'')+(d['상품명']?(' ('+d['상품명']+')'):''));
+    } else if(kind==='송장'){
       grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['택배사']||'')+' '+(d['송장번호']||''));
     } else {
       grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['상품명']||'')+(d['수량']?(' '+d['수량']+'개'):''));
     }
   });
   var tels=Object.keys(grp);
-  if(!tels.length){ alert('보낼 대상이 없습니다.\n(조건: 구매자전화 있음'+(kind==='송장'?' + 송장번호 있음':'')+' + 아직 안 보냄)'); return; }
+  if(!tels.length){ alert('보낼 대상이 없습니다.\n(조건: '+(toReceiver?'수취인전화':'구매자전화')+' 있음'+((kind==='송장'||toReceiver)?' + 송장번호 있음':'')+' + 아직 안 보냄)'); return; }
   var totalRows=0; tels.forEach(function(t){ totalRows+=grp[t].keys.length; });
-  if(!confirm(tels.length+'명(구매자)에게 '+kind+' 문자 '+tels.length+'통을 보냅니다.\n(주문 '+totalRows+'건 / 건당 요금 발생)\n계속할까요?')) return;
+  if(!confirm(tels.length+'명('+(toReceiver?'받는분':'구매자')+')에게 '+kind+' 문자 '+tels.length+'통을 보냅니다.\n(주문 '+totalRows+'건 / 건당 요금 발생)\n계속할까요?')) return;
 
   // SENS 설정 (main/Config 재사용)
   var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
@@ -21127,9 +21131,14 @@ async function ordhSms(kind){
   var ok=0, fail=0;
   for(var i=0;i<tels.length;i++){
     var g=grp[tels[i]];
-    var msg = kind==='송장'
-      ? '[가문굴비] 발송이 완료되었습니다\n\n'+g.lines.join('\n')
-      : '[가문굴비] 주문이 접수되었습니다\n\n'+g.lines.join('\n')+'\n\n감사합니다.';
+    var msg;
+    if(toReceiver){
+      msg='[가문굴비] '+(g.buyer?g.buyer+'님이 보내신 ':'')+'상품이 발송되었습니다\n\n'+g.lines.join('\n');
+    } else if(kind==='송장'){
+      msg='[가문굴비] 발송이 완료되었습니다\n\n'+g.lines.join('\n');
+    } else {
+      msg='[가문굴비] 주문이 접수되었습니다\n\n'+g.lines.join('\n')+'\n\n감사합니다.';
+    }
     try{
       var r=await fetch(proxy,{method:'POST',body:JSON.stringify({
         action:'send', serviceId:cfg.NAVER_SENS_SERVICE_ID||'', accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
@@ -21186,7 +21195,7 @@ function renderOrderHist(){
     h+='<td>'+(d['수량']||'')+'</td>';
     h+='<td>'+(d['택배사']||'')+'</td>';
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+trk+'</td>'):('<td style="color:#d97706;font-weight:600">미발송</td>');
-    h+='<td style="font-size:11px">'+(sent['접수']?'<span style="color:#7c3aed;font-weight:700">접수✓</span> ':'')+(sent['송장']?'<span style="color:#16a34a;font-weight:700">송장✓</span>':'')+'</td>';
+    h+='<td style="font-size:11px">'+(sent['접수']?'<span style="color:#7c3aed;font-weight:700">접수✓</span> ':'')+(sent['송장']?'<span style="color:#16a34a;font-weight:700">송장✓</span> ':'')+(sent['받는분']?'<span style="color:#0ea5e9;font-weight:700">받는분✓</span>':'')+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table>'+(rows.length>300?'<div class="muted" style="font-size:11px;margin-top:4px">최근 300건만 표시 — 검색으로 좁혀보세요</div>':'');
