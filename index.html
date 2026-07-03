@@ -1424,6 +1424,7 @@ function mkTabs(){
   if(_isEvtAdmin()) c5.push({k:"evtMgr",l:"행사관리"});
   if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"forms",l:"폼 관리"});
   if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"pcLic",l:"💻 PC관리"});
+  if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"shipData",l:"📦 접수데이터"});
   if(_isSuperAdmin()) c5.push({k:"linkTabs",l:"🔗 연동 탭"});
   if(_isSuperAdmin()) c5.push({k:"modMgr",l:"📦 모듈 관리"});
   cats.push({id:"sys",label:"⚙️ 시스템",items:c5});
@@ -5928,6 +5929,7 @@ function draw(){
   else if(CTAB=="quote"){    el.innerHTML=dQuote();    loadQuotes(); }
   else if(CTAB=="forms"){    el.innerHTML=dForms();    loadForms(); }
   else if(CTAB=="pcLic"){    el.innerHTML=dPcLic();    loadPcLic(); }
+  else if(CTAB=="shipData"){ el.innerHTML=dShipData(); loadShipData(); }
   else if(CTAB=="smsTpl"){   el.innerHTML=dSmsTpl();   loadSmsTpl(); }
   else if(CTAB=="notice")el.innerHTML=dNotice();
   else if(CTAB=="stat")el.innerHTML=dStat();
@@ -20899,6 +20901,100 @@ function pcVerAddApp(){
   if(!app){ alert('프로그램 이름을 적어주세요.'); return; }
   PCLIC_VER[app]=PCLIC_VER[app]||{};
   renderPcVer();
+}
+
+// ============================================================================
+// 접수데이터 (/excel_ship) — 엑셀 [변환 출력] 때 자동 업로드된 접수 내역
+// 파일명별 목록 -> 클릭 = N건 내역 -> 행 더블클릭 = 상세
+// ============================================================================
+var SHIP_DATA = {};
+var SHIP_CUR = null;
+
+function dShipData(){
+  var h='';
+  h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📦 택배 접수 데이터</h3>';
+  h+='<div class="muted" style="font-size:12px">엑셀에서 [변환 출력] 하면 자동으로 여기 쌓입니다. 파일 클릭 = 내역 보기 · 행 더블클릭 = 상세</div></div>';
+  h+='<div class="card" style="margin-bottom:10px"><div id="ship_files" class="muted">불러오는 중...</div></div>';
+  h+='<div class="card" id="ship_rows_card" style="display:none"><h4 id="ship_rows_title" style="margin:0 0 6px"></h4><div id="ship_rows" style="overflow-x:auto"></div></div>';
+  h+='<div id="ship_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999" onclick="this.style.display=\'none\'">';
+  h+='<div style="background:#fff;max-width:460px;margin:60px auto;padding:18px;border-radius:12px;max-height:75vh;overflow:auto" onclick="event.stopPropagation()">';
+  h+='<h4 style="margin:0 0 10px">📋 상세 내역</h4><div id="ship_modal_body"></div>';
+  h+='<div style="text-align:right;margin-top:10px"><button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="document.getElementById(\'ship_modal\').style.display=\'none\'">닫기</button></div>';
+  h+='</div></div>';
+  return h;
+}
+
+function loadShipData(){
+  fbDb.ref('/excel_ship').orderByKey().limitToLast(100).once('value').then(function(s){
+    SHIP_DATA = s.val()||{};
+    renderShipFiles();
+  }).catch(function(e){
+    var el=document.getElementById('ship_files');
+    if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'<br>Firebase 규칙에 excel_ship (.read/.write) 추가됐는지 확인.</span>';
+  });
+}
+
+function renderShipFiles(){
+  var el=document.getElementById('ship_files'); if(!el) return;
+  var keys=Object.keys(SHIP_DATA);
+  if(!keys.length){ el.innerHTML='접수 데이터 없음 (엑셀에서 [변환 출력] 하면 쌓입니다)'; return; }
+  keys.sort().reverse();
+  var h='<table class="tbl" style="width:100%"><thead><tr><th>파일명</th><th>시간</th><th>프로그램</th><th>건수</th><th></th></tr></thead><tbody>';
+  keys.forEach(function(k){
+    var d=SHIP_DATA[k]||{};
+    h+='<tr style="cursor:pointer" onclick="shipOpen(\''+k+'\')">';
+    h+='<td style="font-weight:700;color:#2563eb">📄 '+(d.file||'(이름없음)')+'</td>';
+    h+='<td style="font-size:12px">'+(d.t||'')+'</td>';
+    h+='<td>'+(d.app||'')+'</td>';
+    h+='<td style="font-weight:700">'+(d.cnt||0)+'건</td>';
+    h+='<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="event.stopPropagation();shipDel(\''+k+'\')">삭제</button></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
+
+function shipOpen(k){
+  SHIP_CUR=k;
+  var d=SHIP_DATA[k]||{};
+  var card=document.getElementById('ship_rows_card');
+  var title=document.getElementById('ship_rows_title');
+  var el=document.getElementById('ship_rows');
+  if(!card||!el) return;
+  card.style.display='';
+  title.textContent='📄 '+(d.file||'')+' — '+(d.cnt||0)+'건 (행 더블클릭 = 상세)';
+  var heads=d.headers||[], rows=d.rows||[];
+  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th>';
+  heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
+  h+='</tr></thead><tbody>';
+  rows.forEach(function(r,i){
+    h+='<tr style="cursor:pointer" ondblclick="shipDetail('+i+')"><td>'+(i+1)+'</td>';
+    (r||[]).forEach(function(v){ h+='<td>'+(v||'')+'</td>'; });
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+  card.scrollIntoView({behavior:'smooth'});
+}
+
+function shipDetail(idx){
+  var d=SHIP_DATA[SHIP_CUR]||{};
+  var heads=d.headers||[], row=(d.rows||[])[idx]||[];
+  var b='';
+  heads.forEach(function(hd,i){
+    b+='<div style="display:flex;border-bottom:1px solid #eee;padding:6px 0">';
+    b+='<div style="width:120px;color:#666;font-size:12px;flex-shrink:0">'+hd+'</div>';
+    b+='<div style="font-weight:600">'+(row[i]||'-')+'</div></div>';
+  });
+  document.getElementById('ship_modal_body').innerHTML=b;
+  document.getElementById('ship_modal').style.display='';
+}
+
+function shipDel(k){
+  var d=SHIP_DATA[k]||{};
+  if(!confirm((d.file||k)+' 접수 데이터를 삭제할까요?')) return;
+  fbDb.ref('/excel_ship/'+k).remove().then(loadShipData)
+    .catch(function(e){ alert('실패: '+e.message); });
 }
 
 // ============================================================================
