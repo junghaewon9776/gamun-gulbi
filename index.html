@@ -21574,7 +21574,7 @@ function dOrderHist(){
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadOrderHist()">🔄 새로고침</button> ';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 접수 문자 보내기</button>';
-  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSms(\'송장\')">🚚 송장번호 문자 보내기</button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(false)">🚚 송장번호 문자 보내기</button>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 받는분께 발송 문자</button>';
   h+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ordh_trkfile\').click()">📤 송장 업로드</button>';
   h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
@@ -21582,7 +21582,7 @@ function dOrderHist(){
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
   h+='<span style="font-weight:700;font-size:12px">☑ 선택한 것만:</span>';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\',true)">📩 접수문자</button>';
-  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSms(\'송장\',true)">🚚 송장문자</button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(true)">🚚 송장문자</button>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\',true)">🎁 받는분문자</button>';
   h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="ordhDelSelected()">🗑 선택 삭제</button>';
   h+='<span id="ordh_seln" class="muted" style="font-size:11px"></span>';
@@ -21663,6 +21663,71 @@ function smsPreview(opts){
   });
 }
 function __smsPvDone(go){ closePopup(); var r=window.__smsPvResolve; window.__smsPvResolve=null; if(r) r(!!go); }
+// 🚚 송장번호 문자 3택 — 주문자에게 발송 / 담당자에게 목록 전달 / 취소
+function ordhSmsChoose(selectedOnly){
+  var h='<div style="max-width:420px">';
+  h+='<h3 style="margin:0 0 6px">🚚 송장번호 문자 — 누구에게 보낼까요?</h3>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:14px">'+(selectedOnly?'체크한 주문':'송장번호 있는 주문 전체')+' 기준 · 다음 화면에서 문자 내용을 미리 보고 최종 확인합니다</div>';
+  h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:14px;background:#16a34a;color:#fff;font-weight:800;font-size:15px;margin-bottom:8px" onclick="closePopup();ordhSms(\'송장\','+(selectedOnly?'true':'false')+')">👤 주문자(구매자)에게 발송</button>';
+  h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:14px;background:#0d9488;color:#fff;font-weight:800;font-size:15px;margin-bottom:8px" onclick="closePopup();ordhMgrSms('+(selectedOnly?'true':'false')+')">👨‍💼 담당자 한 명에게 목록 전달 (1통)</button>';
+  h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:12px;background:#64748b;color:#fff;font-weight:700" onclick="closePopup()">✕ 문자 취소 (안 보냄)</button>';
+  h+='</div>';
+  openPopup(h,440);
+}
+// 👨‍💼 담당자 1명에게 송장 목록 전달 (이름+택배사+송장번호)
+async function ordhMgrSms(selectedOnly){
+  var selSet=null;
+  if(selectedOnly){
+    var sk=ordhSelectedKeys();
+    if(!sk.length){ alert('전달할 행을 체크하세요.'); return; }
+    selSet={}; sk.forEach(function(k){selSet[k]=1;});
+  }
+  var lines=[];
+  Object.keys(ORDH_DATA).forEach(function(k){
+    if(selSet && !selSet[k]) return;
+    var d=ORDH_DATA[k]||{};
+    if(!d['송장번호']) return;
+    lines.push((d['수취인명']||'')+'님 '+(d['택배사']||'택배')+' '+d['송장번호']);
+  });
+  if(!lines.length){ alert('송장번호 있는 주문이 없습니다.\n먼저 송장 업로드를 해주세요.'); return; }
+  // 담당자 고르기 (접수데이터 담당자 목록 공용)
+  var mgrs=(await fbDb.ref('/excel_config/managers').once('value')).val()||{};
+  var list=Object.keys(mgrs).map(function(id){return {id:id,num:(mgrs[id].num||''),label:(mgrs[id].label||'')};}).filter(function(x){return x.num;});
+  var picked='';
+  if(list.length){
+    var menu=list.map(function(x,i){return (i+1)+'. '+x.label+' '+x.num;}).join('\n');
+    var pick=prompt('담당자 번호를 고르세요 (번호 입력) 또는 새 번호를 직접 입력:\n\n'+menu+'\n\n(예: 1  또는  01012345678)','1');
+    if(pick===null) return;
+    pick=pick.trim();
+    if(/^\d{1,2}$/.test(pick) && list[Number(pick)-1]) picked=list[Number(pick)-1].num;
+    else picked=pick.replace(/[^0-9]/g,'');
+  } else {
+    var p=prompt('전달할 담당자 휴대폰 번호를 입력하세요 (숫자만):','');
+    if(p===null) return; picked=p.replace(/[^0-9]/g,'');
+  }
+  if(picked.length<10){ alert('번호 형식이 올바르지 않습니다.'); return; }
+  if(!list.some(function(x){return x.num===picked;})){
+    if(confirm('이 번호를 담당자 목록에 저장할까요?\n'+picked)){
+      var lbl=prompt('담당자 이름/메모 (선택):','')||'';
+      fbDb.ref('/excel_config/managers').push({num:picked, label:lbl.trim()}).catch(function(){});
+    }
+  }
+  var msg='[가문굴비] 송장 목록 '+lines.length+'건\n'+lines.join('\n');
+  var _go=await smsPreview({title:'담당자에게 목록 전달 (길면 LMS 요금)', count:1, msgs:[{to:'담당자 '+picked, msg:msg}]});
+  if(!_go) return;
+  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
+  var proxy=cfg.SMS_PROXY_URL||'';
+  if(!proxy){ alert('SMS_PROXY_URL 설정이 없습니다.'); return; }
+  var okk=false;
+  try{
+    var r=await fetch(proxy,{method:'POST',body:JSON.stringify({action:'send',
+      serviceId:cfg.NAVER_SENS_SERVICE_ID||'',accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
+      secretKey:cfg.NAVER_SENS_SECRET_KEY||'',sender:effSender(cfg),
+      tels:[picked],msg:msg})});
+    okk=(await r.json()).ok;
+  }catch(e){}
+  alert(okk?'담당자('+picked+')에게 전달 완료!':'전달 실패 (설정/번호 확인)');
+}
 async function ordhSms(kind, selectedOnly){
   // 대상 모으기 (구매자별 그룹)
   var toReceiver = (kind==='받는분');   // 수취인에게 / 아니면 구매자에게
