@@ -21329,11 +21329,11 @@ async function shipOpen(k){
   if(ni>=0 && ti>=0){
     bar='<div style="margin-bottom:8px;padding:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
     bar+='<span style="font-weight:700;font-size:12px">📨 문자:</span>';
-    bar+='<select id="ship_smstype" style="width:auto;font-size:13px"><option value="발송">발송 안내</option><option value="접수">접수 안내</option><option value="직접">직접 입력</option></select>';
-    bar+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\')">받는분에게 발송</button>';
-    bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipMgrSms(\''+k+'\')">👤 담당자에게 전달</button>';
+    bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="shipSmsChoose(\''+k+'\')">🚚 송장 발송</button>';
+    bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'접수\')">📩 접수 안내</button>';
+    bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'직접\')">✏️ 직접 입력</button>';
     bar+='<span style="margin-left:auto">'+shipSmsBadges(k)+'</span>';
-    bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">받는분 발송 = 이 파일 받는분 전화로 · 담당자 전달 = 받는분+상품 목록을 담당자 한 명에게</div></div>';
+    bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">송장 발송 = 받는분 각자에게 보내거나 담당자 한 명에게 목록 전달 (누르면 선택) · 보내기 전 미리보기로 확인</div></div>';
   }
   // 🔗 주문히스토리(excel_orders)에서 송장번호·택배사 찾아와 히스토리처럼 컬럼 표시
   var trkMap=[];
@@ -21390,7 +21390,19 @@ function shipSmsBadges(k){
 }
 
 // 이 파일(업체)의 받는분들에게 문자 — 종류 선택(발송/접수/직접)
-async function shipFileSms(k){
+// 🚚 접수데이터 송장 발송 3택 — 받는분 각자 발송 / 담당자에게 목록 전달 / 취소 (주문히스토리와 동일한 방식)
+function shipSmsChoose(k){
+  var d=SHIP_DATA[k]||{};
+  var h='<div style="max-width:420px">';
+  h+='<h3 style="margin:0 0 6px">🚚 송장 발송 — 누구에게 보낼까요?</h3>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:14px">['+esc(d.file||'')+']<br>다음 화면에서 문자 내용을 미리 보고 최종 확인합니다</div>';
+  h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:14px;background:#16a34a;color:#fff;font-weight:800;font-size:15px;margin-bottom:8px" onclick="closePopup();shipFileSms(\''+k+'\',\'발송\')">👤 받는분(수취인) 각자에게 발송</button>';
+  h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:14px;background:#0d9488;color:#fff;font-weight:800;font-size:15px;margin-bottom:8px" onclick="closePopup();shipMgrSms(\''+k+'\')">👨‍💼 담당자 한 명에게 목록 전달 (1통)</button>';
+  h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:12px;background:#64748b;color:#fff;font-weight:700" onclick="closePopup()">✕ 문자 취소 (안 보냄)</button>';
+  h+='</div>';
+  openPopup(h,440);
+}
+async function shipFileSms(k, forceType){
   var d=SHIP_DATA[k]||{};
   var heads=d.headers||[], rows=d.rows||[];
   var ni=heads.findIndex(function(x){return /받는분|수취인/.test(x);});
@@ -21399,7 +21411,7 @@ async function shipFileSms(k){
   var qi=heads.findIndex(function(x){return /수량|개수/.test(x);});
   var ki=heads.findIndex(function(x){return /송장|운송장/.test(x);});
   if(ni<0||ti<0){ alert('이 파일엔 받는분/전화 열이 없어 문자 발송이 안 됩니다.'); return; }
-  var type=(document.getElementById('ship_smstype')||{}).value||'발송';
+  var type=forceType||((document.getElementById('ship_smstype')||{}).value||'발송');
   var custom='';
   if(type==='직접'){
     custom=prompt('보낼 내용을 입력하세요.\n(받는분 이름/상품은 자동으로 뒤에 붙습니다. 비우면 안 붙음)', '[가문굴비] 안내드립니다.');
