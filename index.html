@@ -21314,7 +21314,7 @@ function renderShipSummary(fileKeys){
 }
 
 var SHIP_OPEN_KEY=null;
-function shipOpen(k){
+async function shipOpen(k){
   var card=document.getElementById('ship_rows_card');
   // 토글: 같은 파일 다시 클릭하면 닫기
   if(SHIP_OPEN_KEY===k && card.style.display!=='none'){ card.style.display='none'; SHIP_OPEN_KEY=null; return; }
@@ -21335,12 +21335,40 @@ function shipOpen(k){
     bar+='<span style="margin-left:auto">'+shipSmsBadges(k)+'</span>';
     bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">받는분 발송 = 이 파일 받는분 전화로 · 담당자 전달 = 받는분+상품 목록을 담당자 한 명에게</div></div>';
   }
+  // 🔗 주문히스토리(excel_orders)에서 송장번호·택배사 찾아와 히스토리처럼 컬럼 표시
+  var trkMap=[];
+  if(ni>=0){
+    try{
+      var _n=function(s){ s=String(s||'').trim().split(/\s+/)[0]; return s.replace(/(님|씨|귀하)$/,''); };
+      var _t=function(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); };
+      var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
+      var idx={};
+      Object.keys(ORD).forEach(function(ok2){
+        var o=ORD[ok2]||{}; if(!o['송장번호']) return;
+        var kk=_n(o['수취인명'])+'|'+_t(o['수취인전화']);
+        (idx[kk]=idx[kk]||[]).push({trk:o['송장번호'], car:o['택배사']||''});
+      });
+      rows.forEach(function(r,i2){
+        var nm=_n(String(r[ni]||''));
+        if(!nm) return;
+        var tel=ti>=0?_t(r[ti]):'';
+        var q=(idx[nm+'|'+tel]&&idx[nm+'|'+tel].length)?idx[nm+'|'+tel]:null;
+        if(!q){ var bn=Object.keys(idx).filter(function(x){return x.indexOf(nm+'|')===0&&idx[x].length;}); if(bn.length) q=idx[bn[0]]; }
+        if(q) trkMap[i2]=q.shift();
+      });
+    }catch(e){}
+  }
   var h=bar+'<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th>';
   heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
+  if(ni>=0) h+='<th>택배사</th><th>송장번호</th>';
   h+='</tr></thead><tbody>';
   rows.forEach(function(r,i){
     h+='<tr><td>'+(i+1)+'</td>';
     (r||[]).forEach(function(v){ h+='<td>'+(v||'')+'</td>'; });
+    if(ni>=0){
+      var tm=trkMap[i];
+      h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>';
+    }
     h+='</tr>';
   });
   h+='</tbody></table>';
