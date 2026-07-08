@@ -21387,23 +21387,33 @@ async function shipFileSms(k){
   });
   var tels=Object.keys(grp);
   if(!tels.length){ alert(type==='발송'?('송장번호가 있는 받는분이 없습니다.\n먼저 주문히스토리에서 송장 업로드를 해주세요.'+(noTrkNames.length?('\n(송장 없음: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')+')'):'')):'전화번호가 있는 받는분이 없습니다.'); return; }
-  if(!confirm('['+(d.file||'')+']\n받는분 '+tels.length+'명에게 ['+type+'] 문자를 보낼까요?'+(type==='발송'&&noTrk?('\n(송장 없는 '+noTrk+'명 제외: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')+')'):'')+'\n(같은 번호는 한 통 · 건당 요금)')) return;
-  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
-  var proxy=cfg.SMS_PROXY_URL||'';
-  if(!proxy){ alert('SMS_PROXY_URL 설정이 없습니다.'); return; }
-  var ok=0, fail=0;
-  for(var i=0;i<tels.length;i++){
-    var g=grp[tels[i]];
+  // 문자 내용 먼저 만들고 미리보기로 확인
+  var sends=tels.map(function(t){
+    var g=grp[t];
     var body=g.lines.join('\n');
     var msg;
     if(type==='접수') msg='[가문굴비] 주문이 접수되었습니다\n\n'+body+'\n\n감사합니다.';
     else if(type==='직접') msg=(custom||'')+(body?('\n\n'+body):'');
     else msg='[가문굴비] 상품이 발송되었습니다\n'+body;
+    return {tel:t, msg:msg, name:g.name||''};
+  });
+  var _go=await smsPreview({
+    title:'['+type+'] '+(d.file||''),
+    count:sends.length,
+    note:(type==='발송'&&noTrk)?('송장 없는 '+noTrk+'명 제외: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')):'같은 번호는 한 통으로 묶어서 발송',
+    msgs:sends.map(function(s){ return {to:(s.name?s.name+'님 ':'')+s.tel, msg:s.msg}; })
+  });
+  if(!_go) return;
+  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
+  var proxy=cfg.SMS_PROXY_URL||'';
+  if(!proxy){ alert('SMS_PROXY_URL 설정이 없습니다.'); return; }
+  var ok=0, fail=0;
+  for(var i=0;i<sends.length;i++){
     try{
       var r=await fetch(proxy,{method:'POST',body:JSON.stringify({action:'send',
         serviceId:cfg.NAVER_SENS_SERVICE_ID||'',accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
         secretKey:cfg.NAVER_SENS_SECRET_KEY||'',sender:effSender(cfg),
-        tels:[tels[i]],msg:msg})});
+        tels:[sends[i].tel],msg:sends[i].msg})});
       if((await r.json()).ok) ok++; else fail++;
     }catch(e){ fail++; }
   }
@@ -21627,6 +21637,29 @@ function ordhDelSelected(){
   fbDb.ref().update(up).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
+// 📱 문자 미리보기 모달 — 실제 발송될 문자를 말풍선으로 보여주고 보내기/취소 (Promise<boolean>)
+function smsPreview(opts){
+  return new Promise(function(resolve){
+    window.__smsPvResolve=resolve;
+    var h='<div style="max-width:480px">';
+    h+='<h3 style="margin:0 0 4px">📱 문자 미리보기</h3>';
+    if(opts.title) h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px">'+esc(opts.title)+'</div>';
+    h+='<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:10px">'+opts.count+'통 발송 예정 <span style="color:#dc2626">(건당 요금)</span>'+(opts.note?'<div style="font-weight:400;color:#94a3b8;font-size:11px;margin-top:2px">'+esc(opts.note)+'</div>':'')+'</div>';
+    h+='<div style="max-height:45vh;overflow-y:auto;padding:4px 2px">';
+    (opts.msgs||[]).slice(0,5).forEach(function(m){
+      h+='<div style="margin-bottom:12px">';
+      h+='<div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:4px">📩 '+esc(m.to||'')+'</div>';
+      h+='<div style="background:#dcfce7;border:1px solid #bbf7d0;border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-all;color:#0f172a;box-shadow:0 1px 3px rgba(0,0,0,.06)">'+esc(m.msg||'')+'</div>';
+      h+='</div>';
+    });
+    if((opts.msgs||[]).length>5) h+='<div style="font-size:11px;color:#94a3b8;text-align:center;padding:4px">… 외 '+(opts.msgs.length-5)+'통 (형식 동일, 이름·송장만 다름)</div>';
+    h+='</div>';
+    h+='<div style="display:flex;gap:8px;margin-top:12px"><button class="btn" style="flex:1;background:#64748b;color:#fff" onclick="__smsPvDone(false)">취소</button><button class="btn" style="flex:2;background:#2563eb;color:#fff;font-weight:800" onclick="__smsPvDone(true)">📨 이대로 '+opts.count+'통 보내기</button></div>';
+    h+='</div>';
+    openPopup(h,500);
+  });
+}
+function __smsPvDone(go){ closePopup(); var r=window.__smsPvResolve; window.__smsPvResolve=null; if(r) r(!!go); }
 async function ordhSms(kind, selectedOnly){
   // 대상 모으기 (구매자별 그룹)
   var toReceiver = (kind==='받는분');   // 수취인에게 / 아니면 구매자에게
@@ -21657,16 +21690,9 @@ async function ordhSms(kind, selectedOnly){
   var tels=Object.keys(grp);
   if(!tels.length){ alert('보낼 대상이 없습니다.\n(조건: '+(toReceiver?'수취인전화':'구매자전화')+' 있음'+((kind==='송장'||toReceiver)?' + 송장번호 있음':'')+' + 아직 안 보냄)'); return; }
   var totalRows=0; tels.forEach(function(t){ totalRows+=grp[t].keys.length; });
-  if(!confirm(tels.length+'명('+(toReceiver?'받는분':'구매자')+')에게 '+kind+' 문자 '+tels.length+'통을 보냅니다.\n(주문 '+totalRows+'건 / 건당 요금 발생)\n계속할까요?')) return;
-
-  // SENS 설정 (main/Config 재사용)
-  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
-  var proxy=cfg.SMS_PROXY_URL||'';
-  if(!proxy){ alert('SMS_PROXY_URL 이 없습니다. SMS 설정 확인.'); return; }
-
-  var ok=0, fail=0;
-  for(var i=0;i<tels.length;i++){
-    var g=grp[tels[i]];
+  // 문자 내용 먼저 만들고 미리보기로 확인
+  var sends=tels.map(function(t){
+    var g=grp[t];
     var msg;
     if(toReceiver){
       msg='[가문굴비] '+(g.buyer?g.buyer+'님이 보내신 ':'')+'상품이 발송되었습니다\n'+g.lines.join('\n');
@@ -21675,11 +21701,29 @@ async function ordhSms(kind, selectedOnly){
     } else {
       msg='[가문굴비] 주문이 접수되었습니다\n\n'+g.lines.join('\n')+'\n\n감사합니다.';
     }
+    return {tel:t, msg:msg, name:g.name||''};
+  });
+  var _go=await smsPreview({
+    title:kind+' 문자 → '+(toReceiver?'받는분(수취인)':'구매자(주문한 사람)')+'에게 · 주문 '+totalRows+'건',
+    count:sends.length,
+    msgs:sends.map(function(s){ return {to:(s.name?s.name+'님 ':'')+s.tel, msg:s.msg}; })
+  });
+  if(!_go) return;
+
+  // SENS 설정 (main/Config 재사용)
+  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
+  var proxy=cfg.SMS_PROXY_URL||'';
+  if(!proxy){ alert('SMS_PROXY_URL 이 없습니다. SMS 설정 확인.'); return; }
+
+  var ok=0, fail=0;
+  for(var i=0;i<tels.length;i++){
+    var g=grp[sends[i].tel];
+    var msg=sends[i].msg;
     try{
       var r=await fetch(proxy,{method:'POST',body:JSON.stringify({
         action:'send', serviceId:cfg.NAVER_SENS_SERVICE_ID||'', accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
         secretKey:cfg.NAVER_SENS_SECRET_KEY||'', sender:effSender(cfg),
-        tels:[tels[i]], msg:msg
+        tels:[sends[i].tel], msg:msg
       })});
       var res=await r.json();
       if(res.ok){
