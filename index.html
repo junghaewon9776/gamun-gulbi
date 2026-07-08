@@ -21621,9 +21621,9 @@ async function ordhSms(kind, selectedOnly){
     if(!grp[tel]) grp[tel]={keys:[], lines:[], name:(toReceiver?d['수취인명']:d['구매자명'])||'', buyer:d['구매자명']||''};
     grp[tel].keys.push(k);
     if(toReceiver){
-      grp[tel].lines.push((d['택배사']||'')+' '+(d['송장번호']||'')+(d['상품명']?(' ('+d['상품명']+')'):''));
+      grp[tel].lines.push((d['택배사']||'택배')+' '+(d['송장번호']||''));
     } else if(kind==='송장'){
-      grp[tel].lines.push('· 받는분 '+(d['수취인명']||'')+'님\n   '+(d['택배사']||'택배')+' 송장번호 '+(d['송장번호']||''));
+      grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['택배사']||'택배')+' '+(d['송장번호']||''));
     } else {
       grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['상품명']||'')+(d['수량']?(' '+d['수량']+'개'):''));
     }
@@ -21643,9 +21643,9 @@ async function ordhSms(kind, selectedOnly){
     var g=grp[tels[i]];
     var msg;
     if(toReceiver){
-      msg='[가문굴비] '+(g.buyer?g.buyer+'님이 보내신 ':'')+'상품이 발송되었습니다\n\n'+g.lines.join('\n');
+      msg='[가문굴비] '+(g.buyer?g.buyer+'님이 보내신 ':'')+'상품이 발송되었습니다\n'+g.lines.join('\n');
     } else if(kind==='송장'){
-      msg='[가문굴비] 주문하신 상품이 발송되었습니다.\n\n'+(g.buyer?g.buyer+'님, ':'')+'보내주신 주문의 송장번호 안내드립니다.\n\n'+g.lines.join('\n')+'\n\n택배사 홈페이지에서 배송조회 하실 수 있습니다.\n감사합니다.';
+      msg='[가문굴비] 상품이 발송되었습니다\n'+g.lines.join('\n');
     } else {
       msg='[가문굴비] 주문이 접수되었습니다\n\n'+g.lines.join('\n')+'\n\n감사합니다.';
     }
