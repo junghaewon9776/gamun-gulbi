@@ -21933,7 +21933,7 @@ function renderOrderHist(){
 function ordhDel(k){
   var d=ORDH_DATA[k]||{};
   if(!confirm((d['수취인명']||'')+' / '+(d['상품명']||'')+' 이 주문을 삭제할까요?')) return;
-  fbDb.ref('/excel_orders/'+k).remove()
+  fbDb.ref(ORDH_PATH[k]||'/excel_orders/'+k).remove()
     .catch(function(e){ alert('삭제 실패: '+e.message); });
   // 실시간 리스너가 화면 자동 갱신
 }
@@ -21995,8 +21995,8 @@ function ordhTrackUpload(file){
         }
         if(hit && hit.length){
           var key=hit.shift();
-          updates['/excel_orders/'+key+'/송장번호']=trk;
-          if(car) updates['/excel_orders/'+key+'/택배사']=car;
+          updates[(ORDH_PATH[key]||'/excel_orders/'+key)+'/송장번호']=trk;
+          if(car) updates[(ORDH_PATH[key]||'/excel_orders/'+key)+'/택배사']=car;
           ok++;
         } else { miss++; if(missNames.length<10) missNames.push(nmRaw); }
       }
