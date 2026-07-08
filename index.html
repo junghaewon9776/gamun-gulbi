@@ -21348,20 +21348,46 @@ async function shipFileSms(k){
     custom=prompt('보낼 내용을 입력하세요.\n(받는분 이름/상품은 자동으로 뒤에 붙습니다. 비우면 안 붙음)', '[가문굴비] 안내드립니다.');
     if(custom===null) return;
   }
+  // 🔗 발송(송장) 문자면 주문히스토리(excel_orders)에서 송장번호·택배사를 찾아옴 — 이 파일에 송장 열이 없어도 연동
+  function _nrm(s){ s=String(s||'').trim().split(/\s+/)[0]; return s.replace(/(님|씨|귀하)$/,''); }
+  function _t4(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
+  var trkIdx={};
+  if(type==='발송'){
+    var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
+    Object.keys(ORD).forEach(function(ok2){
+      var o=ORD[ok2]||{}; if(!o['송장번호']) return;
+      var kk=_nrm(o['수취인명'])+'|'+_t4(o['수취인전화']);
+      (trkIdx[kk]=trkIdx[kk]||[]).push({trk:o['송장번호'], car:o['택배사']||''});
+    });
+  }
   // 전화별로 묶기 (같은 번호 = 한 통)
-  var grp={};
+  var grp={}, noTrk=0, noTrkNames=[];
   rows.forEach(function(r){
     var tel=String(r[ti]||'').replace(/[^0-9]/g,'');
     if(tel.length<10) return;
     var nm=r[ni]||'';
     var item=(si>=0?(r[si]||''):'')+(qi>=0&&r[qi]?(' '+r[qi]+'개'):'');
-    var trk=(ki>=0&&r[ki])?(' 송장 '+r[ki]):'';
+    if(type==='발송'){
+      // 발송 문자 = 이름+택배사+송장번호만. 이 파일 송장 열 → 없으면 주문히스토리에서 매칭
+      var car='', trkNo='';
+      if(ki>=0&&r[ki]){ trkNo=String(r[ki]); }
+      else{
+        var kk2=_nrm(nm)+'|'+_t4(tel);
+        var q=(trkIdx[kk2]&&trkIdx[kk2].length)?trkIdx[kk2]:null;
+        if(!q){ var bn=Object.keys(trkIdx).filter(function(x){return x.indexOf(_nrm(nm)+'|')===0&&trkIdx[x].length;}); if(bn.length) q=trkIdx[bn[0]]; }
+        if(q){ var got=q.shift(); trkNo=got.trk; car=got.car; }
+      }
+      if(!trkNo){ noTrk++; if(noTrkNames.length<8) noTrkNames.push(nm); return; }   // 송장 없는 사람은 발송문자 제외
+      if(!grp[tel]) grp[tel]={name:nm, lines:[]};
+      grp[tel].lines.push(nm+'님 '+(car||'택배')+' '+trkNo);
+      return;
+    }
     if(!grp[tel]) grp[tel]={name:nm, lines:[]};
-    grp[tel].lines.push(nm+'님'+(item?(' '+item):'')+trk);
+    grp[tel].lines.push(nm+'님'+(item?(' '+item):''));
   });
   var tels=Object.keys(grp);
-  if(!tels.length){ alert('전화번호가 있는 받는분이 없습니다.'); return; }
-  if(!confirm('['+(d.file||'')+']\n받는분 '+tels.length+'명에게 ['+type+'] 문자를 보낼까요?\n(같은 번호는 한 통 · 건당 요금)')) return;
+  if(!tels.length){ alert(type==='발송'?('송장번호가 있는 받는분이 없습니다.\n먼저 주문히스토리에서 송장 업로드를 해주세요.'+(noTrkNames.length?('\n(송장 없음: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')+')'):'')):'전화번호가 있는 받는분이 없습니다.'); return; }
+  if(!confirm('['+(d.file||'')+']\n받는분 '+tels.length+'명에게 ['+type+'] 문자를 보낼까요?'+(type==='발송'&&noTrk?('\n(송장 없는 '+noTrk+'명 제외: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')+')'):'')+'\n(같은 번호는 한 통 · 건당 요금)')) return;
   var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
   var proxy=cfg.SMS_PROXY_URL||'';
   if(!proxy){ alert('SMS_PROXY_URL 설정이 없습니다.'); return; }
@@ -21372,7 +21398,7 @@ async function shipFileSms(k){
     var msg;
     if(type==='접수') msg='[가문굴비] 주문이 접수되었습니다\n\n'+body+'\n\n감사합니다.';
     else if(type==='직접') msg=(custom||'')+(body?('\n\n'+body):'');
-    else msg='[가문굴비] 상품이 발송되었습니다\n\n'+body;
+    else msg='[가문굴비] 상품이 발송되었습니다\n'+body;
     try{
       var r=await fetch(proxy,{method:'POST',body:JSON.stringify({action:'send',
         serviceId:cfg.NAVER_SENS_SERVICE_ID||'',accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
