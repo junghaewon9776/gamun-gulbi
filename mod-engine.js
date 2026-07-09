@@ -202,7 +202,7 @@ function dMod(key){
   if(isA()) h+='<button class="btn" style="background:#16a34a;color:#fff" onclick="popModSheet(\''+key+'\')">📝 시트 편집</button>';
   if(isA()) h+='<button class="btn" style="background:#0d9488;color:#fff" onclick="modImportExcel(\''+key+'\')">📤 가져오기</button>';
   if(isA() && _modTrackingCol(def)) h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="popModTrackImport(\''+key+'\')">📦 송장 일괄등록</button>';
-  if(feat.excel!==false) h+='<button class="btn" style="background:#059669;color:#fff;font-weight:700" onclick="modExportExcel(\''+key+'\')">📥 내보내기</button>';
+  if(feat.excel!==false) h+='<button class="btn" onclick="modExportExcel(\''+key+'\')">📥 내보내기</button>';
   if(typeof isSuper==='function'&&isSuper()) h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="popModLog(\''+key+'\')">📋 로그</button>';
   if(typeof isSuper==='function'&&isSuper()) h+='<button class="btn" style="background:#dc2626;color:#fff" onclick="modResetPrintCount(\''+key+'\')">🖨 출력횟수 초기화</button>';
   h+='</div></div>';
@@ -945,6 +945,32 @@ function _modSmsGlobal(tels, msg){
     return fetch(proxy,{method:'POST',redirect:'follow',body:JSON.stringify(body)}).then(function(r){return r.json();}).catch(function(e){return {ok:false,err:'프록시 통신오류: '+(e.message||e)};});
   });
 }
+// 📮 신청 접수 관리자 텔레그램 알림 — /excel_config/telegram(택배봇) 설정된 시스템(가문굴비)만 발송, 없으면 조용히 건너뜀
+function _modTgNotifyApply(def, rows){
+  try{
+    if(typeof fbDb==='undefined'||!rows||!rows.length) return;
+    fbDb.ref('/excel_config/telegram').once('value').then(function(s){
+      var tg=s.val()||{};
+      if(!tg.token||!tg.chat_id) return;
+      var base=rows[0];
+      var ordCol=(def.columns||[]).find(function(c){return c.type==='text'&&/주문자|구매자|신청자/.test(c.label||'')&&!/받는|수령|수취/.test(c.label||'');});
+      var ordTel=(def.columns||[]).find(function(c){return c.type==='tel'&&!/받는|수령|수취/.test(c.label||'');});
+      var rnCol=(def.columns||[]).find(function(c){return c.type==='text'&&/받는|수령|수취/.test(c.label||'');});
+      var msg='📦 '+(def.label||'')+' 접수!\n';
+      if(ordCol&&base[ordCol.key]) msg+='주문자: '+base[ordCol.key]+(ordTel&&base[ordTel.key]?(' ('+base[ordTel.key]+')'):'')+'\n';
+      msg+='받는분 '+rows.length+'명\n';
+      rows.forEach(function(r,i){
+        var items='';
+        (def.columns||[]).forEach(function(c){ if(c.multiQty&&r[c.key]&&!items) items=_modMultiStr(r[c.key],', ',c.multiNoQty,c.multiQtyKae); });
+        msg+=(rows.length>1?((i+1)+') '):'')+(rnCol?(r[rnCol.key]||''):'')+(items?(' — '+items):'')+'\n';
+      });
+      var chats=String(tg.chat_id).split(',').map(function(c){return c.trim();}).filter(Boolean);
+      chats.forEach(function(ch){
+        fetch('https://api.telegram.org/bot'+tg.token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:ch,text:msg})}).catch(function(){});
+      });
+    }).catch(function(){});
+  }catch(e){}
+}
 // 템플릿의 {라벨} → 해당 컬럼 값으로 치환
 function _modSmsFill(tpl, def, row){
   var s=String(tpl||'');
@@ -1241,47 +1267,23 @@ function _modSendCancelSms(def, rows){
 // 엑셀 내보내기
 // ═══════════════════════════════════════════
 
-// 주소에서 우편번호 분리 (괄호/대괄호 안 숫자 또는 앞머리 우편번호)
-function _modSplitZip(addr){
-  addr=String(addr==null?'':addr).trim();
-  var m=addr.match(/[\(\[]\s*(\d{4,6})\s*[\)\]]/);     // (12345) / [12345]
-  if(!m) m=addr.match(/^\s*(\d{5,6})(?=[\s\-,])/);     // 앞머리 우편번호
-  if(m) return { zip:m[1], addr:addr.replace(m[0],'').replace(/^[\s,\-]+/,'').trim() };
-  return { zip:'', addr:addr };
-}
-
 function modExportExcel(key){
   var def=_modDefs[key]; if(!def) return;
   var data=_modFilteredData(key);  // 현재 검색·필터·정렬 적용된 것만 내보내기
   var cols=(def.columns||[]).filter(function(c){return !c.hideTable});
-  var addrIdx=cols.findIndex(function(c){return /주소/.test(c.label||'');});  // 주소 열 (있으면 우편번호 분리)
-  // 헤더: 고유번호 + 접수일 + (주소 앞에 우편번호 삽입) 컬럼들
-  var header=['고유번호','접수일'];
-  cols.forEach(function(c,i){ if(i===addrIdx) header.push('우편번호'); header.push(c.label); });
-  var rows=[header];
+  // 첫 열은 고유번호(QR id) — 다시 가져올 때 기존 행을 식별/업데이트하기 위함
+  var rows=[['고유번호'].concat(cols.map(function(c){return c.label}))];
   data.forEach(function(row){
-    var out=[row._id||'', row._createdAt?_modFmtDateTime(row._createdAt):''];
-    cols.forEach(function(c,i){
-      var v=row[c.key];
-      if(v==null) v='';
-      else if(c.multiQty) v=_modMultiStr(v,c.multiSep,c.multiNoQty,c.multiQtyKae);
-      else if(c.type==='badge'&&c.badgeMap&&c.badgeMap[v]) v=c.badgeMap[v].label||v;
-      if(i===addrIdx){ var sp=_modSplitZip(v); out.push(sp.zip); out.push(sp.addr); }
-      else out.push(v);
-    });
-    rows.push(out);
+    rows.push([row._id||''].concat(cols.map(function(c){
+      var v=row[c.key]; if(v==null) return '';
+      if(c.multiQty) return _modMultiStr(v,c.multiSep,c.multiNoQty,c.multiQtyKae);
+      if(c.type==='badge'&&c.badgeMap&&c.badgeMap[v]) return c.badgeMap[v].label||v;
+      return v;
+    })));
   });
   if(typeof XLSX!=='undefined'){
     var wb=XLSX.utils.book_new();
     var ws=XLSX.utils.aoa_to_sheet(rows);
-    // 우편번호 열 텍스트("@")로 — 앞자리 0 안 지워지게
-    if(addrIdx>=0){
-      var zipCol=2+addrIdx;   // 고유번호(0)+접수일(1)+주소앞 우편번호
-      for(var rr=1;rr<rows.length;rr++){
-        var cell=ws[XLSX.utils.encode_cell({r:rr,c:zipCol})];
-        if(cell){ cell.t='s'; cell.v=String(cell.v==null?'':cell.v); cell.z='@'; }
-      }
-    }
     XLSX.utils.book_append_sheet(wb,ws,def.label);
     XLSX.writeFile(wb,def.label+'_'+(_todayStr())+'.xlsx');
   } else {
@@ -3198,6 +3200,7 @@ function submitModApply(){
         });
       });
     }
+    _modTgNotifyApply(def, rows);   // 📮 관리자 텔레그램 알림 (택배봇 설정된 시스템만)
     var _dlUrl=(def.downloadUrl||'').trim();
     var _um=_dlUrl.match(/https?:\/\/\S+/i);          // 앞에 글자 섞여 있어도 URL만 추출
     if(_um) _dlUrl=_um[0];
