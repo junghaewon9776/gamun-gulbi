@@ -20697,7 +20697,7 @@ function pcLicApps(){
   var s={};
   Object.keys(PCLIC_DATA).forEach(function(a){ if(a!=='_ALL') s[a]=1; });
   Object.keys(PCLIC_REQ).forEach(function(a){ s[a]=1; });
-  Object.keys(PCLIC_VER).forEach(function(a){ s[a]=1; });
+  Object.keys(PCLIC_VER).forEach(function(a){ if(!/_history$/.test(a)) s[a]=1; });   // 📜 버전 이력 노드는 프로그램 아님
   // 로그인 기록에 찍힌 프로그램도 (승인된 _ALL PC에서 실행만 해도 여기서 잡힘)
   Object.keys(PCLIC_LOG).forEach(function(k){ var a=(PCLIC_LOG[k]||{}).app; if(a && a!=='_ALL') s[a]=1; });
   // 삭제(숨김) 표시된 프로그램은 제외 (/excel_version/<app>={ignored:true}). 실제 버전 등록되면 자동 해제됨
@@ -21072,6 +21072,7 @@ function dShipData(){
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📦 접수 데이터</h3>';
   h+='<div class="muted" style="font-size:12px">엑셀/와꾸에서 저장하면 자동으로 쌓입니다. 파일 클릭 = 그 파일 데이터 · 요약 = 통합 수량</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  h+='<b style="color:#c026d3">업체</b> <select id="ship_company" onchange="renderShip()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
   h+='<b style="color:#7c3aed">지점</b> <select id="ship_jijeom" onchange="renderShip()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
   h+='날짜 <select id="ship_date" onchange="renderShip()" style="width:auto"></select> ';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData()">🔄 새로고침</button> ';
@@ -21187,7 +21188,7 @@ function _sndDel(id){
   fbDb.ref('/excel_config/senders/'+id).remove().catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
-var SHIP_LISTENER=null, SHIP_RAW={}, SHIP_PATH={}, CUR_JIJEOM='';
+var SHIP_LISTENER=null, SHIP_RAW={}, SHIP_PATH={}, CUR_CO='', CUR_JI='';
 function loadShipData(){
   if(!SHIP_LISTENER){
     SHIP_LISTENER=true;
@@ -21195,34 +21196,43 @@ function loadShipData(){
       function(e){ var el=document.getElementById('ship_files'); if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'</span>'; });
   } else if(CTAB==='shipData') renderShip();
 }
-// 지점 목록: 루트 직접레코드(.t/.file/.rows)=본사, 나머지 키=지점폴더
-function shipJijeoms(){
-  var js={'본사':1};
-  Object.keys(SHIP_RAW).forEach(function(k){ var v=SHIP_RAW[k]||{}; if(!(v.t||v.file||v.rows)) js[k]=1; });
-  return Object.keys(js).sort();
-}
-// 선택 지점의 레코드들 -> SHIP_DATA, 각 레코드의 firebase 경로 -> SHIP_PATH
-function shipSelectJijeom(j){
-  SHIP_DATA={}; SHIP_PATH={};
-  Object.keys(SHIP_RAW).forEach(function(k){
-    var v=SHIP_RAW[k]||{};
-    if(v.t||v.file||v.rows){ if(j==='본사'){ SHIP_DATA[k]=v; SHIP_PATH[k]='/excel_ship/'+k; } }
-    else if(k===j){ Object.keys(v).forEach(function(pk){ SHIP_DATA[pk]=v[pk]; SHIP_PATH[pk]='/excel_ship/'+k+'/'+pk; }); }
+// SHIP_RAW → [{co,ji,k,rec,path}] : 깊이 자동감지 (루트레코드=본사/본사, 1단계=본사/<지점>, 2단계=<업체>/<지점>)
+function shipFlat(){
+  var out=[], isR=function(v){return v&&(v.t||v.file||v.rows);};
+  Object.keys(SHIP_RAW).forEach(function(K){
+    var V=SHIP_RAW[K]||{};
+    if(isR(V)){ out.push({co:'본사',ji:'본사',k:K,rec:V,path:'/excel_ship/'+K}); return; }
+    var sk=Object.keys(V); if(!sk.length) return;
+    if(isR(V[sk[0]])) sk.forEach(function(s){ out.push({co:'본사',ji:K,k:s,rec:V[s],path:'/excel_ship/'+K+'/'+s}); });
+    else sk.forEach(function(jk){ var jv=V[jk]||{}; Object.keys(jv).forEach(function(rk){ out.push({co:K,ji:jk,k:rk,rec:jv[rk],path:'/excel_ship/'+K+'/'+jk+'/'+rk}); }); });
   });
+  return out;
+}
+function shipCompanies(){ var s={'본사':1}; shipFlat().forEach(function(x){s[x.co]=1;}); return Object.keys(s).sort(); }
+function shipJijeomsOf(co){ var s={}; shipFlat().forEach(function(x){ if(x.co===co) s[x.ji]=1; }); return Object.keys(s).sort(); }
+function shipSelect(co,ji){
+  SHIP_DATA={}; SHIP_PATH={};
+  shipFlat().forEach(function(x){ if(x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; SHIP_DATA[x.k]=x.rec; SHIP_PATH[x.k]=x.path; });
 }
 
 function renderShip(){
-  // 지점 드롭다운 (본사/서울지점/행사...) — 데이터에서 자동 감지
-  var jsel=document.getElementById('ship_jijeom');
-  if(jsel){
-    var js=shipJijeoms(), jc=jsel.value;
-    if(jsel.options.length!==js.length || !js.includes(jc)){
-      jsel.innerHTML=js.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join('');
-      if(jc && js.includes(jc)) jsel.value=jc; else jsel.value=(js.includes('본사')?'본사':js[0]);
+  // 업체 드롭다운 (자동감지)
+  var csel=document.getElementById('ship_company');
+  if(csel){ var cs=shipCompanies(), cc=csel.value;
+    if(csel.options.length!==cs.length || !cs.includes(cc)){
+      csel.innerHTML=cs.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join('');
+      csel.value=(cc&&cs.includes(cc))?cc:(cs.includes('본사')?'본사':cs[0]);
     }
-    CUR_JIJEOM=jsel.value||'본사';
-  } else CUR_JIJEOM=CUR_JIJEOM||'본사';
-  shipSelectJijeom(CUR_JIJEOM);   // SHIP_DATA/SHIP_PATH 선택 지점으로 채움
+    CUR_CO=csel.value||'본사';
+  } else CUR_CO=CUR_CO||'본사';
+  // 지점 드롭다운 (선택 업체의 지점들 + 전체)
+  var jsel=document.getElementById('ship_jijeom');
+  if(jsel){ var js=['(전체)'].concat(shipJijeomsOf(CUR_CO)), jc=jsel.value;
+    jsel.innerHTML=js.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join('');
+    jsel.value=(jc&&js.includes(jc))?jc:'(전체)';
+    CUR_JI=jsel.value||'(전체)';
+  } else CUR_JI=CUR_JI||'(전체)';
+  shipSelect(CUR_CO, CUR_JI);   // SHIP_DATA/SHIP_PATH 선택 업체·지점으로
   // 날짜 드롭다운 채우기 (처음/갱신)
   var sel=document.getElementById('ship_date'); if(!sel) return;
   var dates=shipDates();
@@ -21423,8 +21433,8 @@ async function shipFileSms(k, forceType){
   var trkIdx={};
   if(type==='발송'){
     var ORDraw=(await fbDb.ref('/excel_orders').once('value')).val()||{};
-    var ORD={};   // 지점 폴더/루트 레코드 다 펼침
-    Object.keys(ORDraw).forEach(function(k){ var v=ORDraw[k]||{}; if(v['수취인명']||v['플랫폼']||v['주문번호']||v['송장번호']!==undefined){ ORD[k]=v; } else { Object.keys(v).forEach(function(pk){ ORD[pk]=v[pk]; }); } });
+    var ORD={};   // 업체/지점 폴더 깊이 상관없이 레코드만 펼침
+    (function walk(o){ Object.keys(o||{}).forEach(function(k){ var v=o[k]; if(v&&(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined)) ORD[k]=v; else if(v&&typeof v==='object') walk(v); }); })(ORDraw);
     Object.keys(ORD).forEach(function(ok2){
       var o=ORD[ok2]||{}; if(!o['송장번호']) return;
       var kk=_nrm(o['수취인명'])+'|'+_t4(o['수취인전화']);
@@ -21604,7 +21614,7 @@ function shipDel(k){
   if(!confirm((d.file||k)+' 삭제할까요?\n(그날 누적에서도 빠짐 — 삭제 후 [재계산 텔레그램])')) return;
   var dateStr=(d.t||'').slice(0,10);
   fbDb.ref(SHIP_PATH[k]||'/excel_ship/'+k).remove().then(function(){
-    if(dateStr) fbDb.ref('/excel_daily/'+CUR_JIJEOM+'/'+dateStr+'/'+k).remove().catch(function(){});
+    if(dateStr) fbDb.ref('/excel_daily/'+CUR_CO+'/'+CUR_JI+'/'+dateStr+'/'+k).remove().catch(function(){});
   }).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
@@ -21612,7 +21622,12 @@ async function shipRecalc(){
   var sel=document.getElementById('ship_date');
   var dateStr=sel && sel.value ? sel.value : todayKST();
   var raws={};
-  try{ raws=(await fbDb.ref('/excel_daily/'+(CUR_JIJEOM||'본사')+'/'+dateStr).once('value')).val()||{}; }
+  try{
+    var base='/excel_daily/'+(CUR_CO||'본사');
+    if(CUR_JI && CUR_JI!=='(전체)'){ raws=(await fbDb.ref(base+'/'+CUR_JI+'/'+dateStr).once('value')).val()||{}; }
+    else { var allJ=(await fbDb.ref(base).once('value')).val()||{};   // 업체 전체 지점 합산
+      Object.keys(allJ).forEach(function(ji){ var d=(allJ[ji]||{})[dateStr]||{}; Object.keys(d).forEach(function(kk){ raws[ji+'_'+kk]=d[kk]; }); }); }
+  }
   catch(e){ alert('일별 데이터를 읽을 수 없습니다: '+e.message); return; }
   var keys=Object.keys(raws);
   if(!keys.length){ alert(dateStr+' 누적 데이터가 없습니다.'); return; }
@@ -21677,6 +21692,7 @@ function dOrderHist(){
   h+='<span class="muted" style="font-size:11px;margin-left:auto">접수/송장=구매자 · 받는분=수취인 · 건당 요금</span>';
   h+='</div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  h+='<b style="color:#c026d3">업체</b> <select id="ordh_company" onchange="renderOrderHist()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
   h+='<b style="color:#7c3aed">지점</b> <select id="ordh_jijeom" onchange="renderOrderHist()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
   h+='<input id="ordh_q" placeholder="검색 (수취인/주문번호/상품명/송장...)" style="width:240px" oninput="renderOrderHist()">';
   h+='<select id="ordh_f" onchange="renderOrderHist()" style="width:auto"><option value="">전체</option><option value="no">송장 없음 (미발송)</option><option value="yes">송장 있음 (발송)</option></select>';
@@ -21686,20 +21702,24 @@ function dOrderHist(){
   return h;
 }
 
-var ORDH_LISTENER=null, ORDH_RAW={}, ORDH_PATH={}, CUR_JIJEOM_O='';
-// 주문히스토리 지점 목록/선택 (레코드 필드 있으면 본사, 아니면 지점폴더)
-function ordhJijeoms(){
-  var js={'본사':1};
-  Object.keys(ORDH_RAW).forEach(function(k){ var v=ORDH_RAW[k]||{}; if(!(v['플랫폼']||v['수취인명']||v['주문번호']||v['등록일시'])) js[k]=1; });
-  return Object.keys(js).sort();
-}
-function ordhSelectJijeom(j){
-  ORDH_DATA={}; ORDH_PATH={};
-  Object.keys(ORDH_RAW).forEach(function(k){
-    var v=ORDH_RAW[k]||{};
-    if(v['플랫폼']||v['수취인명']||v['주문번호']||v['등록일시']){ if(j==='본사'){ ORDH_DATA[k]=v; ORDH_PATH[k]='/excel_orders/'+k; } }
-    else if(k===j){ Object.keys(v).forEach(function(pk){ ORDH_DATA[pk]=v[pk]; ORDH_PATH[pk]='/excel_orders/'+k+'/'+pk; }); }
+var ORDH_LISTENER=null, ORDH_RAW={}, ORDH_PATH={}, CUR_CO_O='', CUR_JI_O='';
+// ORDH_RAW → [{co,ji,k,rec,path}] : 깊이 자동감지 (레코드=본사/본사, 1단계=본사/<지점>, 2단계=<업체>/<지점>)
+function ordhFlat(){
+  var out=[], isR=function(v){return v&&(v['플랫폼']||v['수취인명']||v['주문번호']||v['등록일시']);};
+  Object.keys(ORDH_RAW).forEach(function(K){
+    var V=ORDH_RAW[K]||{};
+    if(isR(V)){ out.push({co:'본사',ji:'본사',k:K,rec:V,path:'/excel_orders/'+K}); return; }
+    var sk=Object.keys(V); if(!sk.length) return;
+    if(isR(V[sk[0]])) sk.forEach(function(s){ out.push({co:'본사',ji:K,k:s,rec:V[s],path:'/excel_orders/'+K+'/'+s}); });
+    else sk.forEach(function(jk){ var jv=V[jk]||{}; Object.keys(jv).forEach(function(rk){ out.push({co:K,ji:jk,k:rk,rec:jv[rk],path:'/excel_orders/'+K+'/'+jk+'/'+rk}); }); });
   });
+  return out;
+}
+function ordhCompanies(){ var s={'본사':1}; ordhFlat().forEach(function(x){s[x.co]=1;}); return Object.keys(s).sort(); }
+function ordhJijeomsOf(co){ var s={}; ordhFlat().forEach(function(x){ if(x.co===co) s[x.ji]=1; }); return Object.keys(s).sort(); }
+function ordhSelect(co,ji){
+  ORDH_DATA={}; ORDH_PATH={};
+  ordhFlat().forEach(function(x){ if(x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; ORDH_DATA[x.k]=x.rec; ORDH_PATH[x.k]=x.path; });
 }
 function loadOrderHist(){
   if(!ORDH_LISTENER){
@@ -21912,17 +21932,23 @@ async function ordhSms(kind, selectedOnly){
 
 function renderOrderHist(){
   var el=document.getElementById('ordh_list'); if(!el) return;
-  // 지점 드롭다운 (자동감지)
-  var jsel=document.getElementById('ordh_jijeom');
-  if(jsel){
-    var js=ordhJijeoms(), jc=jsel.value;
-    if(jsel.options.length!==js.length || !js.includes(jc)){
-      jsel.innerHTML=js.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join('');
-      if(jc && js.includes(jc)) jsel.value=jc; else jsel.value=(js.includes('본사')?'본사':js[0]);
+  // 업체 드롭다운 (자동감지)
+  var csel=document.getElementById('ordh_company');
+  if(csel){ var cs=ordhCompanies(), cc=csel.value;
+    if(csel.options.length!==cs.length || !cs.includes(cc)){
+      csel.innerHTML=cs.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join('');
+      csel.value=(cc&&cs.includes(cc))?cc:(cs.includes('본사')?'본사':cs[0]);
     }
-    CUR_JIJEOM_O=jsel.value||'본사';
-  } else CUR_JIJEOM_O=CUR_JIJEOM_O||'본사';
-  ordhSelectJijeom(CUR_JIJEOM_O);
+    CUR_CO_O=csel.value||'본사';
+  } else CUR_CO_O=CUR_CO_O||'본사';
+  // 지점 드롭다운 (선택 업체의 지점들 + 전체)
+  var jsel=document.getElementById('ordh_jijeom');
+  if(jsel){ var js=['(전체)'].concat(ordhJijeomsOf(CUR_CO_O)), jc=jsel.value;
+    jsel.innerHTML=js.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join('');
+    jsel.value=(jc&&js.includes(jc))?jc:'(전체)';
+    CUR_JI_O=jsel.value||'(전체)';
+  } else CUR_JI_O=CUR_JI_O||'(전체)';
+  ordhSelect(CUR_CO_O, CUR_JI_O);
   var q=(document.getElementById('ordh_q')?document.getElementById('ordh_q').value:'').trim().toLowerCase();
   var f=(document.getElementById('ordh_f')?document.getElementById('ordh_f').value:'');
   var keys=Object.keys(ORDH_DATA);
