@@ -20924,6 +20924,8 @@ function renderPcVer(){
     h+='<td><input id="pclv_note_'+sid+'" value="'+(v.note||'')+'" placeholder="예: 자동매핑 개선" style="width:150px"></td>';
     h+='<td style="white-space:nowrap"><button class="btn" style="background:#16a34a;color:#fff;font-weight:700" onclick="pcVerSaveOnly(\''+app+'\')" title="파일 없이 버전/메모만 저장">💾 저장</button> ';
     h+='<button class="btn" id="pclv_btn_'+sid+'" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerUpload(\''+app+'\')" title="파일도 같이 올리고 저장">⬆ 파일+저장</button> ';
+    var _hn=Object.keys(PCLIC_VER[app+'_history']||{}).length;
+    h+='<button class="btn" style="background:#0d9488;color:#fff;font-weight:600" onclick="pcVerHist(\''+app+'\')" title="올렸던 버전들 보기/되돌리기">📜 이력'+(_hn?'('+_hn+')':'')+'</button> ';
     h+='<button class="btn" style="background:#6b7280;color:#fff;font-weight:600" onclick="pcVerRename(\''+app+'\')">✏ 이름</button> ';
     h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcVerDel(\''+app+'\')">🗑</button></td>';
     h+='<td style="font-size:12px">'+(v.fileName?('<a href="'+(v.url||'#')+'" target="_blank">'+v.fileName+'</a> ('+(v.ver?'v'+v.ver:'')+')'):(v.url?'<a href="'+v.url+'" target="_blank">링크</a>':'-'))+'</td>';
@@ -20953,6 +20955,19 @@ function pcVerSaveProxy(){
 }
 
 // 파일 없이 버전/메모만 저장 (기존 다운로드 링크는 유지)
+// 📜 버전 이력 보관 — 최신버전은 덮어써도 올렸던 기록은 /excel_version/<앱>_history 에 계속 쌓임 (VBA가 읽는 <앱> 노드와 분리)
+function _pcVerPushHist(app,obj){
+  try{
+    var hist=PCLIC_VER[app+'_history']||{};
+    var keys=Object.keys(hist);
+    var last=keys.length?hist[keys[keys.length-1]]:null;
+    if(last && last.ver===(obj.ver||'') && last.url===(obj.url||'') && last.note===(obj.note||'')) return;   // 같은 내용 반복 저장은 스킵
+    var entry={ver:obj.ver||'', url:obj.url||'', note:obj.note||'', fileName:obj.fileName||'', updated:obj.updated||nowKST(true), by:(ME&&ME.id)||''};
+    fbDb.ref('/excel_version/'+app+'_history').push(entry).catch(function(){});
+    var lk='h'+Date.now().toString(36);
+    PCLIC_VER[app+'_history']=PCLIC_VER[app+'_history']||{}; PCLIC_VER[app+'_history'][lk]=entry;
+  }catch(e){}
+}
 function pcVerSaveOnly(app){
   var sid=app.replace(/[^0-9A-Za-z가-힣]/g,'');
   var ver=(document.getElementById('pclv_ver_'+sid).value||'').trim();
@@ -20961,7 +20976,7 @@ function pcVerSaveOnly(app){
   var prev=PCLIC_VER[app]||{};
   var obj={ver:ver, url:prev.url||'', note:note, fileName:prev.fileName||'', updated:nowKST(true)};
   fbDb.ref('/excel_version/'+app).set(obj)
-    .then(function(){ PCLIC_VER[app]=obj; alert(app+' v'+ver+' 저장 완료!'); renderPcVer(); })
+    .then(function(){ PCLIC_VER[app]=obj; _pcVerPushHist(app,obj); alert(app+' v'+ver+' 저장 완료!'); renderPcVer(); })
     .catch(function(e){ alert('저장 실패: '+e.message); });
 }
 
@@ -20975,8 +20990,9 @@ function pcVerUpload(app){
   var prev=PCLIC_VER[app]||{};
 
   function saveMeta(url, fileName){
-    fbDb.ref('/excel_version/'+app).set({ver:ver, url:url||'', note:note, fileName:fileName||'', updated:nowKST(true)})
-      .then(function(){ alert(app+' v'+ver+' 등록 완료!\n낮은 버전 파일이 열리면 업데이트 알림 + 이 파일 다운로드로 연결됩니다.'); loadPcLic(); })
+    var obj={ver:ver, url:url||'', note:note, fileName:fileName||'', updated:nowKST(true)};
+    fbDb.ref('/excel_version/'+app).set(obj)
+      .then(function(){ _pcVerPushHist(app,obj); alert(app+' v'+ver+' 등록 완료!\n낮은 버전 파일이 열리면 업데이트 알림 + 이 파일 다운로드로 연결됩니다.'); loadPcLic(); })
       .catch(function(e){ alert('저장 실패: '+e.message); if(btn){btn.disabled=false;btn.textContent='⬆ 업로드+등록';} });
   }
 
@@ -21006,6 +21022,52 @@ function pcVerUpload(app){
   }
 }
 
+// 📜 올렸던 버전 이력 — 계속 보관, 다운로드/되돌리기
+function pcVerHist(app){
+  var v=PCLIC_VER[app]||{};
+  var hist=PCLIC_VER[app+'_history']||{};
+  var keys=Object.keys(hist).sort().reverse();   // 최신 먼저
+  var h='<div style="max-width:640px">';
+  h+='<h3 style="margin:0 0 4px">📜 '+esc(app)+' — 올렸던 버전 이력</h3>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:10px">저장할 때마다 자동으로 쌓입니다. 엑셀 업데이트 알림은 <b>최신 버전만</b> 쓰고, 여기 기록은 계속 보관돼요. ↩ 되돌리기를 누르면 그 버전이 다시 최신이 됩니다.</div>';
+  if(!keys.length){
+    h+='<div style="color:#94a3b8;padding:16px;text-align:center;border:1px dashed #cbd5e1;border-radius:8px">아직 이력이 없습니다 — 다음 저장부터 자동으로 쌓여요</div>';
+  } else {
+    h+='<div style="max-height:55vh;overflow-y:auto"><table class="tbl" style="width:100%;font-size:13px"><thead><tr><th>버전</th><th>저장일시</th><th>변경 내용</th><th>파일</th><th></th></tr></thead><tbody>';
+    keys.forEach(function(hk){
+      var e2=hist[hk]||{};
+      var cur=(String(e2.ver||'')===String(v.ver||'') && String(e2.url||'')===String(v.url||''));
+      h+='<tr'+(cur?' style="background:#f0fdf4"':'')+'>';
+      h+='<td style="font-weight:700;white-space:nowrap">v'+esc(e2.ver||'')+(cur?' <span style="color:#16a34a;font-size:11px">← 현재</span>':'')+'</td>';
+      h+='<td style="font-size:12px;white-space:nowrap">'+esc(e2.updated||'')+'</td>';
+      h+='<td style="font-size:12px">'+esc(e2.note||'')+'</td>';
+      h+='<td style="font-size:12px">'+(e2.url?('<a href="'+esc(e2.url)+'" target="_blank">'+esc(e2.fileName||'다운로드')+'</a>'):'-')+'</td>';
+      h+='<td style="white-space:nowrap">'+(cur?'':('<button class="btn btn-s" style="background:#2563eb;color:#fff;font-size:11px" onclick="pcVerRestore(\''+esc(app)+'\',\''+hk+'\')">↩ 되돌리기</button> '))+'<button class="btn btn-s" style="background:#dc2626;color:#fff;font-size:11px" onclick="pcVerHistDel(\''+esc(app)+'\',\''+hk+'\')">🗑</button></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='<div style="text-align:right;margin-top:12px"><button class="btn" style="background:#64748b;color:#fff" onclick="closePopup()">닫기</button></div>';
+  h+='</div>';
+  openPopup(h,640);
+}
+function pcVerRestore(app,hk){
+  var e2=(PCLIC_VER[app+'_history']||{})[hk]; if(!e2) return;
+  if(!confirm('['+app+'] v'+(e2.ver||'')+' 을(를) 다시 최신 버전으로 되돌릴까요?\n(엑셀 업데이트 알림이 이 버전 기준으로 나갑니다)')) return;
+  var obj={ver:e2.ver||'', url:e2.url||'', note:e2.note||'', fileName:e2.fileName||'', updated:nowKST(true)};
+  fbDb.ref('/excel_version/'+app).set(obj).then(function(){
+    PCLIC_VER[app]=obj;
+    alert('v'+(e2.ver||'')+' 로 되돌렸습니다.');
+    closePopup(); renderPcVer();
+  }).catch(function(e){ alert('실패: '+e.message); });
+}
+function pcVerHistDel(app,hk){
+  if(!confirm('이 이력 항목을 삭제할까요? (기록만 지워지고 현재 버전엔 영향 없음)')) return;
+  fbDb.ref('/excel_version/'+app+'_history/'+hk).remove().then(function(){
+    if(PCLIC_VER[app+'_history']) delete PCLIC_VER[app+'_history'][hk];
+    pcVerHist(app); renderPcVer();
+  }).catch(function(e){ alert('실패: '+e.message); });
+}
 function pcVerAddApp(){
   var app=(document.getElementById('pclv_newapp').value||'').trim();
   if(!app){ alert('프로그램 이름을 적어주세요.'); return; }
@@ -21040,15 +21102,18 @@ function pcVerRename(oldApp){
   Promise.all([
     fbDb.ref('/excel_version/'+oldApp).once('value'),
     fbDb.ref('/excel_license/'+oldApp).once('value'),
-    fbDb.ref('/excel_license_requests/'+oldApp).once('value')
+    fbDb.ref('/excel_license_requests/'+oldApp).once('value'),
+    fbDb.ref('/excel_version/'+oldApp+'_history').once('value')
   ]).then(function(s){
     var up={};
     if(s[0].val()) up['/excel_version/'+newApp]=s[0].val();
     if(s[1].val()) up['/excel_license/'+newApp]=s[1].val();
     if(s[2].val()) up['/excel_license_requests/'+newApp]=s[2].val();
+    if(s[3].val()) up['/excel_version/'+newApp+'_history']=s[3].val();   // 📜 버전 이력도 같이 이동
     up['/excel_version/'+oldApp]=null;
     up['/excel_license/'+oldApp]=null;
     up['/excel_license_requests/'+oldApp]=null;
+    up['/excel_version/'+oldApp+'_history']=null;
     return fbDb.ref().update(up);
   }).then(function(){
     alert('이름 변경 완료: '+newApp+'\n\n⚠️ 엑셀 VBA의 Const APP_ID 도 "'+newApp+'"로 바꿔주세요!');
