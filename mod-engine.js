@@ -1241,23 +1241,47 @@ function _modSendCancelSms(def, rows){
 // 엑셀 내보내기
 // ═══════════════════════════════════════════
 
+// 주소에서 우편번호 분리 (괄호/대괄호 안 숫자 또는 앞머리 우편번호)
+function _modSplitZip(addr){
+  addr=String(addr==null?'':addr).trim();
+  var m=addr.match(/[\(\[]\s*(\d{4,6})\s*[\)\]]/);     // (12345) / [12345]
+  if(!m) m=addr.match(/^\s*(\d{5,6})(?=[\s\-,])/);     // 앞머리 우편번호
+  if(m) return { zip:m[1], addr:addr.replace(m[0],'').replace(/^[\s,\-]+/,'').trim() };
+  return { zip:'', addr:addr };
+}
+
 function modExportExcel(key){
   var def=_modDefs[key]; if(!def) return;
   var data=_modFilteredData(key);  // 현재 검색·필터·정렬 적용된 것만 내보내기
   var cols=(def.columns||[]).filter(function(c){return !c.hideTable});
-  // 첫 열은 고유번호(QR id) — 다시 가져올 때 기존 행을 식별/업데이트하기 위함
-  var rows=[['고유번호'].concat(cols.map(function(c){return c.label}))];
+  var addrIdx=cols.findIndex(function(c){return /주소/.test(c.label||'');});  // 주소 열 (있으면 우편번호 분리)
+  // 헤더: 고유번호 + 접수일 + (주소 앞에 우편번호 삽입) 컬럼들
+  var header=['고유번호','접수일'];
+  cols.forEach(function(c,i){ if(i===addrIdx) header.push('우편번호'); header.push(c.label); });
+  var rows=[header];
   data.forEach(function(row){
-    rows.push([row._id||''].concat(cols.map(function(c){
-      var v=row[c.key]; if(v==null) return '';
-      if(c.multiQty) return _modMultiStr(v,c.multiSep,c.multiNoQty,c.multiQtyKae);
-      if(c.type==='badge'&&c.badgeMap&&c.badgeMap[v]) return c.badgeMap[v].label||v;
-      return v;
-    })));
+    var out=[row._id||'', row._createdAt?_modFmtDateTime(row._createdAt):''];
+    cols.forEach(function(c,i){
+      var v=row[c.key];
+      if(v==null) v='';
+      else if(c.multiQty) v=_modMultiStr(v,c.multiSep,c.multiNoQty,c.multiQtyKae);
+      else if(c.type==='badge'&&c.badgeMap&&c.badgeMap[v]) v=c.badgeMap[v].label||v;
+      if(i===addrIdx){ var sp=_modSplitZip(v); out.push(sp.zip); out.push(sp.addr); }
+      else out.push(v);
+    });
+    rows.push(out);
   });
   if(typeof XLSX!=='undefined'){
     var wb=XLSX.utils.book_new();
     var ws=XLSX.utils.aoa_to_sheet(rows);
+    // 우편번호 열 텍스트("@")로 — 앞자리 0 안 지워지게
+    if(addrIdx>=0){
+      var zipCol=2+addrIdx;   // 고유번호(0)+접수일(1)+주소앞 우편번호
+      for(var rr=1;rr<rows.length;rr++){
+        var cell=ws[XLSX.utils.encode_cell({r:rr,c:zipCol})];
+        if(cell){ cell.t='s'; cell.v=String(cell.v==null?'':cell.v); cell.z='@'; }
+      }
+    }
     XLSX.utils.book_append_sheet(wb,ws,def.label);
     XLSX.writeFile(wb,def.label+'_'+(_todayStr())+'.xlsx');
   } else {
