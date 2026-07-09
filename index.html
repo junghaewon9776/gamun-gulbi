@@ -21274,16 +21274,16 @@ function shipFlat(){
   });
   return out;
 }
-function shipCompanies(){ var s={'본사':1}; shipFlat().forEach(function(x){s[x.co]=1;}); return Object.keys(s).sort(); }
-function shipJijeomsOf(co){ var s={}; shipFlat().forEach(function(x){ if(x.co===co) s[x.ji]=1; }); return Object.keys(s).sort(); }
+function shipCompanies(){ var s={'본사':1}; shipFlat().forEach(function(x){s[x.co]=1;}); return ['(전체)'].concat(Object.keys(s).sort()); }
+function shipJijeomsOf(co){ var s={}; shipFlat().forEach(function(x){ if(co==='(전체)'||x.co===co) s[x.ji]=1; }); return Object.keys(s).sort(); }
 function shipSelect(co,ji){
   SHIP_DATA={}; SHIP_PATH={};
-  shipFlat().forEach(function(x){ if(x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; SHIP_DATA[x.k]=x.rec; SHIP_PATH[x.k]=x.path; });
+  shipFlat().forEach(function(x){ if(co&&co!=='(전체)'&&x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; SHIP_DATA[x.k]=x.rec; SHIP_PATH[x.k]=x.path; });
 }
 // 선택 업체 통째 삭제 (접수/주문/수량) — 깨진/잘못된 업체 정리용
 function shipDelCompany(){
   var co=CUR_CO||'';
-  if(!co){ alert('업체를 먼저 고르세요.'); return; }
+  if(!co || co==='(전체)'){ alert('삭제할 업체를 골라주세요. ("(전체)"는 삭제 안 됨)'); return; }
   if(!confirm('["'+co+'"] 업체의 접수데이터·주문히스토리·수량 데이터를 전부 삭제할까요?\n\n(잘못 들어온/깨진 업체 정리용 · 되돌릴 수 없음)')) return;
   if(!confirm('정말 삭제할까요? "'+co+'" 데이터가 완전히 지워집니다.')) return;
   var up={};
@@ -21793,11 +21793,11 @@ function ordhFlat(){
   });
   return out;
 }
-function ordhCompanies(){ var s={'본사':1}; ordhFlat().forEach(function(x){s[x.co]=1;}); return Object.keys(s).sort(); }
-function ordhJijeomsOf(co){ var s={}; ordhFlat().forEach(function(x){ if(x.co===co) s[x.ji]=1; }); return Object.keys(s).sort(); }
+function ordhCompanies(){ var s={'본사':1}; ordhFlat().forEach(function(x){s[x.co]=1;}); return ['(전체)'].concat(Object.keys(s).sort()); }
+function ordhJijeomsOf(co){ var s={}; ordhFlat().forEach(function(x){ if(co==='(전체)'||x.co===co) s[x.ji]=1; }); return Object.keys(s).sort(); }
 function ordhSelect(co,ji){
   ORDH_DATA={}; ORDH_PATH={};
-  ordhFlat().forEach(function(x){ if(x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; ORDH_DATA[x.k]=x.rec; ORDH_PATH[x.k]=x.path; });
+  ordhFlat().forEach(function(x){ if(co&&co!=='(전체)'&&x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; ORDH_DATA[x.k]=x.rec; ORDH_PATH[x.k]=x.path; });
 }
 function loadOrderHist(){
   if(!ORDH_LISTENER){
