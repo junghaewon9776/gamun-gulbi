@@ -21138,6 +21138,7 @@ function dShipData(){
   h+='<div class="muted" style="font-size:12px">엑셀/와꾸에서 저장하면 자동으로 쌓입니다. 파일 클릭 = 그 파일 데이터 · 요약 = 통합 수량</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<b style="color:#c026d3">업체</b> <select id="ship_company" onchange="renderShip()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
+  if(isA()) h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="shipDelCompany()" title="선택한 업체 데이터 통째 삭제 (깨진/잘못된 업체 정리용)">🗑 업체삭제</button> ';
   h+='<b style="color:#7c3aed">지점</b> <select id="ship_jijeom" onchange="renderShip()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
   h+='날짜 <select id="ship_date" onchange="renderShip()" style="width:auto"></select> ';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData()">🔄 새로고침</button> ';
@@ -21278,6 +21279,18 @@ function shipJijeomsOf(co){ var s={}; shipFlat().forEach(function(x){ if(x.co===
 function shipSelect(co,ji){
   SHIP_DATA={}; SHIP_PATH={};
   shipFlat().forEach(function(x){ if(x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; SHIP_DATA[x.k]=x.rec; SHIP_PATH[x.k]=x.path; });
+}
+// 선택 업체 통째 삭제 (접수/주문/수량) — 깨진/잘못된 업체 정리용
+function shipDelCompany(){
+  var co=CUR_CO||'';
+  if(!co){ alert('업체를 먼저 고르세요.'); return; }
+  if(!confirm('["'+co+'"] 업체의 접수데이터·주문히스토리·수량 데이터를 전부 삭제할까요?\n\n(잘못 들어온/깨진 업체 정리용 · 되돌릴 수 없음)')) return;
+  if(!confirm('정말 삭제할까요? "'+co+'" 데이터가 완전히 지워집니다.')) return;
+  var up={};
+  up['/excel_ship/'+co]=null;
+  up['/excel_orders/'+co]=null;
+  up['/excel_daily/'+co]=null;
+  fbDb.ref().update(up).then(function(){ alert('삭제 완료: '+co); }).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
 function renderShip(){
