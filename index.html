@@ -22146,7 +22146,7 @@ async function ordhExportSelected(){
   var keys=ordhSelectedKeys();
   if(!keys.length){ alert('먼저 주문을 체크하세요.\n(검색·필터를 바꿔도 체크는 유지됩니다 — 여러 번 검색하며 골라 담으세요)'); return; }
   if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패 — 새로고침 후 다시 시도하세요.'); return; }
-  if(!confirm(keys.length+'건을 엑셀 파일로 저장하고,\n새 주문번호를 매겨 주문히스토리에도 새로 등록합니다.\n(예전 주문 그대로 송장 재발행용 · 원본은 그대로 남습니다)\n\n계속할까요?')) return;
+  if(!confirm(keys.length+'건을 엑셀 파일로 저장합니다.\n(전부 새 주문번호가 매겨집니다 · 택배변환에 넣어 송장 재발행용)\n\n계속할까요?')) return;
   // 새 주문번호 기준 시각 (배치 안에서 순번으로 유니크)
   var now=new Date(), p2=function(n){return ('0'+n).slice(-2);};
   var stamp=String(now.getFullYear()).slice(2)+p2(now.getMonth()+1)+p2(now.getDate())+p2(now.getHours())+p2(now.getMinutes())+p2(now.getSeconds());
@@ -22154,19 +22154,10 @@ async function ordhExportSelected(){
   var aoa=[head];
   var sel=keys.map(function(k){return {k:k,d:ORDH_DATA[k]||{}};});
   sel.sort(function(a,b){ return ((b.d['등록일시'])||'')<((a.d['등록일시'])||'')?-1:1; });   // 등록일시 최신순
-  var updates={};
   sel.forEach(function(x,i){
     var d=x.d;
     var newNo='GM'+stamp+('00'+(i+1)).slice(-3);   // 새 주문번호 (전부 새 번호)
     aoa.push([ d['수취인명']||'', d['수취인전화']||'', d['주소']||'', d['상품명']||'', d['수량']||'', d['옵션']||'', d['배송메시지']||'', d['구매자명']||'', d['구매자전화']||'', newNo, d['플랫폼']||'재발행' ]);
-    // 주문히스토리 새 엔트리(미발송) — 나중에 송장 업로드하면 이름+전화로 매칭됨
-    updates['/excel_orders/재발행_'+newNo]={
-      수취인명:d['수취인명']||'', 수취인전화:d['수취인전화']||'', 주소:d['주소']||'',
-      상품명:d['상품명']||'', 수량:d['수량']||'', 옵션:d['옵션']||'', 배송메시지:d['배송메시지']||'',
-      구매자명:d['구매자명']||'', 구매자전화:d['구매자전화']||'',
-      주문번호:newNo, 상품주문번호:newNo, 플랫폼:d['플랫폼']||'재발행',
-      등록일시:nowKST(true), 송장번호:''
-    };
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols']=[{wch:10},{wch:14},{wch:40},{wch:24},{wch:6},{wch:14},{wch:18},{wch:10},{wch:14},{wch:16},{wch:10}];
@@ -22175,12 +22166,10 @@ async function ordhExportSelected(){
   var buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
   var blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   var savedName=await ordhSaveBlob(blob, fn);
-  if(savedName===null) return;   // 저장 취소 → 히스토리도 등록 안 함
-  // 저장 성공 → 주문히스토리에 새로 등록 (실시간 리스너가 화면 자동 갱신)
-  fbDb.ref().update(updates).then(function(){
-    ordhSelClear();
-    alert('✅ 저장 완료: '+savedName+'\n주문히스토리에 '+sel.length+'건 새로 등록됨 (새 주문번호 · 미발송)\n택배변환에 넣어 송장 발행하세요.');
-  }).catch(function(e){ alert('파일은 저장됐지만 주문히스토리 등록은 실패: '+e.message); });
+  if(savedName===null) return;   // 저장 취소
+  ordhSelClear();
+  // 주문히스토리 등록은 하지 않음 — 택배변환에서 [주문가져오기] 할 때 새 주문번호로 자동 등록됨 (중복 방지)
+  alert('✅ 저장 완료: '+savedName+' ('+sel.length+'건)\n택배변환에서 이 파일을 [주문가져오기] 하면\n새 주문번호로 히스토리에 등록됩니다.');
 }
 // 주문히스토리 행 삭제
 function ordhDel(k){
