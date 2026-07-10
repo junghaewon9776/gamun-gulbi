@@ -22080,17 +22080,16 @@ function renderOrderHist(){
   ordhSelCount();
 }
 
-// 📥 선택 주문 → 엑셀 다운로드 (택배변환에 넣어 송장 재발행용). 택배변환이 헤더로 자동/수동 매핑
-function ordhExportSelected(){
+// 📥 선택 주문 → 엑셀 (택배변환에 넣어 송장 재발행용). 저장 위치 선택 + 컴터마다 마지막 폴더 기억
+async function ordhExportSelected(){
   var keys=ordhSelectedKeys();
   if(!keys.length){ alert('먼저 주문을 체크하세요.\n(검색·필터를 바꿔도 체크는 유지됩니다 — 여러 번 검색하며 골라 담으세요)'); return; }
   if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패 — 새로고침 후 다시 시도하세요.'); return; }
   // 택배변환이 알아보는 헤더 (받는분/전화/주소/상품명/수량 등) — 옛 송장은 넣지 않음(재발행이므로)
   var head=['받는분','전화','주소','상품명','수량','옵션','배송메시지','보내는분','보내는분전화','주문번호','플랫폼'];
   var aoa=[head];
-  // 선택 순서보다 등록일시 최신순으로 정렬해 담기
   var sel=keys.map(function(k){return {k:k,d:ORDH_DATA[k]||{}};});
-  sel.sort(function(a,b){ return ((b.d['등록일시'])||'')<((a.d['등록일시'])||'')?-1:1; });
+  sel.sort(function(a,b){ return ((b.d['등록일시'])||'')<((a.d['등록일시'])||'')?-1:1; });   // 등록일시 최신순
   sel.forEach(function(x){
     var d=x.d;
     aoa.push([ d['수취인명']||'', d['수취인전화']||'', d['주소']||'', d['상품명']||'', d['수량']||'', d['옵션']||'', d['배송메시지']||'', d['구매자명']||'', d['구매자전화']||'', d['주문번호']||'', d['플랫폼']||'' ]);
@@ -22098,7 +22097,25 @@ function ordhExportSelected(){
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols']=[{wch:10},{wch:14},{wch:40},{wch:24},{wch:6},{wch:14},{wch:18},{wch:10},{wch:14},{wch:16},{wch:10}];
   var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'주문');
-  XLSX.writeFile(wb, '주문내보내기_'+todayKST()+'_'+keys.length+'건.xlsx');
+  var fn='주문내보내기_'+todayKST()+'_'+keys.length+'건.xlsx';
+  var buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  var blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  // 🗂 저장 위치 선택창 — 크롬/엣지. id로 이 컴퓨터의 마지막 저장 폴더를 기억(다음엔 그 폴더에서 열림)
+  if(window.showSaveFilePicker){
+    try{
+      var handle=await window.showSaveFilePicker({
+        id:'gamunOrdhExport',   // 이 id 기준으로 컴터마다 마지막 폴더 기억
+        suggestedName:fn,
+        types:[{description:'엑셀 파일',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]
+      });
+      var w=await handle.createWritable(); await w.write(blob); await w.close();
+      alert('✅ 저장 완료: '+handle.name+'\n('+keys.length+'건 — 택배변환에 넣어 송장 발행하세요)');
+      return;
+    }catch(e){ if(e&&e.name==='AbortError') return;   /* 사용자가 취소 */ }
+  }
+  // 폴백(사파리·파이어폭스 등): 기본 다운로드 폴더로
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fn; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); document.body.removeChild(a); },1000);
 }
 // 주문히스토리 행 삭제
 function ordhDel(k){
