@@ -21765,8 +21765,10 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\',true)">📩 접수문자</button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(true)">🚚 송장문자</button>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\',true)">🎁 받는분문자</button>';
+  h+='<button class="btn" style="background:#15803d;color:#fff;font-weight:600" onclick="ordhExportSelected()" title="선택한 주문을 엑셀 파일로 — 택배변환에 넣어 송장 재발행">📥 선택 파일변환(엑셀)</button>';
   h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="ordhDelSelected()">🗑 선택 삭제</button>';
-  h+='<span id="ordh_seln" class="muted" style="font-size:11px"></span>';
+  h+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="ordhSelClear()">선택 해제</button>';
+  h+='<span id="ordh_seln" class="muted" style="font-size:11px;font-weight:700;color:#15803d"></span>';
   h+='<span class="muted" style="font-size:11px;margin-left:auto">접수/송장=구매자 · 받는분=수취인 · 건당 요금</span>';
   h+='</div></div>';
   h+='<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
@@ -21827,9 +21829,13 @@ function ordhTel(s){
 }
 
 // 체크박스: 전체선택 / 선택된 키 목록 / 카운트
-function ordhCheckAll(on){ document.querySelectorAll('.ordh_ck').forEach(function(c){c.checked=on;}); ordhSelCount(); }
-function ordhSelectedKeys(){ return Array.prototype.map.call(document.querySelectorAll('.ordh_ck:checked'), function(c){return c.value;}); }
-function ordhSelCount(){ var n=ordhSelectedKeys().length; var el=document.getElementById('ordh_seln'); if(el) el.textContent=n?(n+'개 선택됨'):''; }
+// 선택 유지 — 검색/필터 바꿔도 체크 상태 보존 (화면 체크박스 대신 여기에 기억)
+var ORDH_SEL={};
+function ordhToggle(k,on){ if(on) ORDH_SEL[k]=1; else delete ORDH_SEL[k]; ordhSelCount(); }
+function ordhCheckAll(on){ document.querySelectorAll('.ordh_ck').forEach(function(c){ c.checked=on; if(on) ORDH_SEL[c.value]=1; else delete ORDH_SEL[c.value]; }); ordhSelCount(); }   // 지금 화면에 보이는 행만
+function ordhSelectedKeys(){ return Object.keys(ORDH_SEL).filter(function(k){return ORDH_DATA[k];}); }
+function ordhSelClear(){ ORDH_SEL={}; document.querySelectorAll('.ordh_ck').forEach(function(c){c.checked=false;}); var a=document.getElementById('ordh_all'); if(a)a.checked=false; ordhSelCount(); }
+function ordhSelCount(){ var n=ordhSelectedKeys().length; var el=document.getElementById('ordh_seln'); if(el) el.textContent=n?('✓ '+n+'개 선택됨 (검색 바꿔도 유지)'):''; }
 document.addEventListener('change', function(e){ if(e.target && e.target.classList && e.target.classList.contains('ordh_ck')) ordhSelCount(); });
 
 function ordhDelSelected(){
@@ -22054,7 +22060,7 @@ function renderOrderHist(){
     var rtel=(d['수취인전화']||'').replace(/[^0-9]/g,'');
     var btel=(d['구매자전화']||'').replace(/[^0-9]/g,'');
     h+='<tr>';
-    h+='<td><input type="checkbox" class="ordh_ck" value="'+row.k+'"></td>';
+    h+='<td><input type="checkbox" class="ordh_ck" value="'+row.k+'"'+(ORDH_SEL[row.k]?' checked':'')+' onclick="ordhToggle(this.value,this.checked)"></td>';
     h+='<td style="font-size:12px">'+(d['등록일시']||'')+'</td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
@@ -22071,8 +22077,29 @@ function renderOrderHist(){
   });
   h+='</tbody></table>'+(rows.length>300?'<div class="muted" style="font-size:11px;margin-top:4px">최근 300건만 표시 — 검색으로 좁혀보세요</div>':'');
   el.innerHTML=h;
+  ordhSelCount();
 }
 
+// 📥 선택 주문 → 엑셀 다운로드 (택배변환에 넣어 송장 재발행용). 택배변환이 헤더로 자동/수동 매핑
+function ordhExportSelected(){
+  var keys=ordhSelectedKeys();
+  if(!keys.length){ alert('먼저 주문을 체크하세요.\n(검색·필터를 바꿔도 체크는 유지됩니다 — 여러 번 검색하며 골라 담으세요)'); return; }
+  if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패 — 새로고침 후 다시 시도하세요.'); return; }
+  // 택배변환이 알아보는 헤더 (받는분/전화/주소/상품명/수량 등) — 옛 송장은 넣지 않음(재발행이므로)
+  var head=['받는분','전화','주소','상품명','수량','옵션','배송메시지','보내는분','보내는분전화','주문번호','플랫폼'];
+  var aoa=[head];
+  // 선택 순서보다 등록일시 최신순으로 정렬해 담기
+  var sel=keys.map(function(k){return {k:k,d:ORDH_DATA[k]||{}};});
+  sel.sort(function(a,b){ return ((b.d['등록일시'])||'')<((a.d['등록일시'])||'')?-1:1; });
+  sel.forEach(function(x){
+    var d=x.d;
+    aoa.push([ d['수취인명']||'', d['수취인전화']||'', d['주소']||'', d['상품명']||'', d['수량']||'', d['옵션']||'', d['배송메시지']||'', d['구매자명']||'', d['구매자전화']||'', d['주문번호']||'', d['플랫폼']||'' ]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:10},{wch:14},{wch:40},{wch:24},{wch:6},{wch:14},{wch:18},{wch:10},{wch:14},{wch:16},{wch:10}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'주문');
+  XLSX.writeFile(wb, '주문내보내기_'+todayKST()+'_'+keys.length+'건.xlsx');
+}
 // 주문히스토리 행 삭제
 function ordhDel(k){
   var d=ORDH_DATA[k]||{};
