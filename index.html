@@ -950,12 +950,19 @@ var IS_MOBILE=/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent); // 앱
 var IDLE_MS=IS_MOBILE?60*60*1000:10*60*1000; // 모바일 1시간 / PC 10분 무활동 → 연장 팝업
 function _idleLabel(){ return IDLE_MS>=3600000 ? (Math.round(IDLE_MS/3600000))+'시간' : (Math.round(IDLE_MS/60000))+'분'; }
 var WARN_COUNT_MS=60*1000;  // 팝업 뜬 뒤 60초 내 응답 없으면 자동 로그아웃
-// 자동로그인 TTL — 마지막 활동 이후 이 시간이 지나면 자동로그인 X, 수동 로그인 필요
-var AUTO_LOGIN_TTL_MS=1*60*60*1000; // 1시간
+// 자동로그인 TTL — 로그인한 시점부터 이 시간이 지나면 자동로그인 X, 수동 로그인 필요 (활동해도 연장 안 됨)
+var AUTO_LOGIN_TTL_MS=6*60*60*1000; // 6시간
 var idleTimer=null, warnTimer=null, warnCountdown=null;
 
-function saveAuth(id,pw){
-  try{localStorage.setItem(AUTH_KEY, JSON.stringify({id:id,pw:pw,ts:Date.now()}));}catch(e){}
+function saveAuth(id,pw,preserveLoginTs){
+  try{
+    var loginTs=Date.now();
+    if(preserveLoginTs){   // 자동로그인 재저장 시엔 최초 로그인 시각 유지 (6시간 캡이 밀리지 않게)
+      var prev=null; try{ prev=JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){}
+      if(prev&&Number(prev.loginTs)) loginTs=Number(prev.loginTs);
+    }
+    localStorage.setItem(AUTH_KEY, JSON.stringify({id:id,pw:pw,ts:Date.now(),loginTs:loginTs}));
+  }catch(e){}
 }
 // 기존 저장된 id/pw 는 유지하고 타임스탬프만 갱신 (활동 중이란 신호)
 function touchAuth(){
@@ -1045,7 +1052,7 @@ async function doLogin(id,pw,keep,silent){
   // 커스텀 모듈 정의 로드 후 탭 렌더 (딥링크가 모듈 탭이면 로드 후 자동 표시)
   if(typeof loadModDefs==='function') loadModDefs(function(){modLoadAll();mkTabs();draw()});
   mkTabs();drawEventBar();draw();
-  if(keep)saveAuth(id,pw); else clearAuth();
+  if(keep)saveAuth(id,pw,silent); else clearAuth();   // silent(자동로그인)=기존 로그인시각 유지 / 수동로그인=새 6시간 시작
   // 가문굴비: PC·앱 모두 로그아웃 누를 때까지 유지 (무활동 자동 로그아웃 없음)
   // (단, 로그인 상태 유지 체크 해제하면 그땐 자동 로그아웃)
   if(!keep) startIdleWatch();
@@ -1237,13 +1244,20 @@ function showEvtSwitchModal(){
 async function tryAutoLogin(){
   var a=loadAuth();
   if(!a||!a.id||!a.pw)return;
-  // 가문굴비: PC·앱 모두 시간 만료 없이 계속 자동 로그인 (로그아웃 전까지 유지)
   // 자동로그인은 silent라 텔레그램 알림도 안 감
   var ts = Number(a.ts)||0;
+  var loginTs = Number(a.loginTs)||ts;   // 로그인 시점(고정) — 없으면 옛 저장분이라 ts로 대체
   if(!ts){
     clearAuth();
     var er0=document.getElementById("loginErr");
     if(er0){ er0.style.color="#6b7280"; er0.textContent="다시 로그인해주세요."; }
+    return;
+  }
+  // 로그인 후 6시간이 지나면 자동 로그인 해제 (활동해도 연장 안 됨) — 수동 로그인 필요
+  if(loginTs && (Date.now()-loginTs) > AUTO_LOGIN_TTL_MS){
+    clearAuth();
+    var erT=document.getElementById("loginErr");
+    if(erT){ erT.style.color="#6b7280"; erT.textContent="자동 로그인이 만료되었습니다 (6시간). 다시 로그인해주세요."; }
     return;
   }
   // 자동로그인 중 UI — 로그인 폼 잠금 + 풀스크린 로딩
@@ -1276,6 +1290,17 @@ window.addEventListener("load",function(){
   // Firebase 데이터 준비 후 자동 로그인 시도
   onDataReady(function(){ setTimeout(tryAutoLogin, 300); });
 });
+// 탭을 계속 열어둔 채 6시간이 지나면(다시 돌아왔을 때) 자동 로그아웃 — 로그인 시점 기준
+function _checkLoginExpiry(){
+  if(typeof CID==='undefined'||!CID) return;   // 로그인 상태일 때만
+  var a=loadAuth(); if(!a) return;
+  var loginTs=Number(a.loginTs)||Number(a.ts)||0;
+  if(loginTs && (Date.now()-loginTs) > AUTO_LOGIN_TTL_MS){
+    logout("자동 로그인이 만료되었습니다 (6시간). 다시 로그인해주세요.");
+  }
+}
+document.addEventListener("visibilitychange",function(){ if(!document.hidden) _checkLoginExpiry(); });
+window.addEventListener("focus",_checkLoginExpiry);
 
 function logout(msg){
   // msg 있으면 자동 로그아웃(무활동 등) — 확인 없이 바로 처리
