@@ -21309,6 +21309,7 @@ function _sndDel(id){
 
 var SHIP_LISTENER=null, SHIP_RAW={}, SHIP_PATH={}, CUR_CO='', CUR_JI='';
 function loadShipData(){
+  _loadTbSmsTpl();
   if(!SHIP_LISTENER){
     SHIP_LISTENER=true;
     fbDb.ref('/excel_ship').on('value', function(s){ SHIP_RAW=s.val()||{}; if(CTAB==='shipData') renderShip(); },
@@ -21635,11 +21636,6 @@ async function shipFileSms(k, forceType){
   var ki=heads.findIndex(function(x){return /송장|운송장/.test(x);});
   if(ni<0||ti<0){ alert('이 파일엔 받는분/전화 열이 없어 문자 발송이 안 됩니다.'); return; }
   var type=forceType||((document.getElementById('ship_smstype')||{}).value||'발송');
-  var custom='';
-  if(type==='직접'){
-    custom=prompt('보낼 내용을 입력하세요.\n(받는분 이름/상품은 자동으로 뒤에 붙습니다. 비우면 안 붙음)', '[가문굴비] 안내드립니다.');
-    if(custom===null) return;
-  }
   // 🔗 발송(송장) 문자면 주문히스토리(excel_orders)에서 송장번호·택배사를 찾아옴 — 이 파일에 송장 열이 없어도 연동
   function _nrm(s){ s=String(s||'').trim().split(/\s+/)[0]; return s.replace(/(님|씨|귀하)$/,''); }
   function _t4(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
@@ -21672,50 +21668,22 @@ async function shipFileSms(k, forceType){
         if(q){ var got=q.shift(); trkNo=got.trk; car=got.car; }
       }
       if(!trkNo){ noTrk++; if(noTrkNames.length<8) noTrkNames.push(nm); return; }   // 송장 없는 사람은 발송문자 제외
-      if(!grp[tel]) grp[tel]={name:nm, lines:[]};
+      if(!grp[tel]) grp[tel]={name:nm, lines:[], vars:{받는분:nm, 송장번호:trkNo, 택배사:(car||'택배'), 상품명:(si>=0?String(r[si]||''):''), 수량:(qi>=0?String(r[qi]||''):'')}};
       grp[tel].lines.push(nm+'님 '+(car||'택배')+' '+trkNo);
       return;
     }
-    if(!grp[tel]) grp[tel]={name:nm, lines:[]};
+    if(!grp[tel]) grp[tel]={name:nm, lines:[], vars:{받는분:nm, 상품명:(si>=0?String(r[si]||''):''), 수량:(qi>=0?String(r[qi]||''):'')}};
     grp[tel].lines.push(nm+'님'+(item?(' '+item):''));
   });
   var tels=Object.keys(grp);
-  if(!tels.length){ alert(type==='발송'?('송장번호가 있는 받는분이 없습니다.\n먼저 주문히스토리에서 송장 업로드를 해주세요.'+(noTrkNames.length?('\n(송장 없음: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')+')'):'')):'전화번호가 있는 받는분이 없습니다.'); return; }
-  // 문자 내용 먼저 만들고 미리보기로 확인
-  var sends=tels.map(function(t){
-    var g=grp[t];
-    var body=g.lines.join('\n');
-    var msg;
-    if(type==='접수') msg='[가문굴비] 주문이 접수되었습니다\n\n'+body+'\n\n감사합니다.';
-    else if(type==='직접') msg=(custom||'')+(body?('\n\n'+body):'');
-    else msg='[가문굴비] 상품이 발송되었습니다\n'+body;
-    return {tel:t, msg:msg, name:g.name||''};
+  if(!tels.length){ alert(type==='발송'?('송장번호가 있는 받는분이 없습니다.\n먼저 송장 업로드를 해주세요.'+(noTrkNames.length?('\n(송장 없음: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')+')'):'')):'전화번호가 있는 받는분이 없습니다.'); return; }
+  // 편집폼(템플릿) 으로 — 서울지점 택배관리 모듈과 동일
+  var recips=tels.map(function(t){ var g=grp[t]; return {tel:t, name:g.name, lines:g.lines, keys:[], vars:g.vars||{받는분:g.name}}; });
+  taekbaeSmsCompose({
+    title:'['+type+'] '+(d.file||'')+(type==='발송'&&noTrk?(' · 송장없는 '+noTrk+'명 제외'):''),
+    typeKey:'ship_'+type, markKind:type, markShip:(SHIP_PATH[k]||'/excel_ship/'+k),
+    recipients:recips
   });
-  var _go=await smsPreview({
-    title:'['+type+'] '+(d.file||''),
-    count:sends.length,
-    note:(type==='발송'&&noTrk)?('송장 없는 '+noTrk+'명 제외: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')):'같은 번호는 한 통으로 묶어서 발송',
-    msgs:sends.map(function(s){ return {to:(s.name?s.name+'님 ':'')+s.tel, msg:s.msg}; })
-  });
-  if(!_go) return;
-  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
-  var proxy=cfg.SMS_PROXY_URL||'';
-  if(!proxy){ alert('SMS_PROXY_URL 설정이 없습니다.'); return; }
-  var ok=0, fail=0;
-  for(var i=0;i<sends.length;i++){
-    try{
-      var r=await fetch(proxy,{method:'POST',body:JSON.stringify({action:'send',
-        serviceId:cfg.NAVER_SENS_SERVICE_ID||'',accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
-        secretKey:cfg.NAVER_SENS_SECRET_KEY||'',sender:effSender(cfg),
-        tels:[sends[i].tel],msg:sends[i].msg})});
-      if((await r.json()).ok) ok++; else fail++;
-    }catch(e){ fail++; }
-  }
-  // 발송 기록 (기존 writable 노드 /excel_ship 안에 저장 — 새 규칙 불필요)
-  if(ok>0){
-    fbDb.ref((SHIP_PATH[k]||'/excel_ship/'+k)+'/sms/'+type).set({t:nowKST(), cnt:ok, by:(ME&&ME.id)||''}).catch(function(){});
-  }
-  alert('['+type+'] 발송 완료! 성공 '+ok+'통 / 실패 '+fail+'통');
 }
 
 // 담당자 한 명에게 이 파일 받는분+송장 목록 전달
@@ -21887,11 +21855,12 @@ function dOrderHist(){
   var h='';
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">🧾 주문히스토리</h3>';
   h+='<div class="muted" style="font-size:12px">엑셀에서 [주문 가져오기]/[송장 등록] 하면 자동 반영됩니다. (엑셀이 원본, 여긴 조회용)</div>';
-  h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadOrderHist()">🔄 새로고침</button> ';
-  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 접수 문자 보내기</button>';
-  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(false)">🚚 송장번호 문자 보내기</button>';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 받는분께 발송 문자</button>';
+  h+='<span style="font-weight:700;font-size:12px;color:#334155">📢 전체(지금 화면):</span>';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 전체 접수문자</button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(false)">🚚 전체 송장문자</button>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 전체 받는분문자</button>';
   h+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ordh_trkfile\').click()">📤 송장 업로드</button>';
   h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
   h+='</div>';
@@ -21945,7 +21914,13 @@ function ordhSelect(co,ji){
   ORDH_DATA={}; ORDH_PATH={};
   ordhFlat().forEach(function(x){ if(co&&co!=='(전체)'&&x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; ORDH_DATA[x.k]=x.rec; ORDH_PATH[x.k]=x.path; });
 }
+var TB_SMS_TPL_LOADED=false;
+function _loadTbSmsTpl(){
+  if(TB_SMS_TPL_LOADED) return; TB_SMS_TPL_LOADED=true;
+  fbDb.ref('/excel_config/smsTpl').on('value', function(s){ TB_SMS_TPL=s.val()||{}; }, function(){});
+}
 function loadOrderHist(){
+  _loadTbSmsTpl();
   if(!ORDH_LISTENER){
     ORDH_LISTENER=true;
     // 실시간 리스너 2개 (엑셀에서 쌓이면 자동 반영)
@@ -22018,6 +21993,93 @@ function ordhDelSelected(){
 }
 
 // 📱 문자 미리보기 모달 — 실제 발송될 문자를 말풍선으로 보여주고 보내기/취소 (Promise<boolean>)
+// ═══ 택배주문관리 문자 작성 폼 (서울지점 택배관리 모듈과 동일: 변수+템플릿+저장) ═══
+var TB_SMS_TPL={};   // 타입별 마지막 본문 기억 (/excel_config/smsTpl)
+var TB_SMS_DEFAULTS={
+  'ordh_접수':'[가문굴비] 주문이 접수되었습니다\n\n{목록}\n\n감사합니다.',
+  'ordh_송장':'[가문굴비] 상품이 발송되었습니다\n{목록}',
+  'ordh_받는분':'[가문굴비] 상품이 발송되었습니다\n{목록}',
+  'ship_발송':'[가문굴비] 상품이 발송되었습니다\n{목록}',
+  'ship_접수':'[가문굴비] 주문이 접수되었습니다\n\n{목록}\n\n감사합니다.',
+  'ship_직접':'[가문굴비] 안내드립니다.\n{목록}'
+};
+function _tbSmsBody(typeKey){ return (TB_SMS_TPL[typeKey]!=null?TB_SMS_TPL[typeKey]:(TB_SMS_DEFAULTS[typeKey]||'{목록}')); }
+// {변수} 치환 — 받는분/구매자/송장번호/택배사/상품명/수량/목록 + 날짜변수
+function _tbSmsFill(body, recip){
+  var msg=String(body||''); var v=recip.vars||{};
+  Object.keys(v).forEach(function(k){ msg=msg.split('{'+k+'}').join(String(v[k]||'')); });
+  msg=msg.split('{목록}').join((recip.lines||[]).join('\n'));
+  msg=msg.split('{이름}').join(String((v['받는분']||v['구매자']||recip.name||'')));
+  if(typeof _smsDateVars==='function') _smsDateVars().forEach(function(dv){ msg=msg.split('{'+dv.key+'}').join(dv.sample||''); });
+  return msg;
+}
+function _tbSmsByte(){
+  var body=(document.getElementById('tbSmsBody')||{}).value||'';
+  var recips=window.__tbSmsRecips||[]; var sample=recips[0]||{vars:{},lines:[]};
+  var filled=_tbSmsFill(body, sample);
+  var b=(function(s){try{return unescape(encodeURIComponent(s)).length;}catch(e){return s.length;}})(filled);
+  var el=document.getElementById('tbSmsByte'); if(el) el.textContent='('+b+'byte · '+(b>90?'LMS':'SMS')+')';
+  var pv=document.getElementById('tbSmsPrev'); if(pv) pv.textContent='📱 미리보기 — '+(sample.name||'첫 대상')+'님\n'+filled;
+}
+function taekbaeSmsCompose(opts){
+  var recips=opts.recipients||[];
+  if(!recips.length){ alert('보낼 대상이 없습니다.'); return; }
+  window.__tbSmsRecips=recips; window.__tbSmsOpts=opts;
+  var sample=recips[0];
+  var vkeys=['받는분','구매자','송장번호','택배사','상품명','수량','목록'];
+  var vars=vkeys.map(function(k){ return {key:k, srcKey:k, sample:(k==='목록'?(sample.lines||[]).join(' / '):(sample.vars&&sample.vars[k])||'')}; });
+  if(typeof _smsDateVars==='function') vars=vars.concat(_smsDateVars());
+  window._SMS_POPUP_VARS=vars;
+  var body=_tbSmsBody(opts.typeKey);
+
+  var h='<div class="pop-head"><h3>💬 '+esc(opts.title||'택배 문자')+'</h3></div>';
+  h+='<div style="padding:14px;max-height:78vh;overflow-y:auto">';
+  h+='<div class="mut" style="font-size:12px;margin-bottom:8px">받는 사람 <b>'+recips.length+'명</b> · 이 문구는 <b>기억됩니다</b>(다음에 그대로 뜸). 수정하고 발송하면 그 내용이 기본이 돼요. {변수}는 각자 값으로 치환.</div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">';
+  h+='<label style="font-size:12px;font-weight:700;color:#64748b;margin:0">메시지 <span id="tbSmsByte" style="font-size:11px;color:#64748b"></span></label>';
+  h+='<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">';
+  if(typeof smsVarSelectHtml==='function') h+=smsVarSelectHtml('tbSmsBody', vars);
+  if(typeof smsTplPicker==='function') h+='<button type="button" class="btn btn-s" style="font-size:11px;padding:3px 8px;background:#fbbf24;color:#78350f" onclick="smsTplPicker(\'tbSmsBody\',true)">📋 템플릿</button>';
+  if(typeof smsTplSaveCurrent==='function') h+='<button type="button" class="btn btn-s" style="font-size:11px;padding:3px 8px" onclick="smsTplSaveCurrent(\'tbSmsBody\',window._SMS_POPUP_VARS)">💾 저장</button>';
+  h+='</div></div>';
+  h+='<textarea id="tbSmsBody" rows="6" oninput="_tbSmsByte()" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box">'+esc(body)+'</textarea>';
+  h+='<div style="font-size:11px;color:#94a3b8;margin-top:3px">💡 <b>{목록}</b>=받는분별 상품/송장 목록 · {받는분}{송장번호}{택배사}{상품명} 등 자동 치환 · 90byte 초과 시 LMS</div>';
+  h+='<div id="tbSmsPrev" style="margin-top:8px;padding:8px 10px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;white-space:pre-wrap;color:#334155"></div>';
+  h+='<div style="display:flex;margin-top:14px;gap:6px;align-items:center;flex-wrap:wrap">';
+  h+='<span style="flex:1"></span>';
+  h+='<button class="btn" style="background:#64748b;color:#fff" onclick="closePopup()">취소</button> ';
+  h+='<button class="btn btn-b" style="background:#8b5cf6" onclick="_tbSmsSend()">💬 발송</button>';
+  h+='</div></div>';
+  openPopup(h,560);
+  setTimeout(_tbSmsByte,50);
+}
+async function _tbSmsSend(){
+  var body=(document.getElementById('tbSmsBody')||{}).value||'';
+  if(!body.trim()){ alert('메시지 내용을 입력하세요.'); return; }
+  var recips=window.__tbSmsRecips||[]; var opts=window.__tbSmsOpts||{};
+  var sends=recips.map(function(rc){ return {tel:rc.tel, name:rc.name, msg:_tbSmsFill(body,rc), keys:rc.keys||[]}; });
+  var _go=await smsPreview({ title:opts.title||'택배 문자', count:sends.length, msgs:sends.map(function(s){ return {to:(s.name?s.name+'님 ':'')+s.tel, msg:s.msg}; }) });
+  if(!_go) return;
+  // 이 타입 기본 문구로 기억 (다음에 그대로 뜸)
+  if(opts.typeKey){ TB_SMS_TPL[opts.typeKey]=body; fbDb.ref('/excel_config/smsTpl/'+opts.typeKey).set(body).catch(function(){}); }
+  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
+  var proxy=cfg.SMS_PROXY_URL||'';
+  if(!proxy){ alert('SMS_PROXY_URL 이 없습니다. SMS 설정 확인.'); return; }
+  var ok=0, fail=0;
+  for(var i=0;i<sends.length;i++){
+    try{
+      var r=await fetch(proxy,{method:'POST',body:JSON.stringify({action:'send',serviceId:cfg.NAVER_SENS_SERVICE_ID||'',accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',secretKey:cfg.NAVER_SENS_SECRET_KEY||'',sender:effSender(cfg),tels:[sends[i].tel],msg:sends[i].msg})});
+      var res=await r.json();
+      if(res.ok){ ok++;
+        if(opts.markKind){ var now=nowKST(); for(var j=0;j<sends[i].keys.length;j++){ await fbDb.ref('/excel_sms_sent/'+sends[i].keys[j]+'/'+opts.markKind).set(now); } }
+        if(opts.markShip){ await fbDb.ref(opts.markShip+'/sms/'+opts.markKind).set({t:nowKST(), cnt:ok, by:(ME&&ME.id)||''}).catch(function(){}); }
+      } else fail++;
+    }catch(e){ fail++; }
+  }
+  closePopup();
+  alert('문자 발송 완료!\n성공 '+ok+'통 / 실패 '+fail+'통');
+  if(opts.afterSend) try{ opts.afterSend(); }catch(e){}
+}
 function smsPreview(opts){
   return new Promise(function(resolve){
     window.__smsPvResolve=resolve;
@@ -22105,83 +22167,44 @@ async function ordhMgrSms(selectedOnly){
   }catch(e){}
   alert(okk?'담당자('+picked+')에게 전달 완료!':'전달 실패 (설정/번호 확인)');
 }
-async function ordhSms(kind, selectedOnly){
-  // 대상 모으기 (구매자별 그룹)
-  var toReceiver = (kind==='받는분');   // 수취인에게 / 아니면 구매자에게
-  var selSet=null;
-  if(selectedOnly){
-    var sk=ordhSelectedKeys();
-    if(!sk.length){ alert('문자 보낼 행을 체크하세요.'); return; }
-    selSet={}; sk.forEach(function(k){selSet[k]=1;});
-  }
-  var grp={};   // tel -> {keys:[], lines:[], name}
+// 지금 화면(업체/지점 + 검색 + 송장필터 + 기간)에 보이는 주문 키만
+function _ordhVisibleKeys(){
+  var q=(document.getElementById('ordh_q')?document.getElementById('ordh_q').value:'').trim().toLowerCase();
+  var f=(document.getElementById('ordh_f')?document.getElementById('ordh_f').value:'');
+  var df=ORDH_DATE.from, dt=ORDH_DATE.to, out=[];
   Object.keys(ORDH_DATA).forEach(function(k){
-    if(selSet && !selSet[k]) return;   // 선택모드면 체크된 것만
     var d=ORDH_DATA[k]||{};
-    var tel=ordhTel(toReceiver ? d['수취인전화'] : d['구매자전화']);
+    if(f==='no' && d['송장번호']) return;
+    if(f==='yes' && !d['송장번호']) return;
+    if(df||dt){ var dd=String(d['등록일시']||'').slice(0,10); if(!dd) return; if(df&&dd<df) return; if(dt&&dd>dt) return; }
+    if(q){ var hay=((d['수취인명']||'')+' '+(d['주문번호']||'')+' '+(d['상품명']||'')+' '+(d['송장번호']||'')+' '+(d['플랫폼']||'')+' '+(d['수취인전화']||'')).toLowerCase(); if(hay.indexOf(q)<0) return; }
+    out.push(k);
+  });
+  return out;
+}
+// 주문히스토리 문자 — 편집폼(템플릿) 방식. 전체=지금 화면 기준 / 선택=체크한 것만
+function ordhSms(kind, selectedOnly){
+  var toReceiver=(kind==='받는분');
+  var keys = selectedOnly ? ordhSelectedKeys() : _ordhVisibleKeys();
+  if(selectedOnly && !keys.length){ alert('문자 보낼 행을 체크하세요.'); return; }
+  var grp={};   // tel -> {name, keys, lines, first}
+  keys.forEach(function(k){
+    var d=ORDH_DATA[k]||{};
+    var tel=ordhTel(toReceiver?d['수취인전화']:d['구매자전화']);
     if(!tel) return;
     if((kind==='송장'||toReceiver) && !d['송장번호']) return;
-    if(ORDH_SENT[k] && ORDH_SENT[k][kind]) return;   // 이미 보냄
-    if(!grp[tel]) grp[tel]={keys:[], lines:[], name:(toReceiver?d['수취인명']:d['구매자명'])||'', buyer:d['구매자명']||''};
+    if(!grp[tel]) grp[tel]={name:(toReceiver?d['수취인명']:d['구매자명'])||'', keys:[], lines:[], first:d};
     grp[tel].keys.push(k);
-    if(toReceiver){
-      grp[tel].lines.push((d['택배사']||'택배')+' '+(d['송장번호']||''));
-    } else if(kind==='송장'){
-      grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['택배사']||'택배')+' '+(d['송장번호']||''));
-    } else {
-      grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['상품명']||'')+(d['수량']?(' '+d['수량']+'개'):''));
-    }
+    if(toReceiver||kind==='송장') grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['택배사']||'택배')+' '+(d['송장번호']||''));
+    else grp[tel].lines.push((d['수취인명']||'')+'님 '+(d['상품명']||'')+(d['수량']?(' '+d['수량']+'개'):''));
   });
   var tels=Object.keys(grp);
-  if(!tels.length){ alert('보낼 대상이 없습니다.\n(조건: '+(toReceiver?'수취인전화':'구매자전화')+' 있음'+((kind==='송장'||toReceiver)?' + 송장번호 있음':'')+' + 아직 안 보냄)'); return; }
-  var totalRows=0; tels.forEach(function(t){ totalRows+=grp[t].keys.length; });
-  // 문자 내용 먼저 만들고 미리보기로 확인
-  var sends=tels.map(function(t){
-    var g=grp[t];
-    var msg;
-    if(toReceiver){
-      msg='[가문굴비] '+(g.buyer?g.buyer+'님이 보내신 ':'')+'상품이 발송되었습니다\n'+g.lines.join('\n');
-    } else if(kind==='송장'){
-      msg='[가문굴비] 상품이 발송되었습니다\n'+g.lines.join('\n');
-    } else {
-      msg='[가문굴비] 주문이 접수되었습니다\n\n'+g.lines.join('\n')+'\n\n감사합니다.';
-    }
-    return {tel:t, msg:msg, name:g.name||''};
+  if(!tels.length){ alert('보낼 대상이 없습니다.'+((kind==='송장'||toReceiver)?'\n(송장번호 있는 주문만 대상 · 지금 화면 필터 기준)':'\n(연락처 있는 주문만 · 지금 화면 필터 기준)')); return; }
+  var recips=tels.map(function(t){ var g=grp[t], f=g.first||{}; return {tel:t, name:g.name, keys:g.keys, lines:g.lines, vars:{받는분:f['수취인명']||'', 구매자:f['구매자명']||'', 송장번호:f['송장번호']||'', 택배사:f['택배사']||'', 상품명:f['상품명']||'', 수량:f['수량']||''}}; });
+  taekbaeSmsCompose({
+    title:(selectedOnly?'선택 ':'전체 ')+kind+' 문자 → '+(toReceiver?'받는분(수취인)':'구매자'),
+    typeKey:'ordh_'+kind, markKind:kind, recipients:recips, afterSend:loadOrderHist
   });
-  var _go=await smsPreview({
-    title:kind+' 문자 → '+(toReceiver?'받는분(수취인)':'구매자(주문한 사람)')+'에게 · 주문 '+totalRows+'건',
-    count:sends.length,
-    msgs:sends.map(function(s){ return {to:(s.name?s.name+'님 ':'')+s.tel, msg:s.msg}; })
-  });
-  if(!_go) return;
-
-  // SENS 설정 (main/Config 재사용)
-  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
-  var proxy=cfg.SMS_PROXY_URL||'';
-  if(!proxy){ alert('SMS_PROXY_URL 이 없습니다. SMS 설정 확인.'); return; }
-
-  var ok=0, fail=0;
-  for(var i=0;i<tels.length;i++){
-    var g=grp[sends[i].tel];
-    var msg=sends[i].msg;
-    try{
-      var r=await fetch(proxy,{method:'POST',body:JSON.stringify({
-        action:'send', serviceId:cfg.NAVER_SENS_SERVICE_ID||'', accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',
-        secretKey:cfg.NAVER_SENS_SECRET_KEY||'', sender:effSender(cfg),
-        tels:[sends[i].tel], msg:msg
-      })});
-      var res=await r.json();
-      if(res.ok){
-        ok++;
-        var now=nowKST();
-        for(var j2=0;j2<g.keys.length;j2++){
-          await fbDb.ref('/excel_sms_sent/'+g.keys[j2]+'/'+kind).set(now);
-        }
-      } else fail++;
-    }catch(e){ fail++; }
-  }
-  alert(kind+' 문자 발송 완료!\n성공 '+ok+'통 / 실패 '+fail+'통');
-  loadOrderHist();
 }
 
 function renderOrderHist(){
