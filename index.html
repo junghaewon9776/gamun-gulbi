@@ -20813,7 +20813,7 @@ function renderPcView(){
     });
     h+='<tr><td style="font-family:monospace;font-weight:700">'+mac+'</td><td>'+p.company+'</td><td>'+chips+'</td><td style="font-size:12px">'+(lastLogin[mac]||'-')+'</td>';
     var _firstApp=(p.apps[0]||{}).app||'';
-    h+='<td style="white-space:nowrap"><button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="pcViewChangePerm(\''+mac+'\')" title="전체↔특정 프로그램 등 허용 범위 변경">✏ 권한변경</button> ';
+    h+='<td style="white-space:nowrap"><button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="pcPermModal(\''+mac+'\')" title="허용 프로그램 목록에서 체크로 선택 (여러 개 가능)">✏ 권한변경</button> ';
     h+='<button class="btn" style="background:#6b7280;color:#fff;font-weight:600" onclick="pcViewRename(\''+mac+'\')">✏ 업체명</button> ';
     h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="pcViewDel(\''+mac+'\')">🗑 전체삭제</button></td></tr>';
   });
@@ -20833,12 +20833,53 @@ function pcViewRename(mac){
 }
 
 // PC별: 이 MAC의 허용 범위 변경 (단일 등록이면 바로, 여러 개면 상세 표 안내)
-function pcViewChangePerm(mac){
-  var apps=[];
-  Object.keys(PCLIC_DATA).forEach(function(app){ if(PCLIC_DATA[app][mac]) apps.push(app); });
-  if(!apps.length){ alert('등록 정보가 없습니다.'); return; }
-  if(apps.length>1){ alert('이 PC는 여러 프로그램에 등록돼 있어요:\n'+apps.map(function(a){return a==='_ALL'?'전체(_ALL)':a;}).join(', ')+'\n\n아래 [등록된 PC (프로그램별 상세)] 표에서 각 줄의 ✏변경으로 바꿔주세요.'); return; }
-  pcLicChangeApp(apps[0], mac);
+// 이 PC(MAC)의 허용 프로그램을 체크박스 목록으로 선택 (여러 개 = 중복 가능)
+function pcPermModal(mac){
+  var cur={}, company='', expire='';
+  Object.keys(PCLIC_DATA).forEach(function(app){ var d=PCLIC_DATA[app]&&PCLIC_DATA[app][mac]; if(d){ cur[app]=1; if(d.company)company=d.company; if(d.expire)expire=d.expire; } });
+  var apps=pcLicApps().filter(function(a){return a!=='_ALL';});
+  var list=['_ALL'].concat(apps);
+  // 현재 등록됐지만 목록에 없는 것도 포함
+  Object.keys(cur).forEach(function(a){ if(list.indexOf(a)<0) list.push(a); });
+  var h='<div style="max-width:460px">';
+  h+='<h3 style="margin:0 0 4px">💻 이 PC 허용 프로그램 선택</h3>';
+  h+='<div class="mut" style="font-size:12px;margin-bottom:10px">PC번호: <b style="font-family:monospace">'+esc(mac)+'</b>'+(company?(' · '+esc(company)):'')+'<br>체크한 프로그램만 이 PC에서 열립니다. <b>여러 개 선택 가능</b> · 🌐전체=모든 프로그램.</div>';
+  h+='<div id="pcperm_list" style="max-height:48vh;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:4px">';
+  list.forEach(function(app){
+    var isAll=app==='_ALL';
+    var label=isAll?'🌐 전체 (_ALL · 모든 프로그램)':app;
+    h+='<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;'+(cur[app]?'background:#eff6ff':'')+'"><input type="checkbox" class="pcperm_ck" data-app="'+esc(app)+'"'+(cur[app]?' checked':'')+' style="width:17px;height:17px"><span style="font-weight:'+(isAll?'800':'600')+';color:'+(isAll?'#7c3aed':'#334155')+'">'+esc(label)+'</span></label>';
+  });
+  h+='</div>';
+  h+='<div style="margin-top:8px;display:flex;gap:6px;align-items:center"><input id="pcperm_new" placeholder="목록에 없는 새 프로그램 이름 (선택)" style="flex:1;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></div>';
+  h+='<div class="mut" style="font-size:11px;margin-top:4px">체크 해제한 프로그램은 이 PC에서 제거됩니다.</div>';
+  h+='<div style="display:flex;margin-top:14px;gap:6px"><span style="flex:1"></span><button class="btn" style="background:#64748b;color:#fff" onclick="closePopup()">취소</button> <button class="btn btn-b" onclick="_pcPermSave(\''+esc(mac)+'\')">💾 적용</button></div>';
+  h+='</div>';
+  openPopup(h,480);
+}
+function _pcPermSave(mac){
+  var desired={};
+  document.querySelectorAll('#pcperm_list .pcperm_ck').forEach(function(c){ if(c.checked){ var a=c.getAttribute('data-app'); if(a) desired[a]=1; } });
+  var newv=((document.getElementById('pcperm_new')||{}).value||'').trim();
+  if(newv) desired[newv]=1;
+  // 대표 회사/기한 (기존 등록에서)
+  var company='', expire='';
+  Object.keys(PCLIC_DATA).forEach(function(app){ var d=PCLIC_DATA[app]&&PCLIC_DATA[app][mac]; if(d){ if(d.company)company=d.company; if(d.expire)expire=d.expire; } });
+  var up={}, added=[], removed=[];
+  Object.keys(desired).forEach(function(app){
+    var d=PCLIC_DATA[app]&&PCLIC_DATA[app][mac];
+    if(!d){ up['/excel_license/'+app+'/'+mac]={company:company,allowed:true,expire:expire||'',memo:''}; added.push(app==='_ALL'?'전체':app); }
+  });
+  Object.keys(PCLIC_DATA).forEach(function(app){
+    if(PCLIC_DATA[app]&&PCLIC_DATA[app][mac] && !desired[app]){ up['/excel_license/'+app+'/'+mac]=null; removed.push(app==='_ALL'?'전체':app); }
+  });
+  if(!added.length && !removed.length){ closePopup(); return; }
+  var msg='이 PC 허용 프로그램을 변경합니다.\n';
+  if(added.length) msg+='\n＋ 추가: '+added.join(', ');
+  if(removed.length) msg+='\n－ 제거: '+removed.join(', ');
+  if(!Object.keys(desired).length) msg+='\n\n⚠ 아무것도 선택 안 해서 이 PC는 모든 프로그램을 못 엽니다.';
+  if(!confirm(msg+'\n\n계속할까요?')) return;
+  fbDb.ref().update(up).then(function(){ closePopup(); loadPcLic(); }).catch(function(e){ alert('실패: '+e.message); });
 }
 // PC별: 이 MAC을 모든 프로그램에서 삭제 (완전 제거)
 function pcViewDel(mac){
@@ -20898,7 +20939,7 @@ function renderPcLic(){
     else st='<span style="color:#16a34a;font-weight:700">허용</span>';
     var appLabel = r.app==='_ALL' ? '<span style="color:#7c3aed;font-weight:700">전체(_ALL)</span>' : r.app;
     h+='<tr>';
-    h+='<td>'+appLabel+' <button class="btn" style="background:#7c3aed;color:#fff;font-weight:600;font-size:11px;padding:2px 8px" onclick="pcLicChangeApp(\''+r.app+'\',\''+r.mac+'\')" title="전체↔특정 프로그램 변경">✏변경</button></td>';
+    h+='<td>'+appLabel+' <button class="btn" style="background:#7c3aed;color:#fff;font-weight:600;font-size:11px;padding:2px 8px" onclick="pcPermModal(\''+r.mac+'\')" title="이 PC의 허용 프로그램을 목록에서 체크로 선택">✏변경</button></td>';
     h+='<td style="font-family:monospace">'+r.mac+'</td>';
     h+='<td><input value="'+(d.company||'').replace(/"/g,'&quot;')+'" placeholder="업체/이름" onchange="pcLicSetField(\''+r.app+'\',\''+r.mac+'\',\'company\',this.value)" style="width:110px"></td>';
     h+='<td>'+st+'</td>';
@@ -20942,20 +20983,6 @@ function pcLicDel(app, mac){
   if(!confirm('['+app+'] '+mac+' 를 삭제할까요?\n(그 PC는 이 프로그램을 못 열게 됩니다)')) return;
   fbDb.ref('/excel_license/'+app+'/'+mac).remove().then(loadPcLic)
     .catch(function(e){ alert('실패: '+e.message); });
-}
-// 프로그램(허용 범위) 변경 — 전체(_ALL) ↔ 특정 프로그램. 삭제 없이 이동(회사/기한/허용/메모 유지)
-function pcLicChangeApp(oldApp, mac){
-  var d=(PCLIC_DATA[oldApp]&&PCLIC_DATA[oldApp][mac])||{};
-  var curLabel=oldApp==='_ALL'?'전체(_ALL)':oldApp;
-  var nw=prompt('이 PC('+mac+')의 허용 범위를 바꿉니다.\n현재: '+curLabel+'\n\n프로그램 이름을 입력하세요.\n· 모든 프로그램 허용 = _ALL\n· 특정 프로그램만 = 그 이름 (예: 택배변환프로그램)', oldApp);
-  if(nw===null) return;
-  nw=nw.trim(); if(!nw){ alert('프로그램 이름을 입력하세요.'); return; }
-  if(nw===oldApp){ return; }
-  if(PCLIC_DATA[nw]&&PCLIC_DATA[nw][mac] && !confirm('"'+(nw==='_ALL'?'전체(_ALL)':nw)+'"에 이미 이 PC가 있습니다.\n덮어쓸까요?')) return;
-  var up={};
-  up['/excel_license/'+nw+'/'+mac]=JSON.parse(JSON.stringify(d));   // 새 범위에 등록(정보 유지)
-  up['/excel_license/'+oldApp+'/'+mac]=null;                        // 기존 제거
-  fbDb.ref().update(up).then(loadPcLic).catch(function(e){ alert('실패: '+e.message); });
 }
 // 상세 표에서 업체명/메모 바로 수정
 function pcLicSetField(app, mac, field, val){
