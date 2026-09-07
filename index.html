@@ -21552,7 +21552,13 @@ async function shipOpen(k){
 }
 
 // ── 송장 매칭 공용 헬퍼 ──
-function _trkNrm(s){ s=String(s||'').trim().split(/\s+/)[0]; return s.replace(/(님|씨|귀하)$/,''); }
+// 이름 정규화 — 공백 전부 제거 + 뒤쪽 호칭 반복 제거 (롯데 수하인명 매칭용). 양쪽 동일 적용이라 호칭·공백 차이 흡수
+function _trkNrm(s){
+  s=String(s==null?'':s).replace(/\s+/g,'');
+  var suf=/(대표님|사장님|회장님|원장님|이사님|부장님|차장님|과장님|팀장님|실장님|본부장님|점장님|소장님|국장님|위원장님|총장님|목사님|권사님|집사님|장로님|전도사님|교수님|박사님|선생님|여사님|사모님|주임님|주사님|대표이사|대표|사장|회장|원장|드림|배상|올림|귀하|님|씨)$/;
+  for(var i=0;i<4 && suf.test(s); i++){ s=s.replace(suf,''); }
+  return s;
+}
 function _trkTail(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
 // 택배사 결과 엑셀 → 헤더 자동감지 후 [{nmRaw,tel,trk,car}] 배열. 못 찾으면 null
 function _parseCourierRows(rows){
@@ -21665,7 +21671,7 @@ async function shipFileSms(k, forceType){
   if(ni<0||ti<0){ alert('이 파일엔 받는분/전화 열이 없어 문자 발송이 안 됩니다.'); return; }
   var type=forceType||((document.getElementById('ship_smstype')||{}).value||'발송');
   // 🔗 발송(송장) 문자면 주문히스토리(excel_orders)에서 송장번호·택배사를 찾아옴 — 이 파일에 송장 열이 없어도 연동
-  function _nrm(s){ s=String(s||'').trim().split(/\s+/)[0]; return s.replace(/(님|씨|귀하)$/,''); }
+  function _nrm(s){ return _trkNrm(s); }
   function _t4(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
   var trkIdx={};
   if(type==='발송'){
@@ -21726,7 +21732,7 @@ async function shipMgrSms(k){
   var qi=heads.findIndex(function(x){return /수량|개수/.test(x);});
   var ki=heads.findIndex(function(x){return /송장|운송장/.test(x);});
   // 🔗 이 파일에 송장 열이 없으면 주문히스토리(excel_orders)에서 이름+전화로 송장번호·택배사 찾아옴
-  function _nrm2(s){ s=String(s||'').trim().split(/\s+/)[0]; return s.replace(/(님|씨|귀하)$/,''); }
+  function _nrm2(s){ return _trkNrm(s); }
   function _t42(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
   var trkIdx={};
   var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
@@ -22402,7 +22408,7 @@ function ordhTrackUpload(file){
 
       // 매칭용 인덱스: 수취인명(호칭·공백 제거)+전화 뒷4자리 -> 주문키들
       function tail(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
-      function nrm(s){ s=String(s||'').trim().split(/\s+/)[0]; return s.replace(/(님|씨|귀하)$/,''); }  // "강경복 님"→강경복
+      function nrm(s){ return _trkNrm(s); }  // 강화된 정규화 공용 (공백제거+호칭제거)
       var idx={};
       Object.keys(ORDH_DATA).forEach(function(key){
         var o=ORDH_DATA[key]||{};
