@@ -21661,6 +21661,7 @@ async function shipFileSms(k, forceType){
   var si=heads.findIndex(function(x){return /상품|품목|내용품/.test(x);});
   var qi=heads.findIndex(function(x){return /수량|개수/.test(x);});
   var ki=heads.findIndex(function(x){return /송장|운송장/.test(x);});
+  var sei=heads.findIndex(function(x){return /보내는분|보내신분|송하인|주문자|구매자/.test(x);});   // 보내는분(구매자)
   if(ni<0||ti<0){ alert('이 파일엔 받는분/전화 열이 없어 문자 발송이 안 됩니다.'); return; }
   var type=forceType||((document.getElementById('ship_smstype')||{}).value||'발송');
   // 🔗 발송(송장) 문자면 주문히스토리(excel_orders)에서 송장번호·택배사를 찾아옴 — 이 파일에 송장 열이 없어도 연동
@@ -21695,11 +21696,13 @@ async function shipFileSms(k, forceType){
         if(q){ var got=q.shift(); trkNo=got.trk; car=got.car; }
       }
       if(!trkNo){ noTrk++; if(noTrkNames.length<8) noTrkNames.push(nm); return; }   // 송장 없는 사람은 발송문자 제외
-      if(!grp[tel]) grp[tel]={name:nm, lines:[], vars:{받는분:nm, 송장번호:trkNo, 택배사:(car||'택배'), 상품명:(si>=0?String(r[si]||''):''), 수량:(qi>=0?String(r[qi]||''):'')}};
+      var sen=(sei>=0?String(r[sei]||''):'');
+      if(!grp[tel]) grp[tel]={name:nm, lines:[], vars:{받는분:nm, 고객명:nm, 보내신분:sen, 구매자:sen, 송장번호:trkNo, 택배사:(car||'택배'), 상품명:(si>=0?String(r[si]||''):''), 수량:(qi>=0?String(r[qi]||''):'')}};
       grp[tel].lines.push(nm+'님 '+(car||'택배')+' '+trkNo);
       return;
     }
-    if(!grp[tel]) grp[tel]={name:nm, lines:[], vars:{받는분:nm, 상품명:(si>=0?String(r[si]||''):''), 수량:(qi>=0?String(r[qi]||''):'')}};
+    var sen2=(sei>=0?String(r[sei]||''):'');
+    if(!grp[tel]) grp[tel]={name:nm, lines:[], vars:{받는분:nm, 고객명:nm, 보내신분:sen2, 구매자:sen2, 상품명:(si>=0?String(r[si]||''):''), 수량:(qi>=0?String(r[qi]||''):'')}};
     grp[tel].lines.push(nm+'님'+(item?(' '+item):''));
   });
   var tels=Object.keys(grp);
@@ -22023,12 +22026,16 @@ function ordhDelSelected(){
 // ═══ 택배주문관리 문자 작성 폼 (서울지점 택배관리 모듈과 동일: 변수+템플릿+저장) ═══
 var TB_SMS_TPL={};   // 타입별 마지막 본문 기억 (/excel_config/smsTpl)
 var TB_SMS_DEFAULTS={
-  'ordh_접수':'[가문굴비] 주문이 접수되었습니다\n\n{목록}\n\n감사합니다.',
-  'ordh_송장':'[가문굴비] 상품이 발송되었습니다\n{목록}',
-  'ordh_받는분':'[가문굴비] 상품이 발송되었습니다\n{목록}',
-  'ship_발송':'[가문굴비] 상품이 발송되었습니다\n{목록}',
-  'ship_접수':'[가문굴비] 주문이 접수되었습니다\n\n{목록}\n\n감사합니다.',
-  'ship_직접':'[가문굴비] 안내드립니다.\n{목록}'
+  // 접수(주문자에게): 접수 확인
+  'ordh_접수':'[가문굴비] 주문이 정상 접수되었습니다. 감사합니다.',
+  // 송장(구매자=보내는분에게): 굴비 잘 준비됨 + 각 고객(받는분)별 택배사·송장 목록
+  'ordh_송장':'[가문굴비] 주문하신 굴비가 잘 준비되어 발송되었습니다 😊\n\n{목록}\n\n이용해 주셔서 감사합니다.',
+  // 받는분(수취인에게): 누가 보냈는지 + 어느 택배 + 송장번호 (목록 아님, 직접 변수)
+  'ordh_받는분':'[가문굴비] {보내신분}님께서 보내신 냉동굴비가 {택배사}로 발송되었습니다.\n운송장번호 {송장번호}\n\n맛있게 드세요. 감사합니다!',
+  // 접수데이터 발송(받는분에게)
+  'ship_발송':'[가문굴비] {보내신분}님께서 보내신 냉동굴비가 {택배사}로 발송되었습니다.\n운송장번호 {송장번호}\n\n맛있게 드세요. 감사합니다!',
+  'ship_접수':'[가문굴비] 주문이 정상 접수되었습니다. 감사합니다.',
+  'ship_직접':'[가문굴비] 안내드립니다.'
 };
 function _tbSmsBody(typeKey){ return (TB_SMS_TPL[typeKey]!=null?TB_SMS_TPL[typeKey]:(TB_SMS_DEFAULTS[typeKey]||'{목록}')); }
 // {변수} 치환 — 받는분/구매자/송장번호/택배사/상품명/수량/목록 + 날짜변수
@@ -22053,7 +22060,7 @@ function taekbaeSmsCompose(opts){
   if(!recips.length){ alert('보낼 대상이 없습니다.'); return; }
   window.__tbSmsRecips=recips; window.__tbSmsOpts=opts;
   var sample=recips[0];
-  var vkeys=['받는분','구매자','송장번호','택배사','상품명','수량','목록'];
+  var vkeys=['받는분','고객명','보내신분','구매자','송장번호','택배사','상품명','수량','목록'];
   var vars=vkeys.map(function(k){ return {key:k, srcKey:k, sample:(k==='목록'?(sample.lines||[]).join(' / '):(sample.vars&&sample.vars[k])||'')}; });
   if(typeof _smsDateVars==='function') vars=vars.concat(_smsDateVars());
   window._SMS_POPUP_VARS=vars;
@@ -22227,7 +22234,7 @@ function ordhSms(kind, selectedOnly){
   });
   var tels=Object.keys(grp);
   if(!tels.length){ alert('보낼 대상이 없습니다.'+((kind==='송장'||toReceiver)?'\n(송장번호 있는 주문만 대상 · 지금 화면 필터 기준)':'\n(연락처 있는 주문만 · 지금 화면 필터 기준)')); return; }
-  var recips=tels.map(function(t){ var g=grp[t], f=g.first||{}; return {tel:t, name:g.name, keys:g.keys, lines:g.lines, vars:{받는분:f['수취인명']||'', 구매자:f['구매자명']||'', 송장번호:f['송장번호']||'', 택배사:f['택배사']||'', 상품명:f['상품명']||'', 수량:f['수량']||''}}; });
+  var recips=tels.map(function(t){ var g=grp[t], f=g.first||{}; return {tel:t, name:g.name, keys:g.keys, lines:g.lines, vars:{받는분:f['수취인명']||'', 고객명:f['수취인명']||'', 구매자:f['구매자명']||'', 보내신분:f['구매자명']||'', 송장번호:f['송장번호']||'', 택배사:f['택배사']||'택배', 상품명:f['상품명']||'', 수량:f['수량']||''}}; });
   taekbaeSmsCompose({
     title:(selectedOnly?'선택 ':'전체 ')+kind+' 문자 → '+(toReceiver?'받는분(수취인)':'구매자'),
     typeKey:'ordh_'+kind, markKind:kind, recipients:recips, afterSend:loadOrderHist
