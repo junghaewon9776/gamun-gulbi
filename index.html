@@ -21516,11 +21516,11 @@ async function shipOpen(k){
     try{
       var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
       var idx={};
-      Object.keys(ORD).forEach(function(ok2){
-        var o=ORD[ok2]||{}; if(!o['송장번호']) return;
-        var kk=_trkNrm(o['수취인명'])+'|'+_trkTail(o['수취인전화']);
-        (idx[kk]=idx[kk]||[]).push({trk:o['송장번호'], car:o['택배사']||''});
-      });
+      // 업체/지점 폴더 깊이 상관없이 레코드만 펼쳐서 송장 인덱스 구성 (본사/본사/WK_... 중첩 대응)
+      (function walk(o){ Object.keys(o||{}).forEach(function(kk2){ var v=o[kk2]; if(!v||typeof v!=='object') return;
+        if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){ if(v['송장번호']){ var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']); (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); } }
+        else { walk(v); }
+      }); })(ORD);
       rows.forEach(function(r,i2){
         var st=stored[i2]||stored[String(i2)];
         if(st&&st.t){ trkMap[i2]={trk:st.t, car:st.c||''}; return; }   // 직접 업로드 우선
