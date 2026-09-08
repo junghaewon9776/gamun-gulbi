@@ -1459,6 +1459,10 @@ function mkTabs(){
   if(ME && (ME.r==="super" || ME.r==="admin")) c5.push({k:"forms",l:"폼 관리"});
   if(_isSuperAdmin()) c5.push({k:"linkTabs",l:"🔗 연동 탭"});
   if(_isSuperAdmin()) c5.push({k:"modMgr",l:"📦 모듈 관리"});
+  // ── 택배 스케줄 (달력) — 로그인한 모두 열람 가능 ──
+  if(ME) cats.push({id:"tkbCal",label:"📅 택배 스케줄",items:[
+    {k:"shipCal",l:"📅 택배 스케줄"}
+  ]});
   // ── 택배주문관리 (super/admin 전용) ──
   if(ME && (ME.r==="super" || ME.r==="admin")){
     cats.push({id:"tkbMgr",label:"🚚 택배주문관리",items:[
@@ -5973,6 +5977,7 @@ function draw(){
   else if(CTAB=="forms"){    el.innerHTML=dForms();    loadForms(); }
   else if(CTAB=="pcLic"){    el.innerHTML=dPcLic();    loadPcLic(); }
   else if(CTAB=="shipData"){ el.innerHTML=dShipData(); loadShipData(); }
+  else if(CTAB=="shipCal"){ el.innerHTML=dShipCal(); loadShipCal(); }
   else if(CTAB=="orderHist"){ el.innerHTML=dOrderHist(); loadOrderHist(); }
   else if(CTAB=="smsTpl"){   el.innerHTML=dSmsTpl();   loadSmsTpl(); }
   else if(CTAB=="notice")el.innerHTML=dNotice();
@@ -21424,6 +21429,7 @@ function renderShip(){
       fh+='<td style="color:#2563eb;font-weight:600">📄 '+(d.file||'(이름없음)')+smsMark+'</td>';
       fh+='<td style="font-size:12px;white-space:nowrap">'+((d.t||'').slice(11))+'</td>';
       fh+='<td style="font-weight:700">'+(d.cnt||0)+'건</td>';
+      fh+='<td onclick="event.stopPropagation()" title="이 파일 택배 발송일자 (해당 주문들에도 함께 적용)"><span style="font-size:10px;color:#64748b">📅발송</span><br><input type="date" value="'+esc(_shipFileDate(d))+'" onchange="shipSetFileDate(\''+k+'\',this.value)" style="width:128px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'"></td>';
       fh+='<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="event.stopPropagation();shipDel(\''+k+'\')">🗑</button></td>';
       fh+='</tr>';
     });
@@ -21880,6 +21886,312 @@ async function shipRecalc(){
   alert('재계산 텔레그램 발송: '+ok+'/'+chats.length+'통');
 }
 
+// ============================================================================
+// 📅 택배 스케줄 (발송일자별 수량 달력) — 주문히스토리(excel_orders)의 발송일자로 집계
+//   · 발송일자 미지정 주문은 등록일 기준으로 표시
+//   · 일/주/월 보기 · 날짜 클릭 → 그날 상세(택배 건수·상품수량·주문목록)
+// ============================================================================
+// 접수 파일의 발송일자 (지정값 우선, 없으면 저장일 t)
+function _shipFileDate(d){ d=d||{}; return String(d['발송일자']||'').slice(0,10) || String(d.t||'').slice(0,10); }
+// 접수 파일 발송일자 저장 + 그 파일 받는분과 매칭되는 주문들에 함께 반영
+async function shipSetFileDate(k, val){
+  val=String(val||'').slice(0,10);
+  if(!_validYmd(val)){ alert('날짜 형식이 올바르지 않습니다.'); renderShip(); return; }
+  var basePath=(SHIP_PATH[k]||'/excel_ship/'+k);
+  var d=SHIP_DATA[k]||{}, heads=d.headers||[], rows=d.rows||[];
+  var ni=heads.findIndex(function(x){return /받는분|수취인/.test(x);});
+  var ti=heads.findIndex(function(x){return /전화|연락처|휴대/.test(x);});
+  var updates={}; updates[basePath+'/발송일자']=(val||null);
+  var propagated=0;
+  if(ni>=0 && val){
+    try{
+      var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
+      var idx={};
+      (function walk(o,path){ Object.keys(o||{}).forEach(function(kk){ var v=o[kk]; if(!v||typeof v!=='object') return;
+        var p=path+'/'+kk;
+        if(v['수취인명']||v['플랫폼']||v['주문번호']||v['등록일시']){ var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']); (idx[key]=idx[key]||[]).push(p); }
+        else walk(v,p);
+      }); })(ORD,'/excel_orders');
+      var used={};
+      rows.forEach(function(r){
+        var nm=_trkNrm(String(r[ni]||'')); if(!nm) return;
+        var tel=ti>=0?_trkTail(r[ti]):'';
+        var cand=idx[nm+'|'+tel];
+        if(!cand||!cand.length){ var bn=Object.keys(idx).filter(function(x){return x.indexOf(nm+'|')===0;}); cand=bn.length?idx[bn[0]]:null; }
+        if(cand) cand.forEach(function(p){ if(used[p])return; used[p]=1; updates[p+'/발송일자']=val; propagated++; });
+      });
+    }catch(e){}
+  }
+  fbDb.ref().update(updates).then(function(){
+    if(SHIP_DATA[k]){ if(val) SHIP_DATA[k]['발송일자']=val; else delete SHIP_DATA[k]['발송일자']; }
+    toast(val?('발송일자 '+val+' 저장'+(propagated?(' · 주문 '+propagated+'건 반영'):'')):'발송일자 해제');
+  }).catch(function(e){ alert('저장 실패: '+e.message); });
+}
+
+var CAL_STATE={view:'month', anchor:'', sel:''};
+function _calParse(s){ var a=String(s).split('-'); return new Date(+a[0], (+a[1]||1)-1, +a[2]||1); }
+function _calFmt(dt){ return dt.getFullYear()+'-'+('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2); }
+function _calAddDays(s,n){ var d=_calParse(s); d.setDate(d.getDate()+n); return _calFmt(d); }
+function _calAddMonths(s,n){ var d=_calParse(s); var day=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); var last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); d.setDate(Math.min(day,last)); return _calFmt(d); }
+var _WD=['일','월','화','수','목','금','토'];
+
+// 발송일자별 집계 (전체 주문 대상, 업체필터 무시)
+function shipCalAgg(){
+  var map={};
+  ordhFlat().forEach(function(x){
+    var d=x.rec||{}; var ds=_shipDateOf(d); if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+    var m=map[ds]||(map[ds]={cnt:0, qty:0, plat:{}, orders:[]});
+    m.cnt++;
+    var q=Number(String(d['수량']==null?'':d['수량']).replace(/[^0-9.]/g,''))||0; m.qty+=q;
+    var p=d['플랫폼']||'(기타)'; var pp=m.plat[p]||(m.plat[p]={cnt:0,qty:0}); pp.cnt++; pp.qty+=q;
+    if(m.orders.length<800) m.orders.push(d);
+  });
+  return map;
+}
+
+function dShipCal(){
+  var h='';
+  h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📅 택배 스케줄 <span style="font-size:13px;color:#64748b">(발송일자별 준비 수량)</span></h3>';
+  h+='<div class="muted" style="font-size:12px">주문히스토리의 <b>발송일자</b>별로 그날 준비할 택배 개수를 모아 보여줍니다. 날짜를 누르면 그날 상세가 아래에 나옵니다. <b>발송일자를 안 정한 주문은 등록일 기준</b>으로 표시돼요. (발송일자는 접수데이터·주문히스토리에서 바꿀 수 있어요)</div>';
+  h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipCal()">🔄 새로고침</button>';
+  h+='<button class="btn" style="background:#0088cc;color:#fff;font-weight:700" onclick="calRecipModal()" title="텔레그램으로 스케줄을 받을 사람(챗ID)을 미리 등록해 둡니다">👥 텔레그램 받는사람 <span id="cal_recip_n"></span></button>';
+  h+='<span style="width:1px;height:20px;background:#cbd5e1"></span>';
+  h+='<button class="btn" style="background:#475569;color:#fff;font-weight:700" onclick="calNav(-1)">◀ 이전</button>';
+  h+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:700" onclick="calNav(0)">오늘</button>';
+  h+='<button class="btn" style="background:#475569;color:#fff;font-weight:700" onclick="calNav(1)">다음 ▶</button>';
+  h+='<span id="cal_title" style="font-weight:800;font-size:16px;margin:0 6px;color:#0f172a"></span>';
+  h+='<span style="margin-left:auto;font-weight:700;font-size:12px;color:#475569">보기</span>';
+  h+='<span id="cal_views"></span>';
+  h+='</div></div>';
+  h+='<div class="card" id="cal_main">불러오는 중...</div>';
+  h+='<div class="card" id="cal_detail" style="margin-top:10px;display:none"></div>';
+  return h;
+}
+function loadShipCal(){
+  if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
+  if(!CAL_STATE.sel) CAL_STATE.sel=todayKST();
+  loadOrderHist();     // /excel_orders 리스너 부착 (데이터 오면 renderShipCal 재호출)
+  loadCalRecip();      // 텔레그램 받는사람 명단 로드 (버튼 카운트/모달 갱신)
+  renderShipCal();
+}
+function calNav(dir){
+  if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
+  if(dir===0){ CAL_STATE.anchor=todayKST(); CAL_STATE.sel=todayKST(); }
+  else if(CAL_STATE.view==='month') CAL_STATE.anchor=_calAddMonths(CAL_STATE.anchor,dir);
+  else if(CAL_STATE.view==='week')  CAL_STATE.anchor=_calAddDays(CAL_STATE.anchor,7*dir);
+  else CAL_STATE.anchor=_calAddDays(CAL_STATE.anchor,dir);
+  renderShipCal();
+}
+function calSetView(v){ CAL_STATE.view=v; if(v==='day'&&CAL_STATE.sel) CAL_STATE.anchor=CAL_STATE.sel; renderShipCal(); }
+function calPick(ds){ CAL_STATE.sel=ds; if(CAL_STATE.view==='day') CAL_STATE.anchor=ds; renderShipCal(); }
+
+function renderShipCal(){
+  var main=document.getElementById('cal_main'); if(!main) return;
+  if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
+  var agg=shipCalAgg();
+  var vsel=document.getElementById('cal_views');
+  if(vsel){ var vb=function(v,l){ var on=CAL_STATE.view===v; return '<button class="btn" style="font-weight:700;padding:5px 14px;background:'+(on?'#7c3aed':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetView(\''+v+'\')">'+l+'</button>'; };
+    vsel.innerHTML=vb('day','일')+vb('week','주')+vb('month','월'); }
+  var title=document.getElementById('cal_title');
+  var det=document.getElementById('cal_detail');
+  if(CAL_STATE.view==='month'){
+    var d=_calParse(CAL_STATE.anchor); if(title) title.textContent=d.getFullYear()+'년 '+(d.getMonth()+1)+'월';
+    main.innerHTML=_calMonthHtml(agg);
+    if(det){ det.style.display=''; det.innerHTML=_calDayDetailHtml(agg, CAL_STATE.sel||todayKST()); }
+  } else if(CAL_STATE.view==='week'){
+    var ws=_calAddDays(CAL_STATE.anchor, -_calParse(CAL_STATE.anchor).getDay());
+    var we=_calAddDays(ws,6);
+    if(title) title.textContent=ws+' ~ '+we;
+    main.innerHTML=_calWeekHtml(agg, ws);
+    if(det){ det.style.display=''; det.innerHTML=_calDayDetailHtml(agg, CAL_STATE.sel||ws); }
+  } else {
+    if(title) title.textContent=CAL_STATE.anchor+' ('+_WD[_calParse(CAL_STATE.anchor).getDay()]+')';
+    main.innerHTML=_calDayDetailHtml(agg, CAL_STATE.anchor);
+    if(det){ det.style.display='none'; det.innerHTML=''; }
+  }
+}
+// 셀 안 요약(택배 건수 크게 + 상품수량)
+function _calCellBadge(m){
+  if(!m) return '';
+  return '<div style="margin-top:2px"><span style="display:inline-block;background:#2563eb;color:#fff;border-radius:8px;padding:1px 7px;font-weight:800;font-size:13px">🚚'+m.cnt+'</span>'
+    +(m.qty?(' <span style="font-size:11px;color:#7c3aed;font-weight:700">'+m.qty+'개</span>'):'')+'</div>';
+}
+function _calMonthHtml(agg){
+  var a=_calParse(CAL_STATE.anchor); var y=a.getFullYear(), mo=a.getMonth();
+  var first=new Date(y,mo,1); var start=_calAddDays(_calFmt(first), -first.getDay());
+  var today=todayKST(), sel=CAL_STATE.sel;
+  var mTot=0, mQty=0; Object.keys(agg).forEach(function(ds){ if(ds.slice(0,7)===_calFmt(first).slice(0,7)){ mTot+=agg[ds].cnt; mQty+=agg[ds].qty; } });
+  var h='<div style="margin-bottom:8px;font-weight:800;color:#0f172a">이번 달 합계: <span style="color:#2563eb">택배 '+mTot+'건</span>'+(mQty?(' · 상품 '+mQty+'개'):'')+'</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;table-layout:fixed;min-width:640px">';
+  h+='<thead><tr>'+_WD.map(function(w,i){ return '<th style="padding:6px;border:1px solid #e2e8f0;background:#f8fafc;color:'+(i===0?'#dc2626':(i===6?'#2563eb':'#475569'))+';font-size:12px">'+w+'</th>'; }).join('')+'</tr></thead><tbody>';
+  var ds=start;
+  for(var r=0;r<6;r++){
+    h+='<tr>';
+    for(var c=0;c<7;c++){
+      var inMonth=(_calParse(ds).getMonth()===mo);
+      var m=agg[ds];
+      var isToday=(ds===today), isSel=(ds===sel);
+      var bg=isSel?'#ede9fe':(isToday?'#eff6ff':(inMonth?'#fff':'#f8fafc'));
+      var dow=_calParse(ds).getDay();
+      var dcol=inMonth?(dow===0?'#dc2626':(dow===6?'#2563eb':'#0f172a')):'#cbd5e1';
+      h+='<td onclick="calPick(\''+ds+'\')" style="vertical-align:top;height:64px;padding:4px;border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';cursor:pointer;background:'+bg+(isSel?';box-shadow:inset 0 0 0 2px #7c3aed':'')+'">';
+      h+='<div style="font-weight:700;font-size:12px;color:'+dcol+'">'+_calParse(ds).getDate()+(isToday?' <span style="font-size:9px;color:#2563eb">오늘</span>':'')+'</div>';
+      h+=_calCellBadge(m);
+      h+='</td>';
+      ds=_calAddDays(ds,1);
+    }
+    h+='</tr>';
+    if(_calParse(ds).getMonth()!==mo && r>=4) break;   // 다음달로 넘어가면 종료(불필요 6번째 줄 방지)
+  }
+  h+='</tbody></table></div>';
+  return h;
+}
+function _calWeekHtml(agg, ws){
+  var today=todayKST(), sel=CAL_STATE.sel;
+  var wTot=0,wQty=0; for(var i=0;i<7;i++){ var m=agg[_calAddDays(ws,i)]; if(m){wTot+=m.cnt;wQty+=m.qty;} }
+  var h='<div style="margin-bottom:8px;font-weight:800;color:#0f172a">이번 주 합계: <span style="color:#2563eb">택배 '+wTot+'건</span>'+(wQty?(' · 상품 '+wQty+'개'):'')+'</div>';
+  h+='<div style="display:flex;gap:6px;overflow-x:auto">';
+  for(var d=0;d<7;d++){
+    var ds=_calAddDays(ws,d), m=agg[ds], dow=_calParse(ds).getDay();
+    var isToday=(ds===today), isSel=(ds===sel);
+    var dcol=dow===0?'#dc2626':(dow===6?'#2563eb':'#0f172a');
+    h+='<div onclick="calPick(\''+ds+'\')" style="flex:1;min-width:110px;border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';border-radius:10px;padding:8px;cursor:pointer;background:'+(isSel?'#ede9fe':(isToday?'#eff6ff':'#fff'))+'">';
+    h+='<div style="font-weight:700;font-size:12px;color:'+dcol+'">'+_WD[dow]+' '+_calParse(ds).getDate()+'일'+(isToday?' <span style="font-size:9px;color:#2563eb">오늘</span>':'')+'</div>';
+    if(m){
+      h+='<div style="margin-top:6px"><span style="background:#2563eb;color:#fff;border-radius:8px;padding:2px 8px;font-weight:800">🚚'+m.cnt+'건</span></div>';
+      if(m.qty) h+='<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:2px">상품 '+m.qty+'개</div>';
+      var pk=Object.keys(m.plat).sort(function(a,b){return m.plat[b].cnt-m.plat[a].cnt;});
+      pk.slice(0,4).forEach(function(p){ h+='<div style="font-size:11px;color:#475569;margin-top:2px">· '+esc(p)+' '+m.plat[p].cnt+'</div>'; });
+      if(pk.length>4) h+='<div style="font-size:11px;color:#94a3b8">외 '+(pk.length-4)+'개</div>';
+    } else h+='<div style="font-size:11px;color:#cbd5e1;margin-top:6px">-</div>';
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+// 하루 상세 (플랫폼별 요약 + 주문 목록)
+function _calDayDetailHtml(agg, ds){
+  ds=String(ds||'').slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) ds=todayKST();
+  var m=agg[ds];
+  var wd=_WD[_calParse(ds).getDay()];
+  var h='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px"><h4 style="margin:0">📦 '+ds+' ('+wd+') 발송 예정</h4>';
+  if(m) h+='<button class="btn" style="background:#0088cc;color:#fff;font-weight:700" onclick="calSendTg(\''+ds+'\')" title="이 날짜 택배 수량 요약을 텔레그램(택배봇)으로 전송 · 달력 링크 포함">📨 텔레그램 전송</button>';
+  h+='</div>';
+  if(!m){ return h+'<div class="muted">이 날짜에 발송 예정인 택배가 없습니다.</div>'; }
+  h+='<div style="font-weight:800;font-size:15px;margin-bottom:6px">총 <span style="color:#2563eb">택배 '+m.cnt+'건</span>'+(m.qty?(' · <span style="color:#7c3aed">상품 '+m.qty+'개</span>'):'')+'</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+  Object.keys(m.plat).sort(function(a,b){return m.plat[b].cnt-m.plat[a].cnt;}).forEach(function(p){
+    h+='<span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:700">'+esc(p)+' <span style="color:#2563eb">'+m.plat[p].cnt+'건</span>'+(m.plat[p].qty?(' <span style="color:#7c3aed">'+m.plat[p].qty+'개</span>'):'')+'</span>';
+  });
+  h+='</div>';
+  var os=m.orders.slice();
+  h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>상품명</th><th>수량</th><th>플랫폼</th><th>구매자</th><th>송장번호</th></tr></thead><tbody>';
+  os.forEach(function(d,i){
+    var trk=d['송장번호']||'';
+    h+='<tr><td>'+(i+1)+'</td>';
+    h+='<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>';
+    h+='<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">'+esc(d['상품명']||'')+'</td>';
+    h+='<td>'+esc(d['수량']||'')+'</td>';
+    h+='<td>'+esc(d['플랫폼']||'')+'</td>';
+    h+='<td>'+esc(d['구매자명']||'')+'</td>';
+    h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+esc(trk)+'</td>'):('<td style="color:#d97706">미발송</td>');
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  if(m.orders.length>=800) h+='<div class="muted" style="font-size:11px;margin-top:4px">※ 표시는 최대 800건까지입니다.</div>';
+  return h;
+}
+// 📨 그날 택배 수량 요약을 텔레그램(택배봇)으로 전송 (+ 달력 웹 링크 포함)
+async function calSendTg(ds){
+  ds=String(ds||'').slice(0,10);
+  var agg=shipCalAgg(), m=agg[ds];
+  if(!m){ alert('이 날짜에 발송 예정인 택배가 없습니다.'); return; }
+  var wd=_WD[_calParse(ds).getDay()];
+  var link=location.origin+location.pathname+'?tab=shipCal';
+  var msg='📦 ['+SYS_PARENT+'] 택배 발송 예정\n'+ds+' ('+wd+'요일)\n=======================\n';
+  msg+='총 택배 '+m.cnt+'건'+(m.qty?(' · 상품 '+m.qty+'개'):'')+'\n\n[플랫폼별]\n';
+  Object.keys(m.plat).sort(function(a,b){return m.plat[b].cnt-m.plat[a].cnt;}).forEach(function(p){
+    msg+=' • '+p+': '+m.plat[p].cnt+'건'+(m.plat[p].qty?(' / '+m.plat[p].qty+'개'):'')+'\n';
+  });
+  msg+='=======================\n📅 달력 보기: '+link;
+  var tg=(await fbDb.ref('/excel_config/telegram').once('value')).val()||{};
+  if(!tg.token){ alert('택배봇(텔레그램) 토큰이 없습니다.\nPC관리에서 택배봇을 먼저 설정해 주세요.'); return; }
+  // 받는사람: 달력 전용 등록명단(켜진 것) 우선, 없으면 택배봇 기본 chat_id
+  var rec=(await fbDb.ref('/excel_config/cal_recipients').once('value')).val()||{};
+  var chats=Object.keys(rec).map(function(id){return rec[id];}).filter(function(x){return x&&x.chat&&x.on!==false;}).map(function(x){return String(x.chat).trim();});
+  var usingList=chats.length>0;
+  if(!usingList) chats=String(tg.chat_id||'').split(',').map(function(c){return c.trim();}).filter(Boolean);
+  if(!chats.length){ alert('보낼 받는사람이 없습니다.\n[👥 텔레그램 받는사람]에서 등록하거나, PC관리에서 택배봇 chat_id를 설정하세요.'); return; }
+  if(!confirm('['+ds+' '+wd+'요일] 택배 스케줄을 텔레그램으로 보낼까요?\n받는사람: '+chats.length+'명'+(usingList?' (등록명단)':' (택배봇 기본)')+'\n\n'+msg.slice(0,380)+(msg.length>380?'\n...':''))) return;
+  var ok=0;
+  for(var i=0;i<chats.length;i++){
+    try{
+      var r=await fetch('https://api.telegram.org/bot'+tg.token+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chats[i], text:msg, disable_web_page_preview:true})});
+      if((await r.json()).ok) ok++;
+    }catch(e){}
+  }
+  alert(ok?('✅ 텔레그램 발송 완료: '+ok+'/'+chats.length+'통'):'❌ 발송 실패 — 택배봇 토큰/채팅ID를 확인하세요.');
+}
+
+// ── 📨 텔레그램 받는사람 명단 (달력 스케줄 전용) ──────────────────────
+//   /excel_config/cal_recipients/<pushId> = {chat:'챗ID', label:'이름', on:true}
+var CAL_RECIP=[], CAL_RECIP_LISTENER=false;
+function loadCalRecip(){
+  if(CAL_RECIP_LISTENER) return; CAL_RECIP_LISTENER=true;
+  fbDb.ref('/excel_config/cal_recipients').on('value', function(s){
+    var v=s.val()||{};
+    CAL_RECIP=Object.keys(v).map(function(k){ return {id:k, chat:(v[k]&&v[k].chat)||'', label:(v[k]&&v[k].label)||'', on:(v[k]&&v[k].on)!==false}; }).filter(function(x){return x.chat;});
+    var n=document.getElementById('cal_recip_n'); if(n) n.textContent=CAL_RECIP.length?('('+CAL_RECIP.filter(function(x){return x.on;}).length+')'):'';
+    if(document.getElementById('_calRecipModal')) _calRecipBody();
+  }, function(){});
+}
+function calRecipModal(){
+  if(document.getElementById('_calRecipModal')) return;
+  loadCalRecip();
+  var d=document.createElement('div');
+  d.id='_calRecipModal';
+  d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  d.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:85vh;overflow:auto" onclick="event.stopPropagation()">'
+    +'<h3 style="margin:0 0 4px;color:#0f172a">📨 텔레그램 받는사람 (택배 스케줄)</h3>'
+    +'<div style="font-size:12px;color:#64748b;margin-bottom:6px">여기 등록된 사람에게 <b>텔레그램 전송</b>이 나갑니다. 비어 있으면 택배봇 기본 chat_id로 보냅니다.</div>'
+    +'<div style="font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 8px;margin-bottom:12px">💡 chat_id는 받을 사람이 <b>택배봇에게 먼저 말을 걸어야</b> 생깁니다. (개인 chat_id 또는 그룹 chat_id 입력)</div>'
+    +'<div id="_calRecipBody">불러오는 중...</div>'
+    +'<div style="text-align:right;margin-top:14px"><button onclick="_calRecipClose()" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer">닫기</button></div>'
+    +'</div>';
+  d.onclick=function(){ _calRecipClose(); };
+  document.body.appendChild(d);
+  _calRecipBody();
+}
+function _calRecipClose(){ var m=document.getElementById('_calRecipModal'); if(m) m.remove(); }
+function _calRecipBody(){
+  var el=document.getElementById('_calRecipBody'); if(!el) return;
+  var h='<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">';
+  if(!CAL_RECIP.length) h+='<div style="font-size:12px;color:#94a3b8">등록된 받는사람이 없습니다. 아래에서 추가하세요.</div>';
+  CAL_RECIP.forEach(function(x){
+    h+='<div style="display:flex;align-items:center;gap:8px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px">'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer" title="켜짐=전송 대상"><input type="checkbox" '+(x.on?'checked':'')+' onclick="_calRecipToggle(\''+x.id+'\',this.checked)"> </label>'
+      +'<span style="flex:1"><b>'+esc(x.label||'(이름없음)')+'</b> <span style="color:#64748b;font-family:monospace;font-size:12px">'+esc(x.chat)+'</span></span>'
+      +'<button onclick="_calRecipDel(\''+x.id+'\')" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-weight:700;cursor:pointer">삭제</button></div>';
+  });
+  h+='</div>';
+  h+='<div style="border-top:1px dashed #cbd5e1;padding-top:10px;font-weight:700;color:#334155;margin-bottom:6px">➕ 받는사람 추가</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+    +'<input id="_calRecipChat" placeholder="chat_id (숫자 또는 -그룹ID)" style="flex:1;min-width:150px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-family:monospace">'
+    +'<input id="_calRecipLbl" placeholder="이름/메모 (예: 김실장)" style="flex:1;min-width:120px;padding:8px;border:1px solid #cbd5e1;border-radius:8px">'
+    +'<button onclick="_calRecipAdd()" style="background:#0088cc;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer">추가</button></div>';
+  el.innerHTML=h;
+}
+function _calRecipAdd(){
+  var chat=(document.getElementById('_calRecipChat').value||'').trim();
+  var lbl=(document.getElementById('_calRecipLbl').value||'').trim();
+  if(!/^-?\d{3,}$/.test(chat)){ alert('chat_id는 숫자입니다. (그룹은 -로 시작). 예: 8613833560 또는 -1001234567890'); return; }
+  fbDb.ref('/excel_config/cal_recipients').push({chat:chat, label:lbl, on:true})
+    .then(function(){ var a=document.getElementById('_calRecipChat'),b=document.getElementById('_calRecipLbl'); if(a)a.value=''; if(b)b.value=''; })
+    .catch(function(e){ alert('추가 실패: '+e.message); });
+}
+function _calRecipToggle(id,on){ fbDb.ref('/excel_config/cal_recipients/'+id+'/on').set(!!on).catch(function(){}); }
+function _calRecipDel(id){ if(!confirm('이 받는사람을 명단에서 삭제할까요?')) return; fbDb.ref('/excel_config/cal_recipients/'+id).remove().catch(function(e){ alert('삭제 실패: '+e.message); }); }
 
 // ============================================================================
 // 주문히스토리 (/excel_orders) — 엑셀 주문히스토리와 동기화 (가져오기/송장등록 때 반영)
@@ -21905,6 +22217,7 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\',true)">📩 접수문자</button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(true)">🚚 송장문자</button>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\',true)">🎁 받는분문자</button>';
+  h+='<button class="btn" style="background:#0d9488;color:#fff;font-weight:600" onclick="ordhBulkShipDate()" title="체크한 주문들의 택배 발송일자를 한번에 지정">📅 발송일자 지정</button>';
   h+='<button class="btn" style="background:#15803d;color:#fff;font-weight:600" onclick="ordhExportSelected()" title="선택한 주문을 엑셀 파일로 — 택배변환에 넣어 송장 재발행">📥 선택 파일변환(엑셀)</button>';
   h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="ordhDelSelected()">🗑 선택 삭제</button>';
   h+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="ordhSelClear()">선택 해제</button>';
@@ -21963,6 +22276,7 @@ function loadOrderHist(){
     fbDb.ref('/excel_orders').on('value', function(s){
       ORDH_RAW = s.val()||{};
       if(CTAB==='orderHist') renderOrderHist();
+      if(CTAB==='shipCal') renderShipCal();
     }, function(e){
       var el=document.getElementById('ordh_list');
       if(el) el.innerHTML='<span style="color:#dc2626">불러오기 실패: '+e.message+'</span>';
@@ -22294,7 +22608,7 @@ function renderOrderHist(){
   var _pl=ORDH_DATE.mode==='all'?'전체 기간':(df===dt?df:(df+'~'+dt));
   if(cnt) cnt.textContent='['+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
   var show=rows.slice(0,300);
-  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
+  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>📅발송일자</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
   show.forEach(function(row){
     var d=row.d;
     var trk=d['송장번호']||'';
@@ -22304,6 +22618,7 @@ function renderOrderHist(){
     h+='<tr>';
     h+='<td><input type="checkbox" class="ordh_ck" value="'+row.k+'"'+(ORDH_SEL[row.k]?' checked':'')+' onclick="ordhToggle(this.value,this.checked)"></td>';
     h+='<td style="font-size:12px">'+(d['등록일시']||'')+'</td>';
+    h+='<td><input type="date" value="'+esc(_shipDateOf(d))+'" onchange="ordhSetShipDate(\''+row.k+'\',this.value)" style="width:130px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'" title="'+(d['발송일자']?'발송일자 지정됨':'미지정 (등록일 기준 표시)')+'"></td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
     h+='<td style="font-family:monospace;font-size:12px'+(rtel.length<10?';color:#dc2626':'')+'">'+(d['수취인전화']||'<b>없음</b>')+'</td>';
@@ -22376,6 +22691,38 @@ function ordhDel(k){
   fbDb.ref(ORDH_PATH[k]||'/excel_orders/'+k).remove()
     .catch(function(e){ alert('삭제 실패: '+e.message); });
   // 실시간 리스너가 화면 자동 갱신
+}
+
+// ── 📅 택배 발송일자 (공용) ──────────────────────────────────────────
+// 주문 1건의 발송일자: 지정값 우선, 없으면 등록일시 날짜 (달력·목록 표시 기준)
+function _shipDateOf(d){ d=d||{}; return String(d['발송일자']||'').slice(0,10) || String(d['등록일시']||'').slice(0,10); }
+// YYYY-MM-DD 형태 검증 (빈값=지정해제 허용)
+function _validYmd(s){ return s==='' || /^\d{4}-\d{2}-\d{2}$/.test(s); }
+// 주문 1건 발송일자 인라인 저장 (빈값이면 지정 해제)
+function ordhSetShipDate(k, val){
+  val=String(val||'').slice(0,10);
+  if(!_validYmd(val)){ alert('날짜 형식이 올바르지 않습니다.'); renderOrderHist(); return; }
+  var ref=fbDb.ref((ORDH_PATH[k]||'/excel_orders/'+k)+'/발송일자');
+  (val? ref.set(val) : ref.remove())
+    .then(function(){ if(ORDH_DATA[k]){ if(val) ORDH_DATA[k]['발송일자']=val; else delete ORDH_DATA[k]['발송일자']; } toast(val?('발송일자 저장: '+val):'발송일자 해제'); })
+    .catch(function(e){ alert('저장 실패: '+e.message); });
+}
+// 선택한 주문들 발송일자 일괄지정
+function ordhBulkShipDate(){
+  var keys=ordhSelectedKeys();
+  if(!keys.length){ alert('먼저 주문을 체크하세요. (검색·필터 바꿔도 체크는 유지됩니다)'); return; }
+  var def=todayKST();
+  var val=prompt(keys.length+'건의 택배 발송일자를 지정합니다.\nYYYY-MM-DD 형식으로 입력하세요.\n(비우고 확인 = 발송일자 지정 해제)', def);
+  if(val===null) return;
+  val=val.trim().slice(0,10);
+  if(!_validYmd(val)){ alert('날짜 형식이 올바르지 않습니다. (예: '+def+')'); return; }
+  var up={};
+  keys.forEach(function(k){ up[(ORDH_PATH[k]||'/excel_orders/'+k)+'/발송일자']=(val||null); });
+  fbDb.ref().update(up).then(function(){
+    keys.forEach(function(k){ if(ORDH_DATA[k]){ if(val) ORDH_DATA[k]['발송일자']=val; else delete ORDH_DATA[k]['발송일자']; } });
+    alert('✅ 발송일자 '+(val?('['+val+'] '):'해제 ')+keys.length+'건 저장 완료');
+    ordhSelClear(); renderOrderHist();
+  }).catch(function(e){ alert('저장 실패: '+e.message); });
 }
 
 // 송장 업로드: 택배사 결과 엑셀 -> 수취인명+전화로 매칭해서 송장번호 채움
