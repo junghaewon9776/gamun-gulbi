@@ -1525,7 +1525,9 @@ function mkTabs(){
   //   r="applyView" (구) 또는 r="view:{탭키}" → 참가자관리(apply) / 모듈(mod_xxx)
   if(ME && ME.r && (ME.r==="applyView" || ME.r.indexOf("view:")===0)){
     var _vt = (ME.r==="applyView") ? "apply" : ME.r.slice(5);
-    if(_vt==="apply"){
+    if(_vt==="shipCal"){
+      cats=[{id:"tkbCal",label:"📅 택배 스케줄",items:[{k:"shipCal",l:"📅 택배 스케줄"}]}];
+    } else if(_vt==="apply"){
       cats=[{id:"apply",label:"👥 참가자",items:[{k:"apply",l:"참가자 관리"},{k:"apstat",l:"참가자 현황"}]}];
     } else if(_vt.indexOf("mod_")===0){
       var _mk=_vt.slice(4); var _md=(typeof _modDefs!=='undefined')?_modDefs[_mk]:null;
@@ -16469,7 +16471,8 @@ async function addSubX(){
 }
 // 참가자 전용 계정 (로그인 시 참가자 관리 탭만 표시)
 function _viewOptsHtml(sel){
-  var o='<option value="apply"'+(sel==='apply'?' selected':'')+'>참가자 관리</option>';
+  var o='<option value="shipCal"'+(sel==='shipCal'?' selected':'')+'>📅 택배 스케줄</option>';
+  o+='<option value="apply"'+(sel==='apply'?' selected':'')+'>참가자 관리</option>';
   if(typeof _modDefs!=='undefined') Object.keys(_modDefs).forEach(function(k){
     var v='mod_'+k; o+='<option value="'+v+'"'+(sel===v?' selected':'')+'>'+esc(_modDefs[k].label)+' (모듈)</option>';
   });
@@ -16505,6 +16508,7 @@ async function addApplyViewX(){
 function _viewRoleLabel(r){
   if(!r) return '';
   var vt = r==='applyView' ? 'apply' : (r.indexOf('view:')===0 ? r.slice(5) : '');
+  if(vt==='shipCal') return '📅 택배 스케줄';
   if(vt==='apply') return '참가자 관리';
   if(vt.indexOf('mod_')===0){ var d=(typeof _modDefs!=='undefined')?_modDefs[vt.slice(4)]:null; return d?d.label:vt; }
   return '';
