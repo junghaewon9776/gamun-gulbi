@@ -22076,7 +22076,28 @@ function _calWeekHtml(agg, ws){
   h+='</div>';
   return h;
 }
-// 하루 상세 (플랫폼별 요약 + 주문 목록)
+// 📦 품목 큐브 — 수량에 비례해 숫자/큐브 크기 커짐, 긴 품명은 글씨 작게 맞춤
+function _calProdCubes(m){
+  var pk=Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;});
+  if(!pk.length) return '<div class="muted">품목 정보 없음</div>';
+  var maxQ=m.prod[pk[0]].qty||1;
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;align-items:stretch">';
+  pk.forEach(function(p){
+    var q=m.prod[p].qty, ratio=maxQ>0?(q/maxQ):0;
+    var numF=Math.round(30+ratio*46);              // 숫자 30~76px (수량 비례)
+    var minH=Math.round(96+ratio*72);              // 큐브 높이 96~168px (수량 비례)
+    var L=p.length, nmF=L>22?11:(L>16?12:(L>11?14:(L>7?16:18)));  // 긴 품명일수록 작게
+    var bord=ratio>=0.66?'#7c3aed':(ratio>=0.33?'#c4b5fd':'#e2e8f0');
+    h+='<div style="background:#fff;border:2px solid '+bord+';border-radius:16px;padding:12px 10px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
+      +'<div style="font-weight:800;font-size:'+nmF+'px;line-height:1.2;margin-bottom:8px;word-break:break-all;color:#0f172a">'+esc(p)+'</div>'
+      +'<div style="font-weight:900;color:#7c3aed;line-height:1;font-size:'+numF+'px">'+q+'<span style="font-size:'+Math.round(numF*0.34)+'px;color:#94a3b8">개</span></div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:5px">'+m.prod[p].cnt+'건</div>'
+      +'</div>';
+  });
+  h+='</div>';
+  return h;
+}
+// 하루 상세 (품목 큐브 + 플랫폼 + 세부내역 펼치기)
 function _calDayDetailHtml(agg, ds){
   ds=String(ds||'').slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) ds=todayKST();
   var m=agg[ds];
@@ -22090,18 +22111,10 @@ function _calDayDetailHtml(agg, ds){
   h+='<div style="flex:1;min-width:120px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:12px;color:#475569;font-weight:700">택배(건수)</div><div style="font-size:26px;font-weight:900;color:#2563eb;line-height:1.1">'+m.cnt+'</div></div>';
   h+='<div style="flex:1;min-width:120px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:12px;color:#475569;font-weight:700">상품 수량 합계</div><div style="font-size:26px;font-weight:900;color:#7c3aed;line-height:1.1">'+m.qty+'<span style="font-size:14px">개</span></div></div>';
   h+='</div>';
-  // ── 📦 품목별 수량 합계 (제일 중요 · 모바일 메인) ──
-  var pk=Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;});
-  h+='<div style="font-weight:800;color:#0f172a;margin:4px 0 6px;font-size:14px">📦 품목별 수량 합계</div>';
-  h+='<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">';
-  pk.forEach(function(p){
-    h+='<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px">'
-      +'<span style="flex:1;font-weight:700;font-size:14px;word-break:break-all">'+esc(p)+'</span>'
-      +'<span style="font-size:20px;font-weight:900;color:#7c3aed;white-space:nowrap">'+m.prod[p].qty+'<span style="font-size:12px;color:#94a3b8">개</span></span>'
-      +'<span style="font-size:11px;color:#94a3b8;white-space:nowrap;min-width:44px;text-align:right">('+m.prod[p].cnt+'건)</span>'
-      +'</div>';
-  });
-  h+='</div>';
+  // ── 📦 품목별 수량 합계 (큐브 · 수량 비례 크기 · 제일 중요) ──
+  h+='<div style="font-weight:800;color:#0f172a;margin:4px 0 8px;font-size:14px">📦 품목별 수량 합계 <span style="font-size:12px;color:#94a3b8;font-weight:600">(수량 많을수록 크게)</span></div>';
+  h+=_calProdCubes(m);
+  h+='<div style="height:10px"></div>';
   // ── 플랫폼별 (보조 · 작게) ──
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
   Object.keys(m.plat).sort(function(a,b){return m.plat[b].cnt-m.plat[a].cnt;}).forEach(function(p){
