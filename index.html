@@ -21932,18 +21932,22 @@ async function shipSetFileDate(k, val){
   }).catch(function(e){ alert('저장 실패: '+e.message); });
 }
 
-var CAL_STATE={view:'month', anchor:'', sel:''};
+var CAL_STATE={view:'month', anchor:'', sel:'', basis:'ship'};
+function calSetBasis(b){ CAL_STATE.basis=b; renderShipCal(); }
 function _calParse(s){ var a=String(s).split('-'); return new Date(+a[0], (+a[1]||1)-1, +a[2]||1); }
 function _calFmt(dt){ return dt.getFullYear()+'-'+('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2); }
 function _calAddDays(s,n){ var d=_calParse(s); d.setDate(d.getDate()+n); return _calFmt(d); }
 function _calAddMonths(s,n){ var d=_calParse(s); var day=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); var last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); d.setDate(Math.min(day,last)); return _calFmt(d); }
 var _WD=['일','월','화','수','목','금','토'];
 
-// 발송일자별 집계 (전체 주문 대상, 업체필터 무시)
-function shipCalAgg(){
+// 날짜별 집계 (전체 주문 대상, 업체필터 무시)
+//   basis='ship' → 발송일자(없으면 등록일) 기준 / basis='reg' → 등록일 기준
+function shipCalAgg(basis){
   var map={};
   ordhFlat().forEach(function(x){
-    var d=x.rec||{}; var ds=_shipDateOf(d); if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+    var d=x.rec||{};
+    var ds = (basis==='reg') ? String(d['등록일시']||'').slice(0,10) : _shipDateOf(d);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
     var m=map[ds]||(map[ds]={cnt:0, qty:0, plat:{}, prod:{}, orders:[]});
     m.cnt++;
     var q=Number(String(d['수량']==null?'':d['수량']).replace(/[^0-9.]/g,''))||0; m.qty+=q;
@@ -21966,9 +21970,14 @@ function dShipCal(){
   h+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:700" onclick="calNav(0)">오늘</button>';
   h+='<button class="btn" style="background:#475569;color:#fff;font-weight:700" onclick="calNav(1)">다음 ▶</button>';
   h+='<span id="cal_title" style="font-weight:800;font-size:16px;margin:0 6px;color:#0f172a"></span>';
-  h+='<span style="margin-left:auto;font-weight:700;font-size:12px;color:#475569">보기</span>';
+  h+='<span style="margin-left:auto;font-weight:700;font-size:12px;color:#475569">기준</span>';
+  h+='<span id="cal_basis"></span>';
+  h+='<span style="width:1px;height:20px;background:#cbd5e1;margin:0 2px"></span>';
+  h+='<span style="font-weight:700;font-size:12px;color:#475569">보기</span>';
   h+='<span id="cal_views"></span>';
-  h+='</div></div>';
+  h+='</div>';
+  h+='<div id="cal_basis_note" style="margin-top:6px;font-size:12px;color:#64748b"></div>';
+  h+='</div>';
   h+='<div class="card" id="cal_main">불러오는 중...</div>';
   h+='<div class="card" id="cal_detail" style="margin-top:10px;display:none"></div>';
   return h;
@@ -21999,7 +22008,16 @@ function calPick(ds){
 function renderShipCal(){
   var main=document.getElementById('cal_main'); if(!main) return;
   if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
-  var agg=shipCalAgg();
+  if(!CAL_STATE.basis) CAL_STATE.basis='ship';
+  var agg=shipCalAgg(CAL_STATE.basis);
+  // 기준 토글 (발송일 / 등록일)
+  var bsel=document.getElementById('cal_basis');
+  if(bsel){ var bb=function(v,l){ var on=CAL_STATE.basis===v; return '<button class="btn" style="font-weight:700;padding:5px 12px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetBasis(\''+v+'\')">'+l+'</button>'; };
+    bsel.innerHTML=bb('ship','발송일')+bb('reg','등록일'); }
+  var bnote=document.getElementById('cal_basis_note');
+  if(bnote) bnote.innerHTML = CAL_STATE.basis==='reg'
+    ? '📌 <b>등록일 기준</b> — 주문이 접수(등록)된 날짜로 모아 봅니다. (옛날 와꾸 등 발송일자 없는 건도 다 보임)'
+    : '📌 <b>발송일 기준</b> — 발송일자로 모아 봅니다. 발송일자를 안 정한 주문은 등록일에 표시돼요. (발송일은 접수데이터·주문히스토리에서 지정)';
   var vsel=document.getElementById('cal_views');
   if(vsel){ var vb=function(v,l){ var on=CAL_STATE.view===v; return '<button class="btn" style="font-weight:700;padding:5px 14px;background:'+(on?'#7c3aed':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetView(\''+v+'\')">'+l+'</button>'; };
     vsel.innerHTML=vb('day','일')+vb('week','주')+vb('month','월'); }
@@ -22148,8 +22166,8 @@ function _calDayDetailHtml(agg, ds){
 // 📨 그날 택배 수량 요약을 텔레그램(택배봇)으로 전송 (+ 달력 웹 링크 포함)
 async function calSendTg(ds){
   ds=String(ds||'').slice(0,10);
-  var agg=shipCalAgg(), m=agg[ds];
-  if(!m){ alert('이 날짜에 발송 예정인 택배가 없습니다.'); return; }
+  var agg=shipCalAgg(CAL_STATE.basis), m=agg[ds];
+  if(!m){ alert('이 날짜에 표시할 택배가 없습니다.'); return; }
   var wd=_WD[_calParse(ds).getDay()];
   var link=location.origin+location.pathname+'?tab=shipCal';
   var msg='📦 ['+SYS_PARENT+'] 택배 발송 예정\n'+ds+' ('+wd+'요일)\n=======================\n';
@@ -22280,7 +22298,11 @@ function dOrderHist(){
   h+='</div>';
   // 📅 기간 필터 (오늘/최근7일/이번달/전체 + 직접 날짜)
   h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
-  h+='<span style="font-weight:700;font-size:12px;color:#475569">📅 기간</span>';
+  h+='<span style="font-weight:700;font-size:12px;color:#475569">📅 기준</span>';
+  var _bb=function(b,label){ var on=(ORDH_DATE.basis||'reg')===b; return '<button class="btn" style="font-weight:700;padding:5px 12px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhSetBasis(\''+b+'\')">'+label+'</button>'; };
+  h+=_bb('reg','등록일')+_bb('ship','발송일');
+  h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
+  h+='<span style="font-weight:700;font-size:12px;color:#475569">기간</span>';
   var _pb=function(mode,label){ var on=ORDH_DATE.mode===mode; return '<button class="btn" id="ordh_pb_'+mode+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#2563eb':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhDateSet(\''+mode+'\')">'+label+'</button>'; };
   h+=_pb('today','오늘')+_pb('7','최근 7일')+_pb('month','이번달')+_pb('all','전체');
   h+='<span style="color:#94a3b8;font-size:12px;margin-left:4px">직접:</span>';
@@ -22347,7 +22369,10 @@ function ordhTel(s){
 // 체크박스: 전체선택 / 선택된 키 목록 / 카운트
 // 📅 기간 필터 — 기본 오늘 (택배 명단과 동일 방식). mode: today|7|month|all|manual
 function _ordhYmd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
-var ORDH_DATE=(function(){ var s=_ordhYmd(new Date()); return {from:s,to:s,mode:'today'}; })();
+var ORDH_DATE=(function(){ var s=_ordhYmd(new Date()); return {from:s,to:s,mode:'today',basis:'reg'}; })();
+// 기간 필터에 쓸 날짜값 — 등록일 기준 or 발송일 기준(없으면 등록일 폴백)
+function _ordhDateVal(d,basis){ d=d||{}; return (basis==='ship') ? (String(d['발송일자']||'').slice(0,10)||String(d['등록일시']||'').slice(0,10)) : String(d['등록일시']||'').slice(0,10); }
+function ordhSetBasis(b){ ORDH_DATE.basis=b; renderOrderHist(); }
 function ordhDateSet(mode){
   var t=new Date();
   if(mode==='today'){ var s=_ordhYmd(t); ORDH_DATE={from:s,to:s,mode:'today'}; }
@@ -22577,7 +22602,7 @@ function _ordhVisibleKeys(){
     var d=ORDH_DATA[k]||{};
     if(f==='no' && d['송장번호']) return;
     if(f==='yes' && !d['송장번호']) return;
-    if(df||dt){ var dd=String(d['등록일시']||'').slice(0,10); if(!dd) return; if(df&&dd<df) return; if(dt&&dd>dt) return; }
+    if(df||dt){ var dd=_ordhDateVal(d,ORDH_DATE.basis); if(!dd) return; if(df&&dd<df) return; if(dt&&dd>dt) return; }
     if(q){ var hay=((d['수취인명']||'')+' '+(d['주문번호']||'')+' '+(d['상품명']||'')+' '+(d['송장번호']||'')+' '+(d['플랫폼']||'')+' '+(d['수취인전화']||'')).toLowerCase(); if(hay.indexOf(q)<0) return; }
     out.push(k);
   });
@@ -22637,8 +22662,8 @@ function renderOrderHist(){
     var d=ORDH_DATA[k]||{};
     if(f==='no' && d['송장번호']) return;
     if(f==='yes' && !d['송장번호']) return;
-    if(df||dt){   // 📅 기간(등록일시) 필터
-      var dd=String(d['등록일시']||'').slice(0,10);
+    if(df||dt){   // 📅 기간 필터 (등록일/발송일 기준)
+      var dd=_ordhDateVal(d,ORDH_DATE.basis);
       if(!dd) return;
       if(df && dd<df) return;
       if(dt && dd>dt) return;
@@ -22653,7 +22678,8 @@ function renderOrderHist(){
   ordhDateHi();   // 기간 버튼 하이라이트 갱신
   var cnt=document.getElementById('ordh_cnt');
   var _pl=ORDH_DATE.mode==='all'?'전체 기간':(df===dt?df:(df+'~'+dt));
-  if(cnt) cnt.textContent='['+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
+  var _bl=(ORDH_DATE.basis==='ship'?'발송일':'등록일');
+  if(cnt) cnt.textContent='['+_bl+' · '+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
   var show=rows.slice(0,300);
   var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>📅발송일자</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
   show.forEach(function(row){
