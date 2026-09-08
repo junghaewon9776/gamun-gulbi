@@ -21447,8 +21447,9 @@ function renderShip(){
     if(q){ var hay=((d.file||'')+' '+(d.app||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
     return true;
   });
-  // 정렬: 기준 날짜 최신순
-  files.sort(function(a,b){ return _shipFileDateVal(SHIP_DATA[b],basis)<_shipFileDateVal(SHIP_DATA[a],basis)?-1:1; });
+  // 정렬: 위=최신, 먼저 등록한 파일이 아래로 (기준날짜 → 저장시각 → 키 순 내림차순)
+  var _skey=function(k){ var d=SHIP_DATA[k]||{}; return _shipFileDateVal(d,basis)+'|'+(d.t||'')+'|'+k; };
+  files.sort(function(a,b){ var x=_skey(a),y=_skey(b); return x<y?1:(x>y?-1:0); });
 
   // 플랫폼별 그룹
   var byPlat={};
@@ -22183,6 +22184,7 @@ function _calDayDetailHtml(agg, ds){
   h+='</div>';
   // ── 세부 주문내역 (펼치기 · 기본 접힘) ──
   var os=m.orders.slice();
+  os.sort(function(a,b){ var x=String(a['등록일시']||''), y=String(b['등록일시']||''); return x<y?1:(x>y?-1:0); });   // 위=최신, 먼저 등록이 아래
   h+='<button onclick="var e=document.getElementById(\'calDetRows\');var o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.innerHTML=(o?\'▼\':\'▶\')+\' 세부 주문내역 ('+os.length+'건)\'" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">▶ 세부 주문내역 ('+os.length+'건)</button>';
   h+='<div id="calDetRows" style="display:none;margin-top:8px;overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>상품명</th><th>수량</th><th>플랫폼</th><th>구매자</th><th>송장번호</th></tr></thead><tbody>';
   os.forEach(function(d,i){
