@@ -21220,6 +21220,29 @@ function shipDates(){
   Object.keys(SHIP_DATA).forEach(function(k){ var t=(SHIP_DATA[k]||{}).t||''; if(t) s[t.slice(0,10)]=1; });
   return Object.keys(s).sort().reverse();
 }
+// 📅 접수데이터 기간필터 — 주문히스토리와 동일 방식 (등록일=t / 발송일=발송일자||t)
+var SHIP_DATE=(function(){ var s=_ordhYmd(new Date()); return {from:s,to:s,mode:'today',basis:'reg'}; })();
+function _shipFileDateVal(d,basis){ d=d||{}; return (basis==='ship') ? (String(d['발송일자']||'').slice(0,10)||String(d.t||'').slice(0,10)) : String(d.t||'').slice(0,10); }
+function shipSetBasis(b){ SHIP_DATE.basis=b; renderShip(); }
+function shipDateSet(mode){
+  var t=new Date(), _b=SHIP_DATE.basis||'reg';
+  if(mode==='today'){ var s=_ordhYmd(t); SHIP_DATE={from:s,to:s,mode:'today',basis:_b}; }
+  else if(mode==='7'){ var f=new Date(); f.setDate(f.getDate()-6); SHIP_DATE={from:_ordhYmd(f),to:_ordhYmd(t),mode:'7',basis:_b}; }
+  else if(mode==='month'){ var s2=_ordhYmd(t); SHIP_DATE={from:s2.slice(0,8)+'01',to:s2,mode:'month',basis:_b}; }
+  else { SHIP_DATE={from:'',to:'',mode:'all',basis:_b}; }
+  var fi=document.getElementById('ship_dfrom'),ti=document.getElementById('ship_dto');
+  if(fi)fi.value=SHIP_DATE.from; if(ti)ti.value=SHIP_DATE.to;
+  renderShip();
+}
+function shipDateManual(){
+  var fi=document.getElementById('ship_dfrom'),ti=document.getElementById('ship_dto');
+  SHIP_DATE={from:fi?fi.value:'',to:ti?ti.value:'',mode:'manual',basis:(SHIP_DATE.basis||'reg')};
+  renderShip();
+}
+function shipDateHi(){
+  ['today','7','month','all'].forEach(function(mode){ var b=document.getElementById('ship_pb_'+mode); if(!b) return; var on=SHIP_DATE.mode===mode; b.style.background=on?'#2563eb':'#e2e8f0'; b.style.color=on?'#fff':'#475569'; });
+  ['reg','ship'].forEach(function(bs){ var b=document.getElementById('ship_basis_'+bs); if(!b) return; var on=(SHIP_DATE.basis||'reg')===bs; b.style.background=on?'#0d9488':'#e2e8f0'; b.style.color=on?'#fff':'#475569'; });
+}
 
 function dShipData(){
   var h='';
@@ -21229,15 +21252,28 @@ function dShipData(){
   h+='<b style="color:#c026d3">업체</b> <select id="ship_company" onchange="renderShip()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
   if(isA()) h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="shipDelCompany()" title="선택한 업체 데이터 통째 삭제 (깨진/잘못된 업체 정리용)">🗑 업체삭제</button> ';
   h+='<b style="color:#7c3aed">지점</b> <select id="ship_jijeom" onchange="renderShip()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
-  h+='날짜 <select id="ship_date" onchange="renderShip()" style="width:auto"></select> ';
+  h+='<input id="ship_q" placeholder="🔍 검색 (파일명·보내는분·플랫폼)" style="width:300px;max-width:70vw;padding:11px 14px;font-size:15px;border:2px solid #94a3b8;border-radius:10px" oninput="renderShip()"> ';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData()">🔄 새로고침</button> ';
   h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">📨 재계산 텔레그램</button> ';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipSmsHistory()">📋 문자 발송내역</button>';
   h+='<span id="ship_cnt" class="muted" style="font-size:12px;margin-left:auto"></span>';
+  h+='</div>';
+  // 📅 기준(등록일/발송일) + 기간(오늘/7일/이번달/전체) + 직접 날짜 — 주문히스토리와 동일 방식
+  h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
+  h+='<span style="font-weight:700;font-size:12px;color:#475569">📅 기준</span>';
+  var _sbb=function(b,label){ var on=(SHIP_DATE.basis||'reg')===b; return '<button class="btn" id="ship_basis_'+b+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="shipSetBasis(\''+b+'\')">'+label+'</button>'; };
+  h+=_sbb('reg','등록일')+_sbb('ship','발송일');
+  h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
+  h+='<span style="font-weight:700;font-size:12px;color:#475569">기간</span>';
+  var _spb=function(mode,label){ var on=SHIP_DATE.mode===mode; return '<button class="btn" id="ship_pb_'+mode+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#2563eb':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="shipDateSet(\''+mode+'\')">'+label+'</button>'; };
+  h+=_spb('today','오늘')+_spb('7','최근 7일')+_spb('month','이번달')+_spb('all','전체');
+  h+='<span style="color:#94a3b8;font-size:12px;margin-left:4px">직접:</span>';
+  h+='<input type="date" id="ship_dfrom" value="'+SHIP_DATE.from+'" onchange="shipDateManual()" style="width:auto;font-size:12px"> ~ ';
+  h+='<input type="date" id="ship_dto" value="'+SHIP_DATE.to+'" onchange="shipDateManual()" style="width:auto;font-size:12px">';
   h+='</div></div>';
   h+='<div class="grid2" style="gap:12px;align-items:start">';
   h+='<div class="card"><h4 style="margin:0 0 6px">📄 파일 목록 (플랫폼별)</h4><div id="ship_files" class="muted">불러오는 중...</div></div>';
-  h+='<div class="card"><h4 style="margin:0 0 6px">📊 통합 요약 (선택 날짜)</h4><div id="ship_summary" class="muted"></div></div>';
+  h+='<div class="card"><h4 style="margin:0 0 6px">📊 통합 요약 (선택 기간)</h4><div id="ship_summary" class="muted"></div></div>';
   h+='</div>';
   h+='<div class="card" id="ship_rows_card" style="display:none;margin-top:12px"><h4 id="ship_rows_title" style="margin:0 0 6px"></h4><div id="ship_rows" style="overflow-x:auto"></div></div>';
   return h;
@@ -21401,26 +21437,25 @@ function renderShip(){
     CUR_JI=jsel.value||'(전체)';
   } else CUR_JI=CUR_JI||'(전체)';
   shipSelect(CUR_CO, CUR_JI);   // SHIP_DATA/SHIP_PATH 선택 업체·지점으로
-  // 날짜 드롭다운 채우기 (처음/갱신)
-  var sel=document.getElementById('ship_date'); if(!sel) return;
-  var dates=shipDates();
-  var cur=sel.value;
-  if(sel.options.length!==dates.length || !dates.includes(cur)){
-    sel.innerHTML=dates.map(function(d){return '<option value="'+d+'">'+d+'</option>';}).join('');
-    if(cur && dates.includes(cur)) sel.value=cur; else if(dates.length) sel.value=dates[0];
-    cur=sel.value;
-  }
-  var day=sel.value;
-  // 그 날짜 파일들
-  var files=Object.keys(SHIP_DATA).filter(function(k){ return ((SHIP_DATA[k]||{}).t||'').slice(0,10)===day; });
-  files.sort(function(a,b){ return ((SHIP_DATA[b]||{}).t||'')<((SHIP_DATA[a]||{}).t||'')?-1:1; });
+  shipDateHi();   // 기준/기간 버튼 하이라이트
+  // 📅 기간+기준+검색으로 파일 필터 (주문히스토리와 동일 방식)
+  var df=SHIP_DATE.from, dt=SHIP_DATE.to, basis=SHIP_DATE.basis||'reg';
+  var q=(document.getElementById('ship_q')?document.getElementById('ship_q').value:'').trim().toLowerCase();
+  var files=Object.keys(SHIP_DATA).filter(function(k){
+    var d=SHIP_DATA[k]||{};
+    if(df||dt){ var dd=_shipFileDateVal(d,basis); if(!dd) return false; if(df&&dd<df) return false; if(dt&&dd>dt) return false; }
+    if(q){ var hay=((d.file||'')+' '+(d.app||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+    return true;
+  });
+  // 정렬: 기준 날짜 최신순
+  files.sort(function(a,b){ return _shipFileDateVal(SHIP_DATA[b],basis)<_shipFileDateVal(SHIP_DATA[a],basis)?-1:1; });
 
   // 플랫폼별 그룹
   var byPlat={};
   files.forEach(function(k){ var p=(SHIP_DATA[k]||{}).app||'(기타)'; (byPlat[p]=byPlat[p]||[]).push(k); });
 
   var fh='';
-  if(!files.length){ fh='이 날짜 데이터 없음'; }
+  if(!files.length){ fh='이 기간 데이터 없음'; }
   else Object.keys(byPlat).sort().forEach(function(p){
     fh+='<div style="font-weight:700;color:#2563eb;margin:6px 0 2px">'+p+' ('+byPlat[p].length+'개)</div>';
     fh+='<table class="tbl" style="width:100%"><tbody>';
@@ -21431,7 +21466,7 @@ function renderShip(){
       if(smsK.length) smsMark=' <span style="background:#0ea5e9;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:700">📨'+smsK.join('·')+'</span>';
       fh+='<tr style="cursor:pointer" onclick="shipOpen(\''+k+'\')">';
       fh+='<td style="color:#2563eb;font-weight:600">📄 '+(d.file||'(이름없음)')+smsMark+'</td>';
-      fh+='<td style="font-size:12px;white-space:nowrap">'+((d.t||'').slice(11))+'</td>';
+      fh+='<td style="font-size:11px;white-space:nowrap;color:#64748b">등록 '+((d.t||'').slice(5,16))+'</td>';
       fh+='<td style="font-weight:700">'+(d.cnt||0)+'건</td>';
       fh+='<td onclick="event.stopPropagation()" title="이 파일 택배 발송일자 (해당 주문들에도 함께 적용)"><span style="font-size:10px;color:#64748b">📅발송</span><br><input type="date" value="'+esc(_shipFileDate(d))+'" onchange="shipSetFileDate(\''+k+'\',this.value)" style="width:128px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'"></td>';
       fh+='<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="event.stopPropagation();shipDel(\''+k+'\')">🗑</button></td>';
@@ -21440,7 +21475,8 @@ function renderShip(){
     fh+='</tbody></table>';
   });
   document.getElementById('ship_files').innerHTML=fh;
-  var cnt=document.getElementById('ship_cnt'); if(cnt) cnt.textContent='파일 '+files.length+'개';
+  var cnt=document.getElementById('ship_cnt');
+  if(cnt){ var _bl=(SHIP_DATE.basis==='ship'?'발송일':'등록일'); var _pl=SHIP_DATE.mode==='all'?'전체 기간':(SHIP_DATE.from===SHIP_DATE.to?SHIP_DATE.from:(SHIP_DATE.from+'~'+SHIP_DATE.to)); cnt.textContent='['+_bl+' · '+_pl+'] 파일 '+files.length+'개'; }
 
   renderShipSummary(files);
 }
@@ -21846,8 +21882,10 @@ function shipDel(k){
 }
 
 async function shipRecalc(){
-  var sel=document.getElementById('ship_date');
-  var dateStr=sel && sel.value ? sel.value : todayKST();
+  // 재계산 대상 날짜: 기간필터의 끝날짜(단일일이면 그 날) 우선, 없으면 오늘
+  var dateStr=(SHIP_DATE&&(SHIP_DATE.to||SHIP_DATE.from)) ? (SHIP_DATE.to||SHIP_DATE.from) : todayKST();
+  dateStr=prompt('재계산·텔레그램 보낼 날짜 (YYYY-MM-DD)', dateStr)||'';
+  dateStr=dateStr.trim(); if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)){ if(dateStr) alert('날짜 형식이 올바르지 않습니다.'); return; }
   var raws={};
   try{
     var base='/excel_daily/'+(CUR_CO||'본사');
@@ -22292,14 +22330,14 @@ function dOrderHist(){
   h+='<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<b style="color:#c026d3">업체</b> <select id="ordh_company" onchange="renderOrderHist()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
   h+='<b style="color:#7c3aed">지점</b> <select id="ordh_jijeom" onchange="renderOrderHist()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
-  h+='<input id="ordh_q" placeholder="검색 (수취인/주문번호/상품명/송장...)" style="width:240px" oninput="renderOrderHist()">';
-  h+='<select id="ordh_f" onchange="renderOrderHist()" style="width:auto"><option value="">전체</option><option value="no">송장 없음 (미발송)</option><option value="yes">송장 있음 (발송)</option></select>';
+  h+='<input id="ordh_q" placeholder="🔍 검색 (수취인·주문번호·상품명·송장·전화)" style="width:340px;max-width:70vw;padding:11px 14px;font-size:15px;border:2px solid #94a3b8;border-radius:10px" oninput="renderOrderHist()">';
+  h+='<select id="ordh_f" onchange="renderOrderHist()" style="width:auto;padding:10px 12px;font-size:14px;border:2px solid #cbd5e1;border-radius:10px"><option value="">전체</option><option value="no">송장 없음 (미발송)</option><option value="yes">송장 있음 (발송)</option></select>';
   h+='<span id="ordh_cnt" class="muted" style="font-size:12px"></span>';
   h+='</div>';
   // 📅 기간 필터 (오늘/최근7일/이번달/전체 + 직접 날짜)
   h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
   h+='<span style="font-weight:700;font-size:12px;color:#475569">📅 기준</span>';
-  var _bb=function(b,label){ var on=(ORDH_DATE.basis||'reg')===b; return '<button class="btn" style="font-weight:700;padding:5px 12px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhSetBasis(\''+b+'\')">'+label+'</button>'; };
+  var _bb=function(b,label){ var on=(ORDH_DATE.basis||'reg')===b; return '<button class="btn" id="ordh_basis_'+b+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhSetBasis(\''+b+'\')">'+label+'</button>'; };
   h+=_bb('reg','등록일')+_bb('ship','발송일');
   h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
   h+='<span style="font-weight:700;font-size:12px;color:#475569">기간</span>';
@@ -22374,26 +22412,31 @@ var ORDH_DATE=(function(){ var s=_ordhYmd(new Date()); return {from:s,to:s,mode:
 function _ordhDateVal(d,basis){ d=d||{}; return (basis==='ship') ? (String(d['발송일자']||'').slice(0,10)||String(d['등록일시']||'').slice(0,10)) : String(d['등록일시']||'').slice(0,10); }
 function ordhSetBasis(b){ ORDH_DATE.basis=b; renderOrderHist(); }
 function ordhDateSet(mode){
-  var t=new Date();
-  if(mode==='today'){ var s=_ordhYmd(t); ORDH_DATE={from:s,to:s,mode:'today'}; }
-  else if(mode==='7'){ var f=new Date(); f.setDate(f.getDate()-6); ORDH_DATE={from:_ordhYmd(f),to:_ordhYmd(t),mode:'7'}; }
-  else if(mode==='month'){ var s2=_ordhYmd(t); ORDH_DATE={from:s2.slice(0,8)+'01',to:s2,mode:'month'}; }
-  else { ORDH_DATE={from:'',to:'',mode:'all'}; }
+  var t=new Date(), _b=ORDH_DATE.basis||'reg';   // 기준 보존
+  if(mode==='today'){ var s=_ordhYmd(t); ORDH_DATE={from:s,to:s,mode:'today',basis:_b}; }
+  else if(mode==='7'){ var f=new Date(); f.setDate(f.getDate()-6); ORDH_DATE={from:_ordhYmd(f),to:_ordhYmd(t),mode:'7',basis:_b}; }
+  else if(mode==='month'){ var s2=_ordhYmd(t); ORDH_DATE={from:s2.slice(0,8)+'01',to:s2,mode:'month',basis:_b}; }
+  else { ORDH_DATE={from:'',to:'',mode:'all',basis:_b}; }
   var fi=document.getElementById('ordh_dfrom'),ti=document.getElementById('ordh_dto');
   if(fi)fi.value=ORDH_DATE.from; if(ti)ti.value=ORDH_DATE.to;
   renderOrderHist();
 }
 function ordhDateManual(){
   var fi=document.getElementById('ordh_dfrom'),ti=document.getElementById('ordh_dto');
-  ORDH_DATE={from:fi?fi.value:'',to:ti?ti.value:'',mode:'manual'};
+  ORDH_DATE={from:fi?fi.value:'',to:ti?ti.value:'',mode:'manual',basis:(ORDH_DATE.basis||'reg')};
   renderOrderHist();
 }
-// 기간 버튼 하이라이트 갱신 (renderOrderHist는 표만 다시 그려서 버튼색은 따로 갱신)
+// 기간/기준 버튼 하이라이트 갱신 (renderOrderHist는 표만 다시 그려서 버튼색은 따로 갱신)
 function ordhDateHi(){
   ['today','7','month','all'].forEach(function(mode){
     var b=document.getElementById('ordh_pb_'+mode); if(!b) return;
     var on=ORDH_DATE.mode===mode;
     b.style.background=on?'#2563eb':'#e2e8f0'; b.style.color=on?'#fff':'#475569';
+  });
+  ['reg','ship'].forEach(function(bs){
+    var b=document.getElementById('ordh_basis_'+bs); if(!b) return;
+    var on=(ORDH_DATE.basis||'reg')===bs;
+    b.style.background=on?'#0d9488':'#e2e8f0'; b.style.color=on?'#fff':'#475569';
   });
 }
 // 선택 유지 — 검색/필터 바꿔도 체크 상태 보존 (화면 체크박스 대신 여기에 기억)
