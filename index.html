@@ -22717,7 +22717,8 @@ function renderOrderHist(){
     }
     rows.push({k:k, d:d});
   });
-  rows.sort(function(a,b){ return ((b.d['등록일시'])||'')<((a.d['등록일시'])||'')?-1:1; });
+  // 위=최신 · 아래로 갈수록 먼저 등록(먼저한 게 밑으로). 같은 시각이면 키(입력순번)로 안정 정렬
+  rows.sort(function(a,b){ var x=((a.d['등록일시'])||'')+'|'+a.k, y=((b.d['등록일시'])||'')+'|'+b.k; return x<y?1:(x>y?-1:0); });
   ordhDateHi();   // 기간 버튼 하이라이트 갱신
   var cnt=document.getElementById('ordh_cnt');
   var _pl=ORDH_DATE.mode==='all'?'전체 기간':(df===dt?df:(df+'~'+dt));
