@@ -21940,10 +21940,11 @@ function shipCalAgg(){
   var map={};
   ordhFlat().forEach(function(x){
     var d=x.rec||{}; var ds=_shipDateOf(d); if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
-    var m=map[ds]||(map[ds]={cnt:0, qty:0, plat:{}, orders:[]});
+    var m=map[ds]||(map[ds]={cnt:0, qty:0, plat:{}, prod:{}, orders:[]});
     m.cnt++;
     var q=Number(String(d['수량']==null?'':d['수량']).replace(/[^0-9.]/g,''))||0; m.qty+=q;
     var p=d['플랫폼']||'(기타)'; var pp=m.plat[p]||(m.plat[p]={cnt:0,qty:0}); pp.cnt++; pp.qty+=q;
+    var nm=String(d['상품명']||'(품명없음)').trim()||'(품명없음)'; var rp=m.prod[nm]||(m.prod[nm]={cnt:0,qty:0}); rp.cnt++; rp.qty+=(q||1);
     if(m.orders.length<800) m.orders.push(d);
   });
   return map;
@@ -21984,7 +21985,12 @@ function calNav(dir){
   renderShipCal();
 }
 function calSetView(v){ CAL_STATE.view=v; if(v==='day'&&CAL_STATE.sel) CAL_STATE.anchor=CAL_STATE.sel; renderShipCal(); }
-function calPick(ds){ CAL_STATE.sel=ds; if(CAL_STATE.view==='day') CAL_STATE.anchor=ds; renderShipCal(); }
+function calPick(ds){
+  CAL_STATE.sel=ds; if(CAL_STATE.view==='day') CAL_STATE.anchor=ds;
+  renderShipCal();
+  // 월/주 보기에서 날짜를 누르면 아래 상세(품목 수량 합계)로 바로 스크롤
+  if(CAL_STATE.view!=='day'){ var el=document.getElementById('cal_detail'); if(el) try{ el.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){ el.scrollIntoView(); } }
+}
 
 function renderShipCal(){
   var main=document.getElementById('cal_main'); if(!main) return;
@@ -22075,18 +22081,37 @@ function _calDayDetailHtml(agg, ds){
   ds=String(ds||'').slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) ds=todayKST();
   var m=agg[ds];
   var wd=_WD[_calParse(ds).getDay()];
-  var h='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px"><h4 style="margin:0">📦 '+ds+' ('+wd+') 발송 예정</h4>';
-  if(m) h+='<button class="btn" style="background:#0088cc;color:#fff;font-weight:700" onclick="calSendTg(\''+ds+'\')" title="이 날짜 택배 수량 요약을 텔레그램(택배봇)으로 전송 · 달력 링크 포함">📨 텔레그램 전송</button>';
+  var h='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><h4 style="margin:0">📦 '+ds+' ('+wd+') 발송 예정</h4>';
+  if(m) h+='<button class="btn" style="background:#0088cc;color:#fff;font-weight:700" onclick="calSendTg(\''+ds+'\')" title="이 날짜 품목 수량 합계를 텔레그램(택배봇)으로 전송 · 달력 링크 포함">📨 텔레그램 전송</button>';
   h+='</div>';
   if(!m){ return h+'<div class="muted">이 날짜에 발송 예정인 택배가 없습니다.</div>'; }
-  h+='<div style="font-weight:800;font-size:15px;margin-bottom:6px">총 <span style="color:#2563eb">택배 '+m.cnt+'건</span>'+(m.qty?(' · <span style="color:#7c3aed">상품 '+m.qty+'개</span>'):'')+'</div>';
-  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+  // ── 합계 (제일 크게) ──
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  h+='<div style="flex:1;min-width:120px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:12px;color:#475569;font-weight:700">택배(건수)</div><div style="font-size:26px;font-weight:900;color:#2563eb;line-height:1.1">'+m.cnt+'</div></div>';
+  h+='<div style="flex:1;min-width:120px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:12px;color:#475569;font-weight:700">상품 수량 합계</div><div style="font-size:26px;font-weight:900;color:#7c3aed;line-height:1.1">'+m.qty+'<span style="font-size:14px">개</span></div></div>';
+  h+='</div>';
+  // ── 📦 품목별 수량 합계 (제일 중요 · 모바일 메인) ──
+  var pk=Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;});
+  h+='<div style="font-weight:800;color:#0f172a;margin:4px 0 6px;font-size:14px">📦 품목별 수량 합계</div>';
+  h+='<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">';
+  pk.forEach(function(p){
+    h+='<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px">'
+      +'<span style="flex:1;font-weight:700;font-size:14px;word-break:break-all">'+esc(p)+'</span>'
+      +'<span style="font-size:20px;font-weight:900;color:#7c3aed;white-space:nowrap">'+m.prod[p].qty+'<span style="font-size:12px;color:#94a3b8">개</span></span>'
+      +'<span style="font-size:11px;color:#94a3b8;white-space:nowrap;min-width:44px;text-align:right">('+m.prod[p].cnt+'건)</span>'
+      +'</div>';
+  });
+  h+='</div>';
+  // ── 플랫폼별 (보조 · 작게) ──
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
   Object.keys(m.plat).sort(function(a,b){return m.plat[b].cnt-m.plat[a].cnt;}).forEach(function(p){
     h+='<span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:700">'+esc(p)+' <span style="color:#2563eb">'+m.plat[p].cnt+'건</span>'+(m.plat[p].qty?(' <span style="color:#7c3aed">'+m.plat[p].qty+'개</span>'):'')+'</span>';
   });
   h+='</div>';
+  // ── 세부 주문내역 (펼치기 · 기본 접힘) ──
   var os=m.orders.slice();
-  h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>상품명</th><th>수량</th><th>플랫폼</th><th>구매자</th><th>송장번호</th></tr></thead><tbody>';
+  h+='<button onclick="var e=document.getElementById(\'calDetRows\');var o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.innerHTML=(o?\'▼\':\'▶\')+\' 세부 주문내역 ('+os.length+'건)\'" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">▶ 세부 주문내역 ('+os.length+'건)</button>';
+  h+='<div id="calDetRows" style="display:none;margin-top:8px;overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>상품명</th><th>수량</th><th>플랫폼</th><th>구매자</th><th>송장번호</th></tr></thead><tbody>';
   os.forEach(function(d,i){
     var trk=d['송장번호']||'';
     h+='<tr><td>'+(i+1)+'</td>';
@@ -22098,8 +22123,9 @@ function _calDayDetailHtml(agg, ds){
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+esc(trk)+'</td>'):('<td style="color:#d97706">미발송</td>');
     h+='</tr>';
   });
-  h+='</tbody></table></div>';
+  h+='</tbody></table>';
   if(m.orders.length>=800) h+='<div class="muted" style="font-size:11px;margin-top:4px">※ 표시는 최대 800건까지입니다.</div>';
+  h+='</div>';
   return h;
 }
 // 📨 그날 택배 수량 요약을 텔레그램(택배봇)으로 전송 (+ 달력 웹 링크 포함)
@@ -22110,9 +22136,13 @@ async function calSendTg(ds){
   var wd=_WD[_calParse(ds).getDay()];
   var link=location.origin+location.pathname+'?tab=shipCal';
   var msg='📦 ['+SYS_PARENT+'] 택배 발송 예정\n'+ds+' ('+wd+'요일)\n=======================\n';
-  msg+='총 택배 '+m.cnt+'건'+(m.qty?(' · 상품 '+m.qty+'개'):'')+'\n\n[플랫폼별]\n';
+  msg+='총 택배 '+m.cnt+'건 · 상품 '+m.qty+'개\n\n[품목별 수량]\n';
+  Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;}).forEach(function(p){
+    msg+=' • '+p+': '+m.prod[p].qty+'개 ('+m.prod[p].cnt+'건)\n';
+  });
+  msg+='\n[플랫폼별]\n';
   Object.keys(m.plat).sort(function(a,b){return m.plat[b].cnt-m.plat[a].cnt;}).forEach(function(p){
-    msg+=' • '+p+': '+m.plat[p].cnt+'건'+(m.plat[p].qty?(' / '+m.plat[p].qty+'개'):'')+'\n';
+    msg+=' • '+p+': '+m.plat[p].cnt+'건\n';
   });
   msg+='=======================\n📅 달력 보기: '+link;
   var tg=(await fbDb.ref('/excel_config/telegram').once('value')).val()||{};
