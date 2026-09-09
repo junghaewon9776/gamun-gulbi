@@ -21971,8 +21971,9 @@ async function shipSetFileDate(k, val){
   }).catch(function(e){ alert('저장 실패: '+e.message); });
 }
 
-var CAL_STATE={view:'month', anchor:'', sel:'', basis:'ship'};
+var CAL_STATE={view:'month', anchor:'', sel:'', basis:'ship', cols:'auto'};
 function calSetBasis(b){ CAL_STATE.basis=b; renderShipCal(); }
+function calSetCols(c){ CAL_STATE.cols=c; try{localStorage.setItem('gamunCalCols',c);}catch(e){} renderShipCal(); }
 function _calParse(s){ var a=String(s).split('-'); return new Date(+a[0], (+a[1]||1)-1, +a[2]||1); }
 function _calFmt(dt){ return dt.getFullYear()+'-'+('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2); }
 function _calAddDays(s,n){ var d=_calParse(s); d.setDate(d.getDate()+n); return _calFmt(d); }
@@ -22014,6 +22015,9 @@ function dShipCal(){
   h+='<span style="width:1px;height:20px;background:#cbd5e1;margin:0 2px"></span>';
   h+='<span style="font-weight:700;font-size:12px;color:#475569">보기</span>';
   h+='<span id="cal_views"></span>';
+  h+='<span style="width:1px;height:20px;background:#cbd5e1;margin:0 2px"></span>';
+  h+='<span style="font-weight:700;font-size:12px;color:#475569" title="품목 큐브를 몇 칸으로 볼지 (멀리서 보려면 적게)">칸수</span>';
+  h+='<span id="cal_cols"></span>';
   h+='</div>';
   h+='<div id="cal_basis_note" style="margin-top:6px;font-size:12px;color:#64748b"></div>';
   h+='</div>';
@@ -22024,6 +22028,7 @@ function dShipCal(){
 function loadShipCal(){
   if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
   if(!CAL_STATE.sel) CAL_STATE.sel=todayKST();
+  try{ var _sc=localStorage.getItem('gamunCalCols'); if(_sc) CAL_STATE.cols=_sc; }catch(e){}
   loadOrderHist();     // /excel_orders 리스너 부착 (데이터 오면 renderShipCal 재호출)
   loadCalRecip();      // 텔레그램 받는사람 명단 로드 (버튼 카운트/모달 갱신)
   renderShipCal();
@@ -22060,6 +22065,9 @@ function renderShipCal(){
   var vsel=document.getElementById('cal_views');
   if(vsel){ var vb=function(v,l){ var on=CAL_STATE.view===v; return '<button class="btn" style="font-weight:700;padding:5px 14px;background:'+(on?'#7c3aed':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetView(\''+v+'\')">'+l+'</button>'; };
     vsel.innerHTML=vb('day','일')+vb('week','주')+vb('month','월'); }
+  var csel=document.getElementById('cal_cols');
+  if(csel){ var cb=function(v,l){ var on=(CAL_STATE.cols||'auto')==v; return '<button class="btn" style="font-weight:700;padding:5px 10px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetCols(\''+v+'\')">'+l+'</button>'; };
+    csel.innerHTML=cb('auto','자동')+cb('3','3')+cb('4','4')+cb('6','6')+cb('8','8'); }
   var title=document.getElementById('cal_title');
   var det=document.getElementById('cal_detail');
   if(CAL_STATE.view==='month'){
@@ -22142,7 +22150,9 @@ function _calProdCubes(m){
   var pk=Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;});
   if(!pk.length) return '<div class="muted">품목 정보 없음</div>';
   var maxQ=m.prod[pk[0]].qty||1;
-  var h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;align-items:stretch">';
+  var cols=CAL_STATE.cols||'auto';
+  var gtc=(cols==='auto')?'repeat(auto-fill,minmax(150px,1fr))':('repeat('+cols+',minmax(0,1fr))');
+  var h='<div style="display:grid;grid-template-columns:'+gtc+';gap:10px;align-items:stretch">';
   pk.forEach(function(p){
     var q=m.prod[p].qty, ratio=maxQ>0?(q/maxQ):0;
     var numF=Math.round(30+ratio*46);              // 숫자 30~76px (수량 비례)
