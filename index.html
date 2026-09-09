@@ -22152,12 +22152,14 @@ function _calProdCubes(m){
   var maxQ=m.prod[pk[0]].qty||1;
   var cols=CAL_STATE.cols||'auto';
   var gtc=(cols==='auto')?'repeat(auto-fill,minmax(150px,1fr))':('repeat('+cols+',minmax(0,1fr))');
+  var cf=({'3':1.9,'4':1.55,'6':1.15,'8':0.95})[cols]||1;   // 칸 적을수록 글씨·큐브 크게
   var h='<div style="display:grid;grid-template-columns:'+gtc+';gap:10px;align-items:stretch">';
   pk.forEach(function(p){
     var q=m.prod[p].qty, ratio=maxQ>0?(q/maxQ):0;
-    var numF=Math.round(30+ratio*46);              // 숫자 30~76px (수량 비례)
-    var minH=Math.round(96+ratio*72);              // 큐브 높이 96~168px (수량 비례)
-    var L=p.length, nmF=L>22?11:(L>16?12:(L>11?14:(L>7?16:18)));  // 긴 품명일수록 작게
+    var numF=Math.min(150,Math.round((30+ratio*46)*cf));       // 숫자: 수량비례 × 칸배율
+    var minH=Math.round((96+ratio*72)*cf);                     // 큐브 높이: 수량비례 × 칸배율
+    var L=p.length, nmBase=L>22?11:(L>16?12:(L>11?14:(L>7?16:18)));
+    var nmF=Math.max(11,Math.min(40,Math.round(nmBase*cf)));   // 품명: 길이별 × 칸배율(11~40)
     var bord=ratio>=0.66?'#7c3aed':(ratio>=0.33?'#c4b5fd':'#e2e8f0');
     h+='<div style="background:#fff;border:2px solid '+bord+';border-radius:16px;padding:12px 10px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
       +'<div style="font-weight:800;font-size:'+nmF+'px;line-height:1.2;margin-bottom:8px;word-break:break-all;color:#0f172a">'+esc(p)+'</div>'
