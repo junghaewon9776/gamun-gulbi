@@ -21562,6 +21562,7 @@ async function shipOpen(k){
   }
   // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) 우선 ② 없으면 주문히스토리(excel_orders)에서 이름+전화로 조회
   var trkMap=[], delSet={};
+  var _fileNm=String(d.file||'');   // 이 파일에 속한 주문만 삭제표시 (주문번호가 파일명-로 시작)
   if(ni>=0){
     var stored=d.trk||{};   // {행번호: {t:송장, c:택배사}}
     try{
@@ -21572,7 +21573,8 @@ async function shipOpen(k){
         if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){
           var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']);
           if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); }
-          if(v['del']) delSet[key]=1;   // 주문히스토리에서 삭제된 건 → 접수 상세에도 표시
+          // 삭제표시는 "이 파일에서 나온 주문(주문번호 파일명- 시작)"이 삭제된 경우만 (다른 파일 같은사람 오염 방지)
+          if(v['del'] && _fileNm && String(v['주문번호']||'').indexOf(_fileNm+'-')===0) delSet[key]=1;
         }
         else { walk(v); }
       }); })(ORD);
