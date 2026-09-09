@@ -21873,12 +21873,32 @@ function shipSmsHistory(){
   document.body.appendChild(d);
 }
 
-function shipDel(k){
+async function shipDel(k){
   var d=SHIP_DATA[k]||{};
-  if(!confirm((d.file||k)+' 삭제할까요?\n(그날 누적에서도 빠짐 — 삭제 후 [재계산 텔레그램])')) return;
+  var fileName=String(d.file||'');
+  var basePath=SHIP_PATH[k]||'/excel_ship/'+k;
   var dateStr=(d.t||'').slice(0,10);
-  fbDb.ref(SHIP_PATH[k]||'/excel_ship/'+k).remove().then(function(){
-    if(dateStr) fbDb.ref('/excel_daily/'+CUR_CO+'/'+CUR_JI+'/'+dateStr+'/'+k).remove().catch(function(){});
+  // 이 파일에서 나온 주문히스토리 찾기 — 주문번호가 "파일명-"로 시작 (와꾸가 그렇게 매김)
+  var delKeys=[];
+  if(fileName){
+    try{
+      var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
+      (function walk(o,path){ Object.keys(o||{}).forEach(function(kk){ var v=o[kk]; if(!v||typeof v!=='object') return;
+        var p=path+'/'+kk;
+        if(v['수취인명']||v['주문번호']||v['등록일시']){ if(String(v['주문번호']||'').indexOf(fileName+'-')===0) delKeys.push(p); }
+        else walk(v,p);
+      }); })(ORD,'/excel_orders');
+    }catch(e){}
+  }
+  var msg='이 접수파일을 삭제할까요?\n\n📄 '+(fileName||k)+'\n'+(d.cnt||0)+'건';
+  msg+= delKeys.length ? ('\n\n⚠ 연결된 주문히스토리 '+delKeys.length+'건도 함께 삭제됩니다.') : '\n\n(연결된 주문히스토리를 못 찾아 접수파일만 삭제됩니다)';
+  if(!confirm(msg)) return;
+  var up={};
+  up[basePath]=null;
+  if(dateStr) up['/excel_daily/'+CUR_CO+'/'+CUR_JI+'/'+dateStr+'/'+k]=null;
+  delKeys.forEach(function(p){ up[p]=null; });
+  fbDb.ref().update(up).then(function(){
+    alert('✅ 삭제 완료'+(delKeys.length?(' (주문히스토리 '+delKeys.length+'건 포함)'):''));
   }).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
@@ -22466,6 +22486,20 @@ function ordhDateHi(){
 // 선택 유지 — 검색/필터 바꿔도 체크 상태 보존 (화면 체크박스 대신 여기에 기억)
 var ORDH_SEL={};
 function ordhToggle(k,on){ if(on) ORDH_SEL[k]=1; else delete ORDH_SEL[k]; ordhSelCount(); }
+// Shift+클릭 = 직전 클릭 행부터 지금 행까지 범위 전체 선택/해제
+var _ordhLastIdx=-1;
+function ordhCkClick(cb, ev){
+  var boxes=Array.prototype.slice.call(document.querySelectorAll('.ordh_ck'));
+  var idx=boxes.indexOf(cb);
+  if(ev && ev.shiftKey && _ordhLastIdx>=0 && _ordhLastIdx!==idx){
+    var lo=Math.min(idx,_ordhLastIdx), hi=Math.max(idx,_ordhLastIdx), i;
+    for(i=lo;i<=hi;i++){ boxes[i].checked=cb.checked; if(cb.checked) ORDH_SEL[boxes[i].value]=1; else delete ORDH_SEL[boxes[i].value]; }
+  } else {
+    if(cb.checked) ORDH_SEL[cb.value]=1; else delete ORDH_SEL[cb.value];
+  }
+  _ordhLastIdx=idx;
+  ordhSelCount();
+}
 function ordhCheckAll(on){ document.querySelectorAll('.ordh_ck').forEach(function(c){ c.checked=on; if(on) ORDH_SEL[c.value]=1; else delete ORDH_SEL[c.value]; }); ordhSelCount(); }   // 지금 화면에 보이는 행만
 function ordhSelectedKeys(){ return Object.keys(ORDH_SEL).filter(function(k){return ORDH_DATA[k];}); }
 function ordhSelClear(){ ORDH_SEL={}; document.querySelectorAll('.ordh_ck').forEach(function(c){c.checked=false;}); var a=document.getElementById('ordh_all'); if(a)a.checked=false; ordhSelCount(); }
@@ -22757,7 +22791,7 @@ function renderOrderHist(){
     var rtel=(d['수취인전화']||'').replace(/[^0-9]/g,'');
     var btel=(d['구매자전화']||'').replace(/[^0-9]/g,'');
     h+='<tr>';
-    h+='<td><input type="checkbox" class="ordh_ck" value="'+row.k+'"'+(ORDH_SEL[row.k]?' checked':'')+' onclick="ordhToggle(this.value,this.checked)"></td>';
+    h+='<td><input type="checkbox" class="ordh_ck" value="'+row.k+'"'+(ORDH_SEL[row.k]?' checked':'')+' onclick="ordhCkClick(this,event)"></td>';
     h+='<td style="font-size:12px">'+(d['등록일시']||'')+'</td>';
     h+='<td><input type="date" value="'+esc(_shipDateOf(d))+'" onchange="ordhSetShipDate(\''+row.k+'\',this.value)" style="width:130px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'" title="'+(d['발송일자']?'발송일자 지정됨':'미지정 (등록일 기준 표시)')+'"></td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
