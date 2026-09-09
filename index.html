@@ -21253,7 +21253,7 @@ function dShipData(){
   if(isA()) h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="shipDelCompany()" title="선택한 업체 데이터 통째 삭제 (깨진/잘못된 업체 정리용)">🗑 업체삭제</button> ';
   h+='<b style="color:#7c3aed">지점</b> <select id="ship_jijeom" onchange="renderShip()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
   h+='<input id="ship_q" placeholder="🔍 검색 (파일명·보내는분·플랫폼)" style="width:300px;max-width:70vw;padding:11px 14px;font-size:15px;border:2px solid #94a3b8;border-radius:10px" oninput="renderShip()"> ';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData()">🔄 새로고침</button> ';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData();renderShip();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="자동으로 실시간 반영됩니다. 이 버튼은 강제 새로고침">🔄 새로고침</button> ';
   h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">📨 재계산 텔레그램</button> ';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipSmsHistory()">📋 문자 발송내역</button>';
   h+='<span id="ship_cnt" class="muted" style="font-size:12px;margin-left:auto"></span>';
@@ -22072,7 +22072,7 @@ function dShipCal(){
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📅 택배 스케줄 <span style="font-size:13px;color:#64748b">(발송일자별 준비 수량)</span></h3>';
   h+='<div class="muted" style="font-size:12px">주문히스토리의 <b>발송일자</b>별로 그날 준비할 택배 개수를 모아 보여줍니다. 날짜를 누르면 그날 상세가 아래에 나옵니다. <b>발송일자를 안 정한 주문은 등록일 기준</b>으로 표시돼요. (발송일자는 접수데이터·주문히스토리에서 바꿀 수 있어요)</div>';
   h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipCal()">🔄 새로고침</button>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipCal();renderShipCal();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="자동으로 실시간 반영됩니다. 이 버튼은 강제 새로고침">🔄 새로고침</button>';
   h+='<button class="btn" style="background:#0088cc;color:#fff;font-weight:700" onclick="calRecipModal()" title="텔레그램으로 스케줄을 받을 사람(챗ID)을 미리 등록해 둡니다">👥 텔레그램 받는사람 <span id="cal_recip_n"></span></button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:700" onclick="calCopyLink()" title="택배 스케줄 화면으로 바로 열리는 링크 복사 (직원에게 공유)">🔗 스케줄 링크복사</button>';
   h+='<span style="width:1px;height:20px;background:#cbd5e1"></span>';
@@ -22408,7 +22408,7 @@ function dOrderHist(){
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">🧾 주문히스토리</h3>';
   h+='<div class="muted" style="font-size:12px">엑셀에서 [주문 가져오기]/[송장 등록] 하면 자동 반영됩니다. (엑셀이 원본, 여긴 조회용)</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadOrderHist()">🔄 새로고침</button> ';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadOrderHist();renderOrderHist();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="자동으로 실시간 반영됩니다. 이 버튼은 강제 새로고침">🔄 새로고침</button> ';
   h+='<span style="font-weight:700;font-size:12px;color:#334155">📢 전체(지금 화면):</span>';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 전체 접수문자</button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(false)">🚚 전체 송장문자</button>';
