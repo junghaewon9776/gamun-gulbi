@@ -21561,31 +21561,38 @@ async function shipOpen(k){
     bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">📤 송장 업로드 = 이 파일 받는분과 매칭해 송장 저장(주문히스토리도 갱신) · 송장 발송 = 받는분/담당자에게 문자 (미리보기 확인)</div></div>';
   }
   // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) 우선 ② 없으면 주문히스토리(excel_orders)에서 이름+전화로 조회
-  var trkMap=[], delSet={};
-  var _fileNm=String(d.file||'');   // 이 파일에 속한 주문만 삭제표시 (주문번호가 파일명-로 시작)
+  var trkMap=[], delFlag=[];
+  var _fileNm=String(d.file||'');   // 이 파일 주문: 주문번호가 "파일명-순번"
   if(ni>=0){
     var stored=d.trk||{};   // {행번호: {t:송장, c:택배사}}
     try{
       var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
-      var idx={};
-      // 업체/지점 폴더 깊이 상관없이 레코드만 펼쳐서 송장 인덱스 구성 (본사/본사/WK_... 중첩 대응)
+      var idx={}, byNo={}, delSet={};   // idx=이름|전화 폴백 · byNo=주문번호 정확매칭 · delSet=이름|전화 삭제(이 파일 한정)
       (function walk(o){ Object.keys(o||{}).forEach(function(kk2){ var v=o[kk2]; if(!v||typeof v!=='object') return;
         if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){
           var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']);
+          var ono=String(v['주문번호']||'');
+          if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del']};
           if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); }
-          // 삭제표시는 "이 파일에서 나온 주문(주문번호 파일명- 시작)"이 삭제된 경우만 (다른 파일 같은사람 오염 방지)
-          if(v['del'] && _fileNm && String(v['주문번호']||'').indexOf(_fileNm+'-')===0) delSet[key]=1;
+          if(v['del'] && _fileNm && ono.indexOf(_fileNm+'-')===0) delSet[key]=1;
         }
         else { walk(v); }
       }); })(ORD);
       rows.forEach(function(r,i2){
+        // ① 주문번호 정확매칭 (이 파일 순번 = 파일명-순번), 없으면 ② 이름+전화
+        var rec = _fileNm ? byNo[_fileNm+'-'+(i2+1)] : null;
+        var nm=_trkNrm(String(r[ni]||'')), tel=ti>=0?_trkTail(r[ti]):'';
+        // ── 송장: 직접업로드 > 주문번호매칭 > 이름+전화 ──
         var st=stored[i2]||stored[String(i2)];
-        if(st&&st.t){ trkMap[i2]={trk:st.t, car:st.c||''}; return; }   // 직접 업로드 우선
-        var nm=_trkNrm(String(r[ni]||'')); if(!nm) return;
-        var tel=ti>=0?_trkTail(r[ti]):'';
-        var q=(idx[nm+'|'+tel]&&idx[nm+'|'+tel].length)?idx[nm+'|'+tel]:null;
-        if(!q){ var bn=Object.keys(idx).filter(function(x){return x.indexOf(nm+'|')===0&&idx[x].length;}); if(bn.length) q=idx[bn[0]]; }
-        if(q) trkMap[i2]=q.shift();
+        if(st&&st.t){ trkMap[i2]={trk:st.t, car:st.c||''}; }
+        else if(rec && rec.trk){ trkMap[i2]={trk:rec.trk, car:rec.car||''}; }
+        else if(nm){
+          var q=(idx[nm+'|'+tel]&&idx[nm+'|'+tel].length)?idx[nm+'|'+tel]:null;
+          if(!q){ var bn=Object.keys(idx).filter(function(x){return x.indexOf(nm+'|')===0&&idx[x].length;}); if(bn.length) q=idx[bn[0]]; }
+          if(q) trkMap[i2]=q.shift();
+        }
+        // ── 삭제: 주문번호매칭 우선, 없으면 이름+전화(이 파일 한정) ──
+        delFlag[i2] = rec ? !!rec.del : !!delSet[nm+'|'+tel];
       });
     }catch(e){}
   }
@@ -21594,8 +21601,7 @@ async function shipOpen(k){
   if(ni>=0) h+='<th>택배사</th><th>송장번호</th>';
   h+='</tr></thead><tbody>';
   rows.forEach(function(r,i){
-    var rowDel=!!d['del'];
-    if(!rowDel && ni>=0){ var nmk=_trkNrm(String(r[ni]||''))+'|'+(ti>=0?_trkTail(r[ti]):''); if(delSet[nmk]) rowDel=true; }
+    var rowDel=!!d['del'] || !!delFlag[i];   // 파일전체 삭제 or 이 행(주문) 삭제
     h+='<tr'+(rowDel?' style="opacity:.5;background:#fef2f2"':'')+'><td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
     (r||[]).forEach(function(v){ h+='<td>'+(v||'')+'</td>'; });
     if(ni>=0){
