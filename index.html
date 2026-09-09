@@ -21465,12 +21465,15 @@ function renderShip(){
       var smsMark='';
       var smsK=Object.keys((d.sms)||{});
       if(smsK.length) smsMark=' <span style="background:#0ea5e9;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:700">📨'+smsK.join('·')+'</span>';
-      fh+='<tr style="cursor:pointer" onclick="shipOpen(\''+k+'\')">';
-      fh+='<td style="color:#2563eb;font-weight:600">📄 '+(d.file||'(이름없음)')+smsMark+'</td>';
+      var isDel=!!d['del'];
+      fh+='<tr style="cursor:pointer'+(isDel?';opacity:.55;background:#fef2f2':'')+'" onclick="shipOpen(\''+k+'\')">';
+      fh+='<td style="font-weight:600;color:'+(isDel?'#dc2626':'#2563eb')+'">📄 '+(isDel?'<span style="text-decoration:line-through">'+(d.file||'(이름없음)')+'</span> <span style="background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:800">삭제됨</span>':(d.file||'(이름없음)'))+smsMark+'</td>';
       fh+='<td style="font-size:11px;white-space:nowrap;color:#64748b">등록 '+((d.t||'').slice(5,16))+'</td>';
       fh+='<td style="font-weight:700">'+(d.cnt||0)+'건</td>';
       fh+='<td onclick="event.stopPropagation()" title="이 파일 택배 발송일자 (해당 주문들에도 함께 적용)"><span style="font-size:10px;color:#64748b">📅발송</span><br><input type="date" value="'+esc(_shipFileDate(d))+'" onchange="shipSetFileDate(\''+k+'\',this.value)" style="width:128px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'"></td>';
-      fh+='<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="event.stopPropagation();shipDel(\''+k+'\')">🗑</button></td>';
+      fh+= isDel
+        ? '<td style="white-space:nowrap"><button class="btn" style="background:#16a34a;color:#fff;font-weight:700;padding:2px 8px" onclick="event.stopPropagation();shipDel(\''+k+'\')" title="삭제됨 취소 — 되살리기">↩ 되돌리기</button>'+(isGlobalAdmin()?' <button class="btn" style="background:#7f1d1d;color:#fff;font-weight:700;padding:2px 8px" onclick="event.stopPropagation();shipPurge(\''+k+'\')" title="완전 삭제(복구 불가) — 관리자 전용">❌영구</button>':'')+'</td>'
+        : '<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="event.stopPropagation();shipDel(\''+k+'\')" title="삭제됨 표시 (기록 남고 수량합계 제외, 되돌리기 가능)">🗑</button></td>';
       fh+='</tr>';
     });
     fh+='</tbody></table>';
@@ -21489,6 +21492,7 @@ function renderShipSummary(fileKeys){
   var userN={}, userP={}, totP={}, totalCnt=0;
   fileKeys.forEach(function(k){
     var d=SHIP_DATA[k]||{};
+    if(d['del']) return;   // 삭제됨 파일은 수량합계 제외
     var user=(d.file||'').match(/^\(([^)]+)\)/); // (사용자)... 형태면 추출
     user=user?user[1]:(d.app||'미지정');
     var heads=d.headers||[], rows=d.rows||[];
@@ -21557,7 +21561,7 @@ async function shipOpen(k){
     bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">📤 송장 업로드 = 이 파일 받는분과 매칭해 송장 저장(주문히스토리도 갱신) · 송장 발송 = 받는분/담당자에게 문자 (미리보기 확인)</div></div>';
   }
   // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) 우선 ② 없으면 주문히스토리(excel_orders)에서 이름+전화로 조회
-  var trkMap=[];
+  var trkMap=[], delSet={};
   if(ni>=0){
     var stored=d.trk||{};   // {행번호: {t:송장, c:택배사}}
     try{
@@ -21565,7 +21569,11 @@ async function shipOpen(k){
       var idx={};
       // 업체/지점 폴더 깊이 상관없이 레코드만 펼쳐서 송장 인덱스 구성 (본사/본사/WK_... 중첩 대응)
       (function walk(o){ Object.keys(o||{}).forEach(function(kk2){ var v=o[kk2]; if(!v||typeof v!=='object') return;
-        if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){ if(v['송장번호']){ var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']); (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); } }
+        if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){
+          var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']);
+          if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); }
+          if(v['del']) delSet[key]=1;   // 주문히스토리에서 삭제된 건 → 접수 상세에도 표시
+        }
         else { walk(v); }
       }); })(ORD);
       rows.forEach(function(r,i2){
@@ -21584,7 +21592,9 @@ async function shipOpen(k){
   if(ni>=0) h+='<th>택배사</th><th>송장번호</th>';
   h+='</tr></thead><tbody>';
   rows.forEach(function(r,i){
-    h+='<tr><td>'+(i+1)+'</td>';
+    var rowDel=!!d['del'];
+    if(!rowDel && ni>=0){ var nmk=_trkNrm(String(r[ni]||''))+'|'+(ti>=0?_trkTail(r[ti]):''); if(delSet[nmk]) rowDel=true; }
+    h+='<tr'+(rowDel?' style="opacity:.5;background:#fef2f2"':'')+'><td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
     (r||[]).forEach(function(v){ h+='<td>'+(v||'')+'</td>'; });
     if(ni>=0){
       var tm=trkMap[i];
@@ -21873,32 +21883,61 @@ function shipSmsHistory(){
   document.body.appendChild(d);
 }
 
+// 소프트 삭제 토글: 접수파일 + 연결된 주문(주문번호 "파일명-" 시작)을 삭제됨 표시/해제
+// 삭제됨 = 기록은 남고, 수량합계·달력에서 제외, 되돌리기 가능
 async function shipDel(k){
   var d=SHIP_DATA[k]||{};
   var fileName=String(d.file||'');
   var basePath=SHIP_PATH[k]||'/excel_ship/'+k;
-  var dateStr=(d.t||'').slice(0,10);
-  // 이 파일에서 나온 주문히스토리 찾기 — 주문번호가 "파일명-"로 시작 (와꾸가 그렇게 매김)
-  var delKeys=[];
+  var makeDel=!d['del'];   // 지금 안 지워졌으면 삭제, 이미 삭제면 되돌리기
+  var okeys=[];
   if(fileName){
     try{
       var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
       (function walk(o,path){ Object.keys(o||{}).forEach(function(kk){ var v=o[kk]; if(!v||typeof v!=='object') return;
         var p=path+'/'+kk;
-        if(v['수취인명']||v['주문번호']||v['등록일시']){ if(String(v['주문번호']||'').indexOf(fileName+'-')===0) delKeys.push(p); }
+        if(v['수취인명']||v['주문번호']||v['등록일시']){ if(String(v['주문번호']||'').indexOf(fileName+'-')===0) okeys.push(p); }
         else walk(v,p);
       }); })(ORD,'/excel_orders');
     }catch(e){}
   }
-  var msg='이 접수파일을 삭제할까요?\n\n📄 '+(fileName||k)+'\n'+(d.cnt||0)+'건';
-  msg+= delKeys.length ? ('\n\n⚠ 연결된 주문히스토리 '+delKeys.length+'건도 함께 삭제됩니다.') : '\n\n(연결된 주문히스토리를 못 찾아 접수파일만 삭제됩니다)';
+  var msg = makeDel
+    ? ('이 접수파일을 [삭제됨]으로 표시할까요?\n\n📄 '+(fileName||k)+'\n'+(d.cnt||0)+'건'+(okeys.length?('\n연결 주문 '+okeys.length+'건도 삭제됨 표시'):'')+'\n\n※ 기록은 남고 수량합계에서만 빠집니다. 되돌리기 가능.')
+    : ('[삭제됨] 표시를 취소(되돌리기)할까요?\n\n📄 '+(fileName||k)+(okeys.length?('\n연결 주문 '+okeys.length+'건도 되살림'):''));
   if(!confirm(msg)) return;
-  var up={};
-  up[basePath]=null;
-  if(dateStr) up['/excel_daily/'+CUR_CO+'/'+CUR_JI+'/'+dateStr+'/'+k]=null;
-  delKeys.forEach(function(p){ up[p]=null; });
+  var up={}; var val = makeDel ? true : null;
+  up[basePath+'/del']=val;
+  okeys.forEach(function(p){ up[p+'/del']=val; });
   fbDb.ref().update(up).then(function(){
-    alert('✅ 삭제 완료'+(delKeys.length?(' (주문히스토리 '+delKeys.length+'건 포함)'):''));
+    if(SHIP_DATA[k]){ if(makeDel) SHIP_DATA[k]['del']=true; else delete SHIP_DATA[k]['del']; }
+    toast(makeDel ? ('🗑 삭제됨 표시'+(okeys.length?(' (주문 '+okeys.length+'건 포함)'):'')) : '↩ 되돌림');
+  }).catch(function(e){ alert('실패: '+e.message); });
+}
+// 영구삭제(복구 불가) — ADMIN 이상만. 접수파일 + 연결주문 + 일별 완전 제거
+async function shipPurge(k){
+  if(!isGlobalAdmin()){ alert('영구삭제는 관리자(admin) 이상만 가능합니다.'); return; }
+  var d=SHIP_DATA[k]||{};
+  var fileName=String(d.file||'');
+  var basePath=SHIP_PATH[k]||'/excel_ship/'+k;
+  var dateStr=(d.t||'').slice(0,10);
+  var okeys=[];
+  if(fileName){
+    try{
+      var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
+      (function walk(o,path){ Object.keys(o||{}).forEach(function(kk){ var v=o[kk]; if(!v||typeof v!=='object') return;
+        var p=path+'/'+kk;
+        if(v['수취인명']||v['주문번호']||v['등록일시']){ if(String(v['주문번호']||'').indexOf(fileName+'-')===0) okeys.push(p); }
+        else walk(v,p);
+      }); })(ORD,'/excel_orders');
+    }catch(e){}
+  }
+  if(!confirm('⚠ 완전 삭제(복구 불가)합니다.\n\n📄 '+(fileName||k)+'\n'+(d.cnt||0)+'건'+(okeys.length?('\n연결 주문 '+okeys.length+'건도 완전 삭제'):'')+'\n\n정말 지울까요?')) return;
+  if(!confirm('되돌릴 수 없습니다. 한 번 더 확인해주세요.\n영구삭제 진행할까요?')) return;
+  var up={}; up[basePath]=null;
+  if(dateStr) up['/excel_daily/'+CUR_CO+'/'+CUR_JI+'/'+dateStr+'/'+k]=null;
+  okeys.forEach(function(p){ up[p]=null; });
+  fbDb.ref().update(up).then(function(){
+    alert('완전 삭제됨'+(okeys.length?(' (주문 '+okeys.length+'건 포함)'):''));
   }).catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
@@ -22007,6 +22046,7 @@ function shipCalAgg(basis){
   var map={};
   ordhFlat().forEach(function(x){
     var d=x.rec||{};
+    if(d['del']) return;   // 삭제됨 표시된 주문은 수량합계 제외
     var ds = (basis==='reg') ? String(d['등록일시']||'').slice(0,10) : _shipDateOf(d);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
     var m=map[ds]||(map[ds]={cnt:0, qty:0, plat:{}, prod:{}, orders:[]});
@@ -22507,12 +22547,21 @@ function ordhSelCount(){ var n=ordhSelectedKeys().length; var el=document.getEle
 document.addEventListener('change', function(e){ if(e.target && e.target.classList && e.target.classList.contains('ordh_ck')) ordhSelCount(); });
 
 function ordhDelSelected(){
-  var keys=ordhSelectedKeys();
-  if(!keys.length){ alert('삭제할 행을 체크하세요.'); return; }
-  if(!confirm(keys.length+'건을 삭제할까요?')) return;
-  var up={};
-  keys.forEach(function(k){ up[ORDH_PATH[k]||'/excel_orders/'+k]=null; });
-  fbDb.ref().update(up).catch(function(e){ alert('삭제 실패: '+e.message); });
+  var keys=ordhSelectedKeys().filter(function(k){ return ORDH_DATA[k] && !ORDH_DATA[k]['del']; });
+  if(!keys.length){ alert('삭제할 행을 체크하세요. (이미 삭제된 건 제외)'); return; }
+  if(!confirm(keys.length+'건을 [삭제됨]으로 표시할까요?\n(기록은 남고 수량합계 제외 · 되돌리기 가능)')) return;
+  var up={}; keys.forEach(function(k){ up[(ORDH_PATH[k]||'/excel_orders/'+k)+'/del']=true; });
+  fbDb.ref().update(up).then(function(){ keys.forEach(function(k){ if(ORDH_DATA[k]) ORDH_DATA[k]['del']=true; }); ordhSelClear(); toast('🗑 '+keys.length+'건 삭제됨 표시'); }).catch(function(e){ alert('실패: '+e.message); });
+}
+// 주문 되돌리기 / 영구삭제(관리자)
+function ordhRestore(k){
+  fbDb.ref((ORDH_PATH[k]||'/excel_orders/'+k)+'/del').remove().then(function(){ if(ORDH_DATA[k]) delete ORDH_DATA[k]['del']; toast('↩ 되돌림'); }).catch(function(e){ alert('실패: '+e.message); });
+}
+function ordhPurge(k){
+  if(!isGlobalAdmin()){ alert('영구삭제는 관리자(admin) 이상만 가능합니다.'); return; }
+  var d=ORDH_DATA[k]||{};
+  if(!confirm('⚠ 완전 삭제(복구 불가)\n'+(d['수취인명']||'')+' / '+(d['상품명']||'')+'\n진행할까요?')) return;
+  fbDb.ref(ORDH_PATH[k]||'/excel_orders/'+k).remove().catch(function(e){ alert('삭제 실패: '+e.message); });
 }
 
 // 📱 문자 미리보기 모달 — 실제 발송될 문자를 말풍선으로 보여주고 보내기/취소 (Promise<boolean>)
@@ -22701,6 +22750,7 @@ function _ordhVisibleKeys(){
   var df=ORDH_DATE.from, dt=ORDH_DATE.to, out=[];
   Object.keys(ORDH_DATA).forEach(function(k){
     var d=ORDH_DATA[k]||{};
+    if(d['del']) return;   // 삭제됨 주문은 문자 대상에서 제외
     if(f==='no' && d['송장번호']) return;
     if(f==='yes' && !d['송장번호']) return;
     if(df||dt){ var dd=_ordhDateVal(d,ORDH_DATE.basis); if(!dd) return; if(df&&dd<df) return; if(dt&&dd>dt) return; }
@@ -22786,13 +22836,14 @@ function renderOrderHist(){
   var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>📅발송일자</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
   show.forEach(function(row){
     var d=row.d;
+    var isDel=!!d['del'];
     var trk=d['송장번호']||'';
     var sent=ORDH_SENT[row.k]||{};
     var rtel=(d['수취인전화']||'').replace(/[^0-9]/g,'');
     var btel=(d['구매자전화']||'').replace(/[^0-9]/g,'');
-    h+='<tr>';
+    h+='<tr'+(isDel?' style="opacity:.5;background:#fef2f2"':'')+'>';
     h+='<td><input type="checkbox" class="ordh_ck" value="'+row.k+'"'+(ORDH_SEL[row.k]?' checked':'')+' onclick="ordhCkClick(this,event)"></td>';
-    h+='<td style="font-size:12px">'+(d['등록일시']||'')+'</td>';
+    h+='<td style="font-size:12px">'+(d['등록일시']||'')+(isDel?' <span style="background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:800">삭제됨</span>':'')+'</td>';
     h+='<td><input type="date" value="'+esc(_shipDateOf(d))+'" onchange="ordhSetShipDate(\''+row.k+'\',this.value)" style="width:130px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'" title="'+(d['발송일자']?'발송일자 지정됨':'미지정 (등록일 기준 표시)')+'"></td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
@@ -22804,7 +22855,9 @@ function renderOrderHist(){
     h+='<td>'+(d['택배사']||'')+'</td>';
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+trk+'</td>'):('<td style="color:#d97706;font-weight:600">미발송</td>');
     h+='<td style="font-size:11px">'+(sent['접수']?'<span style="color:#7c3aed;font-weight:700">접수✓</span> ':'')+(sent['송장']?'<span style="color:#16a34a;font-weight:700">송장✓</span> ':'')+(sent['받는분']?'<span style="color:#0ea5e9;font-weight:700">받는분✓</span>':'')+'</td>';
-    h+='<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhDel(\''+row.k+'\')">🗑</button></td>';
+    h+= isDel
+      ? '<td style="white-space:nowrap"><button class="btn" style="background:#16a34a;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhRestore(\''+row.k+'\')" title="되살리기">↩</button>'+(isGlobalAdmin()?' <button class="btn" style="background:#7f1d1d;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhPurge(\''+row.k+'\')" title="완전삭제(복구불가) — 관리자 전용">❌</button>':'')+'</td>'
+      : '<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhDel(\''+row.k+'\')" title="삭제됨 표시 (되돌리기 가능)">🗑</button></td>';
     h+='</tr>';
   });
   h+='</tbody></table>'+(rows.length>300?'<div class="muted" style="font-size:11px;margin-top:4px">최근 300건만 표시 — 검색으로 좁혀보세요</div>':'');
@@ -22859,12 +22912,13 @@ async function ordhExportSelected(){
   // 주문히스토리 등록은 하지 않음 — 택배변환에서 [주문가져오기] 할 때 새 주문번호로 자동 등록됨 (중복 방지)
   alert('✅ 저장 완료: '+savedName+' ('+sel.length+'건)\n택배변환에서 이 파일을 [주문가져오기] 하면\n새 주문번호로 히스토리에 등록됩니다.');
 }
-// 주문히스토리 행 삭제
+// 주문히스토리 행 삭제 (소프트 — 삭제됨 표시, 수량합계 제외, 되돌리기 가능)
 function ordhDel(k){
   var d=ORDH_DATA[k]||{};
-  if(!confirm((d['수취인명']||'')+' / '+(d['상품명']||'')+' 이 주문을 삭제할까요?')) return;
-  fbDb.ref(ORDH_PATH[k]||'/excel_orders/'+k).remove()
-    .catch(function(e){ alert('삭제 실패: '+e.message); });
+  if(!confirm((d['수취인명']||'')+' / '+(d['상품명']||'')+'\n[삭제됨]으로 표시할까요?\n(기록은 남고 수량합계 제외 · 되돌리기 가능)')) return;
+  fbDb.ref((ORDH_PATH[k]||'/excel_orders/'+k)+'/del').set(true)
+    .then(function(){ if(ORDH_DATA[k]) ORDH_DATA[k]['del']=true; toast('🗑 삭제됨 표시'); })
+    .catch(function(e){ alert('실패: '+e.message); });
   // 실시간 리스너가 화면 자동 갱신
 }
 
