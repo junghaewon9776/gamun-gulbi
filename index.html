@@ -22066,6 +22066,7 @@ function dShipCal(){
   h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipCal()">🔄 새로고침</button>';
   h+='<button class="btn" style="background:#0088cc;color:#fff;font-weight:700" onclick="calRecipModal()" title="텔레그램으로 스케줄을 받을 사람(챗ID)을 미리 등록해 둡니다">👥 텔레그램 받는사람 <span id="cal_recip_n"></span></button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:700" onclick="calCopyLink()" title="택배 스케줄 화면으로 바로 열리는 링크 복사 (직원에게 공유)">🔗 스케줄 링크복사</button>';
   h+='<span style="width:1px;height:20px;background:#cbd5e1"></span>';
   h+='<button class="btn" style="background:#475569;color:#fff;font-weight:700" onclick="calNav(-1)">◀ 이전</button>';
   h+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:700" onclick="calNav(0)">오늘</button>';
@@ -22088,6 +22089,14 @@ function dShipCal(){
   h+='<div class="card" id="cal_main">불러오는 중...</div>';
   h+='<div class="card" id="cal_detail" style="margin-top:10px;display:none"></div>';
   return h;
+}
+// 🔗 스케줄 화면으로 바로 열리는 링크 복사
+function calCopyLink(){
+  var url=location.origin+location.pathname+'?tab=shipCal';
+  var ok=function(){ toast('📋 스케줄 링크 복사됨'); };
+  var fb=function(){ try{ var t=document.createElement('textarea'); t.value=url; t.style.position='fixed'; t.style.left='-9999px'; document.body.appendChild(t); t.focus(); t.select(); document.execCommand('copy'); document.body.removeChild(t); ok(); }catch(e){ prompt('아래 링크를 복사하세요 (Ctrl+C):', url); } };
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(ok, fb); } else fb(); }
+  catch(e){ fb(); }
 }
 function loadShipCal(){
   if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
