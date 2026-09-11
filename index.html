@@ -22608,6 +22608,31 @@ function ordhPurge(k){
   if(!confirm('⚠ 완전 삭제(복구 불가)\n'+(d['수취인명']||'')+' / '+(d['상품명']||'')+'\n진행할까요?')) return;
   fbDb.ref(ORDH_PATH[k]||'/excel_orders/'+k).remove().catch(function(e){ alert('삭제 실패: '+e.message); });
 }
+// ✅ 주소확인 체크 (답변 온 사람 표시) — 켜면 확인시각 저장
+function ordhAddrOk(k,on){
+  var ref=fbDb.ref((ORDH_PATH[k]||'/excel_orders/'+k)+'/주소확인');
+  (on? ref.set(nowKST(true)) : ref.remove())
+    .then(function(){ if(ORDH_DATA[k]){ if(on) ORDH_DATA[k]['주소확인']=nowKST(true); else delete ORDH_DATA[k]['주소확인']; } toast(on?'✅ 주소확인 체크':'주소확인 해제'); })
+    .catch(function(e){ alert('실패: '+e.message); });
+}
+// ✏️ 주문 수정 (주소·상품 등) — 팝업 폼
+function ordhEdit(k){
+  var d=ORDH_DATA[k]||{};
+  var inp=function(lab,fld){ return '<div style="margin-bottom:8px"><label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:2px">'+lab+'</label><input id="oe_'+fld+'" value="'+esc(d[fld]||'')+'" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px"></div>'; };
+  var h='<div style="max-width:460px"><h3 style="margin:0 0 4px">✏️ 주문 수정</h3>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:12px">'+esc(d['수취인명']||'')+' · '+esc(d['주문번호']||'')+'</div>';
+  h+=inp('수취인명','수취인명')+inp('수취인전화','수취인전화');
+  h+='<div style="margin-bottom:8px"><label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:2px">주소</label><textarea id="oe_주소" rows="2" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px">'+esc(d['주소']||'')+'</textarea></div>';
+  h+=inp('상품명','상품명')+inp('수량','수량')+inp('배송메시지','배송메시지')+inp('구매자명','구매자명')+inp('구매자전화','구매자전화');
+  h+='<div style="text-align:right;margin-top:6px"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="closePopup()">취소</button> <button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="ordhEditSave(\''+k+'\')">💾 저장</button></div></div>';
+  openPopup(h,480);
+}
+function ordhEditSave(k){
+  var flds=['수취인명','수취인전화','주소','상품명','수량','배송메시지','구매자명','구매자전화'];
+  var base=(ORDH_PATH[k]||'/excel_orders/'+k), up={};
+  flds.forEach(function(f){ var el=document.getElementById('oe_'+f); if(el){ up[base+'/'+f]=el.value; if(ORDH_DATA[k]) ORDH_DATA[k][f]=el.value; } });
+  fbDb.ref().update(up).then(function(){ closePopup(); toast('💾 수정 저장됨'); renderOrderHist(); }).catch(function(e){ alert('저장 실패: '+e.message); });
+}
 
 // 📱 문자 미리보기 모달 — 실제 발송될 문자를 말풍선으로 보여주고 보내기/취소 (Promise<boolean>)
 // ═══ 택배주문관리 문자 작성 폼 (서울지점 택배관리 모듈과 동일: 변수+템플릿+저장) ═══
@@ -22885,7 +22910,7 @@ function renderOrderHist(){
   var _bl=(ORDH_DATE.basis==='ship'?'발송일':'등록일');
   if(cnt) cnt.textContent='['+_bl+' · '+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
   var show=rows.slice(0,300);
-  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>📅발송일자</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th></th></tr></thead><tbody>';
+  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>📅발송일자</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>주소</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th>주소확인</th><th>수정/삭제</th></tr></thead><tbody>';
   show.forEach(function(row){
     var d=row.d;
     var isDel=!!d['del'];
@@ -22900,6 +22925,7 @@ function renderOrderHist(){
     h+='<td>'+(d['플랫폼']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
     h+='<td style="font-family:monospace;font-size:12px'+(rtel.length<10?';color:#dc2626':'')+'">'+(d['수취인전화']||'<b>없음</b>')+'</td>';
+    h+='<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;font-size:12px" title="'+esc(d['주소']||'')+'">'+esc(d['주소']||'')+'</td>';
     h+='<td>'+(d['구매자명']||'')+'</td>';
     h+='<td style="font-family:monospace;font-size:12px'+(btel.length<10?';color:#dc2626':'')+'">'+(d['구매자전화']||'<b>없음</b>')+'</td>';
     h+='<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">'+(d['상품명']||'')+'</td>';
@@ -22907,9 +22933,12 @@ function renderOrderHist(){
     h+='<td>'+(d['택배사']||'')+'</td>';
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+trk+'</td>'):('<td style="color:#d97706;font-weight:600">미발송</td>');
     h+='<td style="font-size:11px">'+(sent['접수']?'<span style="color:#7c3aed;font-weight:700">접수✓</span> ':'')+(sent['송장']?'<span style="color:#16a34a;font-weight:700">송장✓</span> ':'')+(sent['받는분']?'<span style="color:#0ea5e9;font-weight:700">받는분✓</span>':'')+'</td>';
+    // 주소확인 체크 (답변 온 사람 표시)
+    var addrOk=!!d['주소확인'];
+    h+='<td style="text-align:center;white-space:nowrap"><label style="cursor:pointer;font-size:12px;font-weight:700;color:'+(addrOk?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(addrOk?'checked':'')+' onclick="ordhAddrOk(\''+row.k+'\',this.checked)"> '+(addrOk?'✅확인':'미확인')+'</label></td>';
     h+= isDel
       ? '<td style="white-space:nowrap"><button class="btn" style="background:#16a34a;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhRestore(\''+row.k+'\')" title="되살리기">↩</button>'+(isGlobalAdmin()?' <button class="btn" style="background:#7f1d1d;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhPurge(\''+row.k+'\')" title="완전삭제(복구불가) — 관리자 전용">❌</button>':'')+'</td>'
-      : '<td><button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhDel(\''+row.k+'\')" title="삭제됨 표시 (되돌리기 가능)">🗑</button></td>';
+      : '<td style="white-space:nowrap"><button class="btn" style="background:#2563eb;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhEdit(\''+row.k+'\')" title="주소·상품 등 수정">✏️</button> <button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhDel(\''+row.k+'\')" title="삭제됨 표시 (되돌리기 가능)">🗑</button></td>';
     h+='</tr>';
   });
   h+='</tbody></table>'+(rows.length>300?'<div class="muted" style="font-size:11px;margin-top:4px">최근 300건만 표시 — 검색으로 좁혀보세요</div>':'');
