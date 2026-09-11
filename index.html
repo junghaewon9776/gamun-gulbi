@@ -21622,8 +21622,8 @@ async function shipOpen(k){
     (r||[]).forEach(function(v){ h+='<td>'+(v||'')+'</td>'; });
     if(ni>=0){ var tm=trkMap[i]; h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>'; }
     h+='<td><input type="date" value="'+esc(rowSd[i]||'')+'" onchange="shipRowDate(\''+k+'\','+i+',this.value)" style="width:128px;font-size:12px;padding:2px 4px;border:1px solid '+(rowSd[i]?'#16a34a':'#cbd5e1')+';border-radius:6px'+(rowSd[i]?';background:#f0fdf4;font-weight:700':'')+'"></td>';
-    h+='<td style="text-align:center"><label style="cursor:pointer;font-size:11px;font-weight:700;color:'+(rok?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(rok?'checked':'')+' onclick="shipRowOk(\''+k+'\','+i+',this.checked)"> '+(rok?'✅':'미확인')+'</label></td>';
-    h+='<td><input value="'+esc(memo)+'" placeholder="비고" onchange="shipRowMemo(\''+k+'\','+i+',this.value)" style="width:130px;font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px"></td>';
+    h+='<td style="text-align:center"><label style="cursor:pointer;font-size:11px;font-weight:700;color:'+(rok?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(rok?'checked':'')+' onclick="shipRowOk(\''+k+'\','+i+',this.checked,this)"> <span class="_oklbl">'+(rok?'✅':'미확인')+'</span></label></td>';
+    h+='<td><input value="'+esc(memo)+'" placeholder="비고" onchange="shipRowMemo(\''+k+'\','+i+',this.value,this)" style="width:130px;font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px"></td>';
     var colBtns=''; ['','y','g','b','p','r'].forEach(function(c){ var on=(col===c); colBtns+='<span onclick="shipRowColor(\''+k+'\','+i+',\''+c+'\')" title="'+(c===''?'색없음':'색칠')+'" style="display:inline-block;width:17px;height:17px;border-radius:4px;margin:0 1px;cursor:pointer;vertical-align:middle;border:'+(on?'2px solid #111':'1px solid #cbd5e1')+';background:'+(c===''?'#fff':COLORS[c])+';text-align:center;line-height:15px;font-size:9px;color:#94a3b8">'+(c===''?'x':'')+'</span>'; });
     h+='<td style="white-space:nowrap">'+colBtns+'</td>';
     h+='<td><button class="btn" style="background:#2563eb;color:#fff;font-weight:700;padding:2px 7px" onclick="shipRowEdit(\''+k+'\','+i+')" title="이 행 수정">✏️</button></td>';
@@ -21660,7 +21660,8 @@ function shipRowDate(k,i,val){
   var ref=fbDb.ref(p+'/발송일자');
   (val?ref.set(val):ref.remove()).then(function(){ toast(val?('📅 발송일자 '+val):'발송일자 해제'); }).catch(function(e){ alert('실패: '+e.message); });
 }
-function shipRowMemo(k,i,val){
+function shipRowMemo(k,i,val,el){
+  if(el){ var tr=el.closest('tr'); if(tr) tr.setAttribute('data-memo', val?'1':'0'); }
   var base=(SHIP_PATH[k]||'/excel_ship/'+k), ref=fbDb.ref(base+'/memo/'+i);
   (val?ref.set(val):ref.remove()).then(function(){ var d=SHIP_DATA[k]; if(d){ d.memo=d.memo||{}; if(val)d.memo[i]=val; else delete d.memo[i]; } toast('비고 저장'); }).catch(function(e){ alert('실패: '+e.message); });
 }
@@ -21676,7 +21677,9 @@ function shipRowSoftDel(k,i,makeDel){
   (makeDel?ref.set(true):ref.remove()).then(function(){ toast(makeDel?'🗑 삭제 표시':'↩ 되돌림'); if(SHIP_OPEN_KEY===k){ SHIP_OPEN_KEY=null; shipOpen(k); } }).catch(function(e){ alert('실패: '+e.message); });
 }
 // ✅ 접수 행 주소확인 체크 (답변 온 사람)
-function shipRowOk(k,i,on){
+function shipRowOk(k,i,on,el){
+  // 필터 표식·라벨 즉시 갱신 (필터가 옛 상태 쓰지 않게)
+  if(el){ var tr=el.closest('tr'); if(tr) tr.setAttribute('data-ok', on?'1':'0'); var lb=el.parentNode&&el.parentNode.querySelector('._oklbl'); if(lb){ lb.textContent=on?'✅':'미확인'; } if(el.parentNode) el.parentNode.style.color=on?'#16a34a':'#94a3b8'; }
   var base=(SHIP_PATH[k]||'/excel_ship/'+k);
   var ref=fbDb.ref(base+'/rowok/'+i);
   (on? ref.set(nowKST(true)) : ref.remove()).then(function(){
