@@ -21534,6 +21534,7 @@ function renderShipSummary(fileKeys){
 }
 
 var SHIP_OPEN_KEY=null;
+var SHIP_ROWPATH={};   // shipOpen 행별 연결 주문 경로 (발송일자/삭제 저장용)
 async function shipOpen(k){
   var card=document.getElementById('ship_rows_card');
   // 토글: 같은 파일 다시 클릭하면 닫기
@@ -21561,28 +21562,27 @@ async function shipOpen(k){
     bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">📤 송장 업로드 = 이 파일 받는분과 매칭해 송장 저장(주문히스토리도 갱신) · 송장 발송 = 받는분/담당자에게 문자 (미리보기 확인)</div></div>';
   }
   // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) 우선 ② 없으면 주문히스토리(excel_orders)에서 이름+전화로 조회
-  var trkMap=[], delFlag=[];
+  var trkMap=[], delFlag=[], rowSd=[], rowPath=[];
   var _fileNm=String(d.file||'');   // 이 파일 주문: 주문번호가 "파일명-순번"
   if(ni>=0){
     var stored=d.trk||{};   // {행번호: {t:송장, c:택배사}}
     try{
       var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
       var idx={}, byNo={}, delSet={};   // idx=이름|전화 폴백 · byNo=주문번호 정확매칭 · delSet=이름|전화 삭제(이 파일 한정)
-      (function walk(o){ Object.keys(o||{}).forEach(function(kk2){ var v=o[kk2]; if(!v||typeof v!=='object') return;
+      (function walk(o,pb){ Object.keys(o||{}).forEach(function(kk2){ var v=o[kk2]; if(!v||typeof v!=='object') return;
+        var p=pb+'/'+kk2;
         if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){
           var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']);
           var ono=String(v['주문번호']||'');
-          if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del']};
+          if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), path:p};
           if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); }
           if(v['del'] && _fileNm && ono.indexOf(_fileNm+'-')===0) delSet[key]=1;
         }
-        else { walk(v); }
-      }); })(ORD);
+        else { walk(v,p); }
+      }); })(ORD,'/excel_orders');
       rows.forEach(function(r,i2){
-        // ① 주문번호 정확매칭 (이 파일 순번 = 파일명-순번), 없으면 ② 이름+전화
         var rec = _fileNm ? byNo[_fileNm+'-'+(i2+1)] : null;
         var nm=_trkNrm(String(r[ni]||'')), tel=ti>=0?_trkTail(r[ti]):'';
-        // ── 송장: 직접업로드 > 주문번호매칭 > 이름+전화 ──
         var st=stored[i2]||stored[String(i2)];
         if(st&&st.t){ trkMap[i2]={trk:st.t, car:st.c||''}; }
         else if(rec && rec.trk){ trkMap[i2]={trk:rec.trk, car:rec.car||''}; }
@@ -21591,27 +21591,45 @@ async function shipOpen(k){
           if(!q){ var bn=Object.keys(idx).filter(function(x){return x.indexOf(nm+'|')===0&&idx[x].length;}); if(bn.length) q=idx[bn[0]]; }
           if(q) trkMap[i2]=q.shift();
         }
-        // ── 삭제: 주문번호매칭 우선, 없으면 이름+전화(이 파일 한정) ──
         delFlag[i2] = rec ? !!rec.del : !!delSet[nm+'|'+tel];
+        rowSd[i2] = (rec&&rec.sd) ? rec.sd : String(d['발송일자']||'');
+        rowPath[i2] = rec ? rec.path : '';
       });
     }catch(e){}
   }
-  var h=bar+'<div style="margin-bottom:8px"><input id="shiprow_q" placeholder="🔍 이 파일에서 검색 (받는분·전화·주소·상품)" oninput="_shipRowFilter()" style="width:360px;max-width:80vw;padding:10px 13px;font-size:14px;border:2px solid #94a3b8;border-radius:10px"> <span id="shiprow_cnt" class="muted" style="font-size:12px"></span></div>';
-  h+='<div style="overflow:auto;max-height:62vh"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th>#</th>';
+  SHIP_ROWPATH[k]=rowPath;   // 행별 연결 주문 경로 (발송일자/삭제 저장용)
+  var COLORS={'':'', 'y':'#fef08a','g':'#bbf7d0','b':'#bfdbfe','p':'#e9d5ff','r':'#fecaca'};
+  var h=bar;
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
+  h+='<input id="shiprow_q" placeholder="🔍 검색 (받는분·전화·주소·상품·비고)" oninput="_shipRowFilter()" style="width:260px;max-width:70vw;padding:9px 12px;font-size:14px;border:2px solid #94a3b8;border-radius:10px">';
+  h+='<span style="font-size:12px;font-weight:700;color:#475569">주소확인</span><select id="shiprow_fok" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">✅확인</option><option value="0">미확인</option></select>';
+  h+='<span style="font-size:12px;font-weight:700;color:#475569">비고</span><select id="shiprow_fmemo" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">있음</option><option value="0">없음</option></select>';
+  h+='<span style="font-size:12px;font-weight:700;color:#475569">색상</span><select id="shiprow_fcolor" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">색칠됨</option><option value="0">없음</option></select>';
+  h+='<span id="shiprow_cnt" class="muted" style="font-size:12px"></span></div>';
+  h+='<div style="overflow:auto;max-height:60vh"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th>#</th>';
   heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
   if(ni>=0) h+='<th>택배사</th><th>송장번호</th>';
-  h+='<th>확인/수정</th></tr></thead><tbody>';
+  h+='<th>📅발송일자</th><th>주소확인</th><th>비고</th><th>색상</th><th>수정</th><th>삭제</th></tr></thead><tbody>';
   rows.forEach(function(r,i){
-    var rowDel=!!d['del'] || !!delFlag[i];   // 파일전체 삭제 or 이 행(주문) 삭제
-    var _rs=esc((r||[]).join(' ').toLowerCase());
-    h+='<tr data-s="'+_rs+'"'+(rowDel?' style="opacity:.5;background:#fef2f2"':'')+'><td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
+    var rowDel=!!d['del'] || !!delFlag[i];
+    var memo=(d.memo&&(d.memo[i]!=null?d.memo[i]:d.memo[String(i)]))||'';
+    var col=(d.color&&(d.color[i]||d.color[String(i)]))||'';
+    var rok=(d.rowok&&(d.rowok[i]||d.rowok[String(i)]))?1:0;
+    var bg = rowDel ? '#fef2f2' : (COLORS[col]||'');
+    var _rs=esc(((r||[]).join(' ')+' '+String(memo)).toLowerCase());
+    h+='<tr data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'" style="'+(rowDel?'opacity:.5;':'')+(bg?('background:'+bg+';'):'')+'">';
+    h+='<td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
     (r||[]).forEach(function(v){ h+='<td>'+(v||'')+'</td>'; });
-    if(ni>=0){
-      var tm=trkMap[i];
-      h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>';
-    }
-    var rok=(d.rowok&&(d.rowok[i]||d.rowok[String(i)]));
-    h+='<td style="white-space:nowrap"><label style="cursor:pointer;font-size:11px;font-weight:700;color:'+(rok?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(rok?'checked':'')+' onclick="shipRowOk(\''+k+'\','+i+',this.checked)"> '+(rok?'✅':'미확인')+'</label> <button class="btn" style="background:#2563eb;color:#fff;font-weight:700;padding:2px 7px" onclick="shipRowEdit(\''+k+'\','+i+')" title="이 행 수정(주소 등)">✏️</button></td>';
+    if(ni>=0){ var tm=trkMap[i]; h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>'; }
+    h+='<td><input type="date" value="'+esc(rowSd[i]||'')+'" onchange="shipRowDate(\''+k+'\','+i+',this.value)" style="width:128px;font-size:12px;padding:2px 4px;border:1px solid '+(rowSd[i]?'#16a34a':'#cbd5e1')+';border-radius:6px'+(rowSd[i]?';background:#f0fdf4;font-weight:700':'')+'"></td>';
+    h+='<td style="text-align:center"><label style="cursor:pointer;font-size:11px;font-weight:700;color:'+(rok?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(rok?'checked':'')+' onclick="shipRowOk(\''+k+'\','+i+',this.checked)"> '+(rok?'✅':'미확인')+'</label></td>';
+    h+='<td><input value="'+esc(memo)+'" placeholder="비고" onchange="shipRowMemo(\''+k+'\','+i+',this.value)" style="width:130px;font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px"></td>';
+    var colBtns=''; ['','y','g','b','p','r'].forEach(function(c){ var on=(col===c); colBtns+='<span onclick="shipRowColor(\''+k+'\','+i+',\''+c+'\')" title="'+(c===''?'색없음':'색칠')+'" style="display:inline-block;width:17px;height:17px;border-radius:4px;margin:0 1px;cursor:pointer;vertical-align:middle;border:'+(on?'2px solid #111':'1px solid #cbd5e1')+';background:'+(c===''?'#fff':COLORS[c])+';text-align:center;line-height:15px;font-size:9px;color:#94a3b8">'+(c===''?'x':'')+'</span>'; });
+    h+='<td style="white-space:nowrap">'+colBtns+'</td>';
+    h+='<td><button class="btn" style="background:#2563eb;color:#fff;font-weight:700;padding:2px 7px" onclick="shipRowEdit(\''+k+'\','+i+')" title="이 행 수정">✏️</button></td>';
+    h+='<td>'+(rowDel
+        ? '<button class="btn" style="background:#16a34a;color:#fff;font-weight:700;padding:2px 7px" onclick="shipRowSoftDel(\''+k+'\','+i+',false)" title="되돌리기">↩</button>'
+        : '<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 7px" onclick="shipRowSoftDel(\''+k+'\','+i+',true)" title="이 행 삭제 표시(수량합계 제외·되돌리기 가능)">🗑</button>')+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table></div>';
@@ -21622,9 +21640,40 @@ async function shipOpen(k){
 // 접수 파일 상세 안에서 행 검색 (번호·이름·주소·상품)
 function _shipRowFilter(){
   var q=(document.getElementById('shiprow_q')||{}).value||''; q=q.trim().toLowerCase();
+  var fok=(document.getElementById('shiprow_fok')||{}).value||'';
+  var fm=(document.getElementById('shiprow_fmemo')||{}).value||'';
+  var fc=(document.getElementById('shiprow_fcolor')||{}).value||'';
   var trs=document.querySelectorAll('#ship_rows tbody tr'); var shown=0;
-  trs.forEach(function(tr){ var s=tr.getAttribute('data-s')||''; var hit=(!q||s.indexOf(q)>=0); tr.style.display=hit?'':'none'; if(hit) shown++; });
-  var c=document.getElementById('shiprow_cnt'); if(c) c.textContent=q?(shown+'건 검색됨'):'';
+  trs.forEach(function(tr){
+    var s=tr.getAttribute('data-s')||'';
+    var ok=tr.getAttribute('data-ok'), me=tr.getAttribute('data-memo'), co=tr.getAttribute('data-color');
+    var hit=(!q||s.indexOf(q)>=0) && (fok===''||ok===fok) && (fm===''||me===fm) && (fc===''||co===fc);
+    tr.style.display=hit?'':'none'; if(hit) shown++;
+  });
+  var c=document.getElementById('shiprow_cnt'); if(c) c.textContent=shown+'건 표시';
+}
+// 📅 행별 발송일자 (연결 주문에 저장) / 비고 / 색상 / 소프트삭제
+function shipRowDate(k,i,val){
+  val=String(val||'').slice(0,10); if(!_validYmd(val)){ alert('날짜 형식이 올바르지 않습니다.'); return; }
+  var p=(SHIP_ROWPATH[k]||[])[i];
+  if(!p){ alert('이 행에 연결된 주문을 못 찾아 발송일자를 저장할 수 없어요.\n(와꾸로 올린 건만 가능 — 주문히스토리에서 바꿔주세요)'); return; }
+  var ref=fbDb.ref(p+'/발송일자');
+  (val?ref.set(val):ref.remove()).then(function(){ toast(val?('📅 발송일자 '+val):'발송일자 해제'); }).catch(function(e){ alert('실패: '+e.message); });
+}
+function shipRowMemo(k,i,val){
+  var base=(SHIP_PATH[k]||'/excel_ship/'+k), ref=fbDb.ref(base+'/memo/'+i);
+  (val?ref.set(val):ref.remove()).then(function(){ var d=SHIP_DATA[k]; if(d){ d.memo=d.memo||{}; if(val)d.memo[i]=val; else delete d.memo[i]; } toast('비고 저장'); }).catch(function(e){ alert('실패: '+e.message); });
+}
+function shipRowColor(k,i,c){
+  var base=(SHIP_PATH[k]||'/excel_ship/'+k), ref=fbDb.ref(base+'/color/'+i);
+  (c?ref.set(c):ref.remove()).then(function(){ var d=SHIP_DATA[k]; if(d){ d.color=d.color||{}; if(c)d.color[i]=c; else delete d.color[i]; } if(SHIP_OPEN_KEY===k){ SHIP_OPEN_KEY=null; shipOpen(k); } }).catch(function(e){ alert('실패: '+e.message); });
+}
+function shipRowSoftDel(k,i,makeDel){
+  var p=(SHIP_ROWPATH[k]||[])[i];
+  if(!p){ alert('이 행에 연결된 주문을 못 찾아 삭제표시를 못 해요.\n(주문히스토리에서 삭제해주세요)'); return; }
+  if(makeDel && !confirm('이 행(주문)을 [삭제됨]으로 표시할까요?\n(수량합계 제외 · 되돌리기 가능)')) return;
+  var ref=fbDb.ref(p+'/del');
+  (makeDel?ref.set(true):ref.remove()).then(function(){ toast(makeDel?'🗑 삭제 표시':'↩ 되돌림'); if(SHIP_OPEN_KEY===k){ SHIP_OPEN_KEY=null; shipOpen(k); } }).catch(function(e){ alert('실패: '+e.message); });
 }
 // ✅ 접수 행 주소확인 체크 (답변 온 사람)
 function shipRowOk(k,i,on){
