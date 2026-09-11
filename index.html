@@ -21864,32 +21864,58 @@ async function shipMgrSms(k){
   alert(okk?'담당자에게 전달 완료!':'전달 실패 (설정/번호 확인)');
 }
 
-// 문자 발송내역 — 모든 파일의 sms 기록 모아 보기
-function shipSmsHistory(){
+// 문자 발송내역 — 발송 배치 로그(/excel_sms_log): 성공/실패/미완료 + 실패분 재발송
+async function shipSmsHistory(){
   if(document.getElementById('_smsHistModal')) return;
-  var rows=[];
-  Object.keys(SHIP_DATA).forEach(function(k){
-    var d=SHIP_DATA[k]||{}; var sms=d.sms||{};
-    Object.keys(sms).forEach(function(t){ var s=sms[t]||{}; rows.push({file:d.file||k, app:d.app||'', type:t, cnt:s.cnt||0, t:s.t||'', by:s.by||'', to:s.to||''}); });
-  });
-  rows.sort(function(a,b){ return b.t<a.t?-1:1; });
   var d=document.createElement('div'); d.id='_smsHistModal';
   d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
-  var h='<div style="background:#fff;border-radius:14px;padding:20px;max-width:640px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)" onclick="event.stopPropagation()">';
-  h+='<h3 style="margin:0 0 10px">📋 문자 발송내역</h3>';
-  if(!rows.length){ h+='<div class="muted">아직 발송 기록이 없습니다.</div>'; }
-  else{
-    h+='<table class="tbl" style="width:100%;font-size:13px"><thead><tr><th>일시</th><th>파일</th><th>종류</th><th>통수</th><th>보낸이</th></tr></thead><tbody>';
-    rows.forEach(function(r){
-      h+='<tr><td style="white-space:nowrap">'+r.t+'</td><td>'+r.file+(r.app?(' <span class="muted" style="font-size:11px">'+r.app+'</span>'):'')+'</td>'
-        +'<td><b>'+r.type+'</b>'+(r.to?(' →'+r.to):'')+'</td><td>'+r.cnt+'</td><td style="font-size:12px">'+r.by+'</td></tr>';
-    });
-    h+='</tbody></table>';
-  }
-  h+='<div style="text-align:right;margin-top:12px"><button onclick="document.getElementById(\'_smsHistModal\').remove()" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer">닫기</button></div></div>';
-  d.innerHTML=h;
+  d.innerHTML='<div style="background:#fff;border-radius:14px;padding:20px;max-width:720px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)" onclick="event.stopPropagation()"><h3 style="margin:0 0 10px">📋 문자 발송내역</h3><div id="_smsHistBody" class="muted">불러오는 중...</div><div style="text-align:right;margin-top:12px"><button onclick="var m=document.getElementById(\'_smsHistModal\');if(m)m.remove()" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer">닫기</button></div></div>';
   d.onclick=function(){ d.remove(); };
   document.body.appendChild(d);
+  _smsHistRender();
+}
+async function _smsHistRender(){
+  var el=document.getElementById('_smsHistBody'); if(!el) return;
+  var LOG={};
+  try{ LOG=(await fbDb.ref('/excel_sms_log').once('value')).val()||{}; }catch(e){}
+  var rows=Object.keys(LOG).map(function(k){ var v=LOG[k]||{}; v.__k=k; return v; });
+  rows.sort(function(a,b){ return String(b.t||'')<String(a.t||'')?-1:1; });
+  if(!rows.length){ el.innerHTML='<div class="muted">아직 발송 기록이 없습니다. (이 기능 배포 이후 발송분부터 기록돼요)</div>'; return; }
+  var h='<table class="tbl" style="width:100%;font-size:13px;white-space:nowrap"><thead><tr><th>일시</th><th>종류</th><th>대상</th><th>성공</th><th>실패</th><th>상태</th><th></th></tr></thead><tbody>';
+  rows.slice(0,100).forEach(function(r){
+    var fails=r.fails||[];
+    var stColor = r.status&&r.status.indexOf('진행')>=0 ? '#d97706' : (r.fail?'#dc2626':'#16a34a');
+    h+='<tr>';
+    h+='<td>'+esc(r.t||'')+'</td>';
+    h+='<td><b>'+esc(r.type||'')+'</b>'+(r.title?('<div style="font-size:10px;color:#94a3b8">'+esc(String(r.title).slice(0,24))+'</div>'):'')+'</td>';
+    h+='<td>'+(r.total||0)+'명</td>';
+    h+='<td style="color:#16a34a;font-weight:700">'+(r.ok||0)+'</td>';
+    h+='<td style="color:'+(r.fail?'#dc2626':'#94a3b8')+';font-weight:700">'+(r.fail||0)+'</td>';
+    h+='<td style="color:'+stColor+';font-weight:700">'+esc(r.status||'')+(r.done&&r.total&&r.done<r.total?(' ('+r.done+'/'+r.total+')'):'')+'</td>';
+    h+='<td>'+(fails.length?('<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:3px 8px" onclick="smsResendFails(\''+r.__k+'\')">❌ 실패 '+fails.length+'통 재발송</button>'):'')+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table><div style="font-size:11px;color:#64748b;margin-top:6px">※ "진행중"으로 멈춘 건 = 발송 중 창이 닫힌 것. 실패분 재발송으로 마저 보낼 수 있어요. 실제 도착은 NCP SENS 콘솔에서도 확인 가능.</div>';
+  el.innerHTML=h;
+}
+// 실패분만 재발송 (로그의 fails=[{tel,msg}])
+async function smsResendFails(logKey){
+  var snap=(await fbDb.ref('/excel_sms_log/'+logKey).once('value')).val()||{};
+  var fails=snap.fails||[];
+  if(!fails.length){ alert('재발송할 실패분이 없습니다.'); return; }
+  if(!confirm('실패/미발송 '+fails.length+'통을 재발송할까요? (건당 요금)')) return;
+  var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
+  var proxy=cfg.SMS_PROXY_URL||''; if(!proxy){ alert('SMS 설정이 없습니다.'); return; }
+  var ok=0, still=[];
+  for(var i=0;i<fails.length;i++){
+    try{
+      var r=await fetch(proxy,{method:'POST',body:JSON.stringify({action:'send',serviceId:cfg.NAVER_SENS_SERVICE_ID||'',accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',secretKey:cfg.NAVER_SENS_SECRET_KEY||'',sender:effSender(cfg),tels:[fails[i].tel],msg:fails[i].msg})});
+      if((await r.json()).ok) ok++; else still.push(fails[i]);
+    }catch(e){ still.push(fails[i]); }
+  }
+  try{ await fbDb.ref('/excel_sms_log/'+logKey).update({fails:still, ok:(snap.ok||0)+ok, fail:still.length, status:'완료(재발송)'}); }catch(e){}
+  alert('재발송 완료!\n성공 '+ok+'통 / 남은 실패 '+still.length+'통');
+  _smsHistRender();
 }
 
 // 소프트 삭제 토글: 접수파일 + 연결된 주문(주문번호 "파일명-" 시작)을 삭제됨 표시/해제
@@ -22410,6 +22436,7 @@ function dOrderHist(){
   h+='<div class="muted" style="font-size:12px">엑셀에서 [주문 가져오기]/[송장 등록] 하면 자동 반영됩니다. (엑셀이 원본, 여긴 조회용)</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadOrderHist();renderOrderHist();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="자동으로 실시간 반영됩니다. 이 버튼은 강제 새로고침">🔄 새로고침</button> ';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipSmsHistory()" title="문자 발송내역 · 실패분 재발송">📋 문자 발송내역</button> ';
   h+='<span style="font-weight:700;font-size:12px;color:#334155">📢 전체(지금 화면):</span>';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 전체 접수문자</button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(false)">🚚 전체 송장문자</button>';
@@ -22659,19 +22686,26 @@ async function _tbSmsSend(){
   var cfg=(await fbDb.ref('/main/Config').once('value')).val()||{};
   var proxy=cfg.SMS_PROXY_URL||'';
   if(!proxy){ alert('SMS_PROXY_URL 이 없습니다. SMS 설정 확인.'); return; }
-  var ok=0, fail=0;
+  var ok=0, fail=0, fails=[];   // fails=[{tel,msg}] (재발송용)
+  // 📋 발송내역 로그 (시작 시점에 먼저 만들어 두고, 진행하며 갱신 — 중간에 끊겨도 기록 남음)
+  var logRef=null;
+  try{ logRef=fbDb.ref('/excel_sms_log').push(); await logRef.set({t:nowKST(true), type:(opts.markKind||opts.typeKey||''), title:(opts.title||''), total:sends.length, ok:0, fail:0, done:0, by:(ME&&ME.id)||'', status:'진행중', msg:body.slice(0,300)}); }catch(e){}
   for(var i=0;i<sends.length;i++){
+    var _sent=false;
     try{
       var r=await fetch(proxy,{method:'POST',body:JSON.stringify({action:'send',serviceId:cfg.NAVER_SENS_SERVICE_ID||'',accessKey:cfg.NAVER_SENS_ACCESS_KEY||'',secretKey:cfg.NAVER_SENS_SECRET_KEY||'',sender:effSender(cfg),tels:[sends[i].tel],msg:sends[i].msg})});
       var res=await r.json();
-      if(res.ok){ ok++;
+      if(res.ok){ _sent=true; ok++;
         if(opts.markKind){ var now=nowKST(); for(var j=0;j<sends[i].keys.length;j++){ await fbDb.ref('/excel_sms_sent/'+sends[i].keys[j]+'/'+opts.markKind).set(now); } }
         if(opts.markShip){ await fbDb.ref(opts.markShip+'/sms/'+opts.markKind).set({t:nowKST(), cnt:ok, by:(ME&&ME.id)||''}).catch(function(){}); }
-      } else fail++;
-    }catch(e){ fail++; }
+      }
+    }catch(e){}
+    if(!_sent){ fail++; fails.push({tel:sends[i].tel, name:(sends[i].name||''), msg:sends[i].msg}); }
+    if(logRef) try{ await logRef.update({ok:ok, fail:fail, done:(i+1), fails:fails, status:(i+1<sends.length?'진행중':'완료')}); }catch(e){}
   }
+  if(logRef) try{ await logRef.update({status:'완료', ok:ok, fail:fail, fails:fails}); }catch(e){}
   closePopup();
-  alert('문자 발송 완료!\n성공 '+ok+'통 / 실패 '+fail+'통');
+  alert('문자 발송 완료!\n성공 '+ok+'통 / 실패 '+fail+'통'+(fail?'\n\n⚠ 실패 '+fail+'통은 [📋 문자 발송내역]에서 재발송할 수 있어요.':''));
   if(opts.afterSend) try{ opts.afterSend(); }catch(e){}
 }
 function smsPreview(opts){
