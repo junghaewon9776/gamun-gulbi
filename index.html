@@ -21536,6 +21536,10 @@ function renderShipSummary(fileKeys){
 var SHIP_OPEN_KEY=null;
 var SHIP_ROWPATH={};   // shipOpen 행별 연결 주문 경로 (발송일자/삭제 저장용)
 var SHIP_ROWFILTER=null, SHIP_ROWFILTER_KEY=null;   // 파일 상세 필터 상태(재렌더 후 유지)
+var SHIP_ROWSEL={}, SHIP_ROWSEL_KEY=null;   // 파일 상세 행 선택(선택 발송용)
+function shipRowSel(i,on){ if(on) SHIP_ROWSEL[i]=1; else delete SHIP_ROWSEL[i]; _shipSelCount(); }
+function shipRowSelAll(on){ document.querySelectorAll('#ship_rows tbody tr').forEach(function(tr){ if(tr.style.display==='none') return; var cb=tr.querySelector('.shiprow_ck'); if(!cb) return; cb.checked=on; if(on) SHIP_ROWSEL[cb.value]=1; else delete SHIP_ROWSEL[cb.value]; }); _shipSelCount(); }
+function _shipSelCount(){ var n=Object.keys(SHIP_ROWSEL).length; var el=document.getElementById('shiprow_seln'); if(el) el.textContent=n?('✓ '+n+'명 선택'):''; }
 async function shipOpen(k){
   var card=document.getElementById('ship_rows_card');
   // 토글: 같은 파일 다시 클릭하면 닫기
@@ -21555,9 +21559,16 @@ async function shipOpen(k){
     if(ti>=0){
       bar+='<span style="width:1px;height:20px;background:#bae6fd"></span>';
       bar+='<span style="font-weight:700;font-size:12px">📨 문자:</span>';
+      bar+='<span style="font-weight:700;font-size:11px;color:#334155">전체:</span>';
       bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="shipSmsChoose(\''+k+'\')">🚚 송장 발송</button>';
       bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'접수\')">📩 접수 안내</button>';
-      bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'직접\')">✏️ 직접 입력</button>';
+      bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'직접\')">✏️ 직접</button>';
+      bar+='<span style="width:1px;height:20px;background:#bae6fd"></span>';
+      bar+='<span style="font-weight:700;font-size:11px;color:#b45309">☑ 선택한 것만:</span>';
+      bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'접수\',true)">📩 접수</button>';
+      bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'발송\',true)">🚚 송장</button>';
+      bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'직접\',true)">✏️ 직접</button>';
+      bar+='<span id="shiprow_seln" style="font-size:11px;font-weight:700;color:#b45309"></span>';
     }
     bar+='<span style="margin-left:auto">'+shipSmsBadges(k)+'</span>';
     bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">📤 송장 업로드 = 이 파일 받는분과 매칭해 송장 저장(주문히스토리도 갱신) · 송장 발송 = 받는분/담당자에게 문자 (미리보기 확인)</div></div>';
@@ -21599,6 +21610,7 @@ async function shipOpen(k){
     }catch(e){}
   }
   SHIP_ROWPATH[k]=rowPath;   // 행별 연결 주문 경로 (발송일자/삭제 저장용)
+  if(SHIP_ROWSEL_KEY!==k){ SHIP_ROWSEL={}; SHIP_ROWSEL_KEY=k; }   // 다른 파일 열면 선택 초기화
   var COLORS={'':'', 'y':'#fef08a','g':'#bbf7d0','b':'#bfdbfe','p':'#e9d5ff','r':'#fecaca'};
   var h=bar;
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
@@ -21607,7 +21619,7 @@ async function shipOpen(k){
   h+='<span style="font-size:12px;font-weight:700;color:#475569">비고</span><select id="shiprow_fmemo" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">있음</option><option value="0">없음</option></select>';
   h+='<span style="font-size:12px;font-weight:700;color:#475569">색상</span><select id="shiprow_fcolor" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">색칠됨</option><option value="0">없음</option></select>';
   h+='<span id="shiprow_cnt" class="muted" style="font-size:12px"></span></div>';
-  h+='<div style="overflow:auto;max-height:60vh"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th>#</th>';
+  h+='<div style="overflow:auto;max-height:60vh"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th><input type="checkbox" id="shiprow_all" onclick="shipRowSelAll(this.checked)" title="전체선택(보이는 행)"></th><th>#</th>';
   heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
   if(ni>=0) h+='<th>택배사</th><th>송장번호</th>';
   h+='<th>📅발송일자</th><th>주소확인</th><th>비고</th><th>색상</th><th>수정</th><th>삭제</th></tr></thead><tbody>';
@@ -21619,6 +21631,7 @@ async function shipOpen(k){
     var bg = rowDel ? '#fef2f2' : (COLORS[col]||'');
     var _rs=esc(((r||[]).join(' ')+' '+String(memo)).toLowerCase());
     h+='<tr data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'" style="'+(rowDel?'opacity:.5;':'')+(bg?('background:'+bg+';'):'')+'">';
+    h+='<td><input type="checkbox" class="shiprow_ck" value="'+i+'"'+(SHIP_ROWSEL[i]?' checked':'')+' onclick="shipRowSel('+i+',this.checked)"></td>';
     h+='<td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
     (r||[]).forEach(function(v,ci){ h+='<td>'+((ci===ti)?_telLink(v):(v||''))+'</td>'; });
     if(ni>=0){ var tm=trkMap[i]; h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>'; }
@@ -21643,6 +21656,7 @@ async function shipOpen(k){
     var _c=document.getElementById('shiprow_fcolor'); if(_c) _c.value=SHIP_ROWFILTER.fc||'';
     _shipRowFilter();
   } else { SHIP_ROWFILTER=null; }
+  _shipSelCount();
   card.style.display='';
   card.scrollIntoView({behavior:'smooth'});
 }
@@ -21835,9 +21849,10 @@ function shipSmsChoose(k){
   h+='</div>';
   openPopup(h,440);
 }
-async function shipFileSms(k, forceType){
+async function shipFileSms(k, forceType, selectedOnly){
   var d=SHIP_DATA[k]||{};
   var heads=d.headers||[], rows=d.rows||[];
+  if(selectedOnly && !Object.keys(SHIP_ROWSEL).length){ alert('먼저 왼쪽 체크박스로 보낼 사람을 선택하세요.'); return; }
   var ni=heads.findIndex(function(x){return /받는분|수취인/.test(x);});
   var ti=heads.findIndex(function(x){return /전화|연락처|휴대/.test(x);});
   var si=heads.findIndex(function(x){return /상품|품목|내용품/.test(x);});
@@ -21863,7 +21878,8 @@ async function shipFileSms(k, forceType){
   }
   // 전화별로 묶기 (같은 번호 = 한 통)
   var grp={}, noTrk=0, noTrkNames=[];
-  rows.forEach(function(r){
+  rows.forEach(function(r,ri){
+    if(selectedOnly && !SHIP_ROWSEL[ri]) return;   // 선택 발송이면 체크된 행만
     var tel=String(r[ti]||'').replace(/[^0-9]/g,'');
     if(tel.length<10) return;
     var nm=r[ni]||'';
