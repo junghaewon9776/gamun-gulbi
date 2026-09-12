@@ -22192,7 +22192,110 @@ async function shipSetFileDate(k, val){
   }).catch(function(e){ alert('저장 실패: '+e.message); });
 }
 
-var CAL_STATE={view:'month', anchor:'', sel:'', basis:'ship', cols:'auto', txt:'1'};
+var CAL_STATE={view:'month', anchor:'', sel:'', basis:'ship', cols:'auto', txt:'1', uniq:false};
+// 🏷 품목 별칭(고유품목) — 이름 다른 같은 제품을 하나로 통합
+var PROD_ALIAS_RAW={}, PROD_REV={}, PROD_ALIAS_LISTENER=false;   // PROD_ALIAS_RAW: {pushId:{canon,aliases:[]}}
+function _prodNrm(s){ return String(s==null?'':s).replace(/\s+/g,'').toLowerCase(); }
+function _buildProdRev(){ PROD_REV={}; Object.keys(PROD_ALIAS_RAW).forEach(function(id){ var g=PROD_ALIAS_RAW[id]||{}; var c=String(g.canon||'').trim(); if(!c) return; PROD_REV[_prodNrm(c)]=c; (g.aliases||[]).forEach(function(a){ if(a) PROD_REV[_prodNrm(a)]=c; }); }); }
+function _prodCanon(nm){ return PROD_REV[_prodNrm(nm)] || nm; }   // 별칭이면 고유품목으로, 아니면 그대로
+function loadProdAlias(){
+  if(PROD_ALIAS_LISTENER) return; PROD_ALIAS_LISTENER=true;
+  fbDb.ref('/excel_config/prodAlias').on('value', function(s){ PROD_ALIAS_RAW=s.val()||{}; _buildProdRev(); if(CTAB==='shipCal') renderShipCal(); if(document.getElementById('_prodAliasModal')) _prodAliasBody(); }, function(){});
+}
+// 현재 주문에 있는 실제 상품명 목록 (설정 도움)
+function _distinctProds(){ var s={}; ordhFlat().forEach(function(x){ var n=String((x.rec||{})['상품명']||'').trim(); if(n) s[n]=1; }); return Object.keys(s).sort(); }
+// 🏷 품목 통합설정 모달
+function prodAliasModal(){
+  if(document.getElementById('_prodAliasModal')) return;
+  loadProdAlias();
+  var d=document.createElement('div'); d.id='_prodAliasModal';
+  d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  d.innerHTML='<div style="background:#fff;border-radius:14px;padding:20px;max-width:680px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)" onclick="event.stopPropagation()">'
+    +'<h3 style="margin:0 0 4px">🏷 품목 통합설정 (고유품목)</h3>'
+    +'<div style="font-size:12px;color:#64748b;margin-bottom:10px">이름이 다른 같은 제품을 <b>고유품목</b> 하나로 묶으면, 달력에서 <b>🏷 고유품목 통합</b>을 켰을 때 수량이 합산돼요.</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+      +'<button class="btn" style="background:#15803d;color:#fff;font-weight:700" onclick="prodAliasExcelDown()">📥 엑셀 양식(현재 품목 포함)</button>'
+      +'<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:700" onclick="document.getElementById(\'_paFile\').click()">📤 엑셀 업로드</button>'
+      +'<input type="file" id="_paFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="prodAliasExcelUp(this.files[0])">'
+    +'</div>'
+    +'<div id="_prodAliasBody">불러오는 중...</div>'
+    +'<div style="text-align:right;margin-top:12px"><button onclick="var m=document.getElementById(\'_prodAliasModal\');if(m)m.remove()" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer">닫기</button></div></div>';
+  d.onclick=function(){ d.remove(); };
+  document.body.appendChild(d);
+  _prodAliasBody();
+}
+function _prodAliasBody(){
+  var el=document.getElementById('_prodAliasBody'); if(!el) return;
+  var ids=Object.keys(PROD_ALIAS_RAW);
+  var h='';
+  if(!ids.length) h+='<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">아직 통합 그룹이 없습니다. 아래에서 추가하거나 엑셀로 올리세요.</div>';
+  else{
+    h+='<table class="tbl" style="width:100%;font-size:13px"><thead><tr><th>고유품목</th><th>별칭(합쳐지는 이름들)</th><th></th></tr></thead><tbody>';
+    ids.map(function(id){return {id:id,g:PROD_ALIAS_RAW[id]||{}};}).sort(function(a,b){return String(a.g.canon)<String(b.g.canon)?-1:1;}).forEach(function(x){
+      h+='<tr><td style="font-weight:700">'+esc(x.g.canon||'')+'</td><td style="font-size:12px;color:#475569">'+esc((x.g.aliases||[]).join(', '))+'</td><td><button class="btn" style="background:#dc2626;color:#fff;padding:2px 8px" onclick="prodAliasDel(\''+x.id+'\')">삭제</button></td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='<div style="border-top:1px dashed #cbd5e1;margin-top:12px;padding-top:10px;font-weight:700;color:#334155">➕ 그룹 추가</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">'
+    +'<input id="_paCanon" placeholder="고유품목명 (예: 명품1호단품)" style="flex:1;min-width:150px;padding:8px;border:1px solid #cbd5e1;border-radius:8px">'
+    +'<input id="_paAlias" placeholder="별칭들 쉼표로 (예: 명1호단품, 명품1호 단품)" style="flex:2;min-width:220px;padding:8px;border:1px solid #cbd5e1;border-radius:8px">'
+    +'<button class="btn" style="background:#7c3aed;color:#fff;font-weight:700" onclick="prodAliasAdd()">저장</button></div>';
+  var prods=_distinctProds();
+  if(prods.length){ h+='<div style="margin-top:10px;font-size:11px;color:#64748b">현재 품목(클릭해 별칭칸에 추가):<br>'+prods.slice(0,120).map(function(p){ return '<span onclick="_paIns(this.getAttribute(\'data-p\'))" data-p="'+esc(p)+'" style="display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 6px;margin:2px;cursor:pointer">'+esc(p)+'</span>'; }).join('')+'</div>'; }
+  el.innerHTML=h;
+}
+function _paIns(p){ var a=document.getElementById('_paAlias'); if(!a) return; a.value=(a.value.trim()?a.value.replace(/,\s*$/,'')+', ':'')+p; a.focus(); }
+function prodAliasAdd(){
+  var c=(document.getElementById('_paCanon').value||'').trim();
+  var a=(document.getElementById('_paAlias').value||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  if(!c){ alert('고유품목명을 입력하세요.'); return; }
+  // 같은 고유품목명 그룹 있으면 별칭 합치기, 없으면 새로
+  var exId=Object.keys(PROD_ALIAS_RAW).filter(function(id){ return _prodNrm((PROD_ALIAS_RAW[id]||{}).canon)===_prodNrm(c); })[0];
+  var merged=a.slice(); if(exId){ (PROD_ALIAS_RAW[exId].aliases||[]).forEach(function(x){ if(merged.map(_prodNrm).indexOf(_prodNrm(x))<0) merged.push(x); }); }
+  var ref=exId?fbDb.ref('/excel_config/prodAlias/'+exId):fbDb.ref('/excel_config/prodAlias').push();
+  ref.set({canon:c, aliases:merged}).then(function(){ var i1=document.getElementById('_paCanon'),i2=document.getElementById('_paAlias'); if(i1)i1.value=''; if(i2)i2.value=''; toast('저장됨'); }).catch(function(e){ alert('실패: '+e.message); });
+}
+function prodAliasDel(id){ if(!confirm('이 통합 그룹을 삭제할까요?')) return; fbDb.ref('/excel_config/prodAlias/'+id).remove().catch(function(e){ alert('실패: '+e.message); }); }
+// 📥 엑셀 양식 (고유품목/별칭 + 현재 품목 나열)
+function prodAliasExcelDown(){
+  if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패 — 새로고침 후 다시.'); return; }
+  var aoa=[['고유품목','별칭']];
+  Object.keys(PROD_ALIAS_RAW).forEach(function(id){ var g=PROD_ALIAS_RAW[id]||{}; (g.aliases&&g.aliases.length?g.aliases:['']).forEach(function(a){ aoa.push([g.canon||'', a||'']); }); });
+  aoa.push(['','']); aoa.push(['# 아래는 현재 품목 목록입니다. 고유품목 칸을 채워 저장 후 업로드하세요','']);
+  _distinctProds().forEach(function(p){ if(!PROD_REV[_prodNrm(p)]) aoa.push(['', p]); });
+  var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:24},{wch:34}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'품목통합');
+  var buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); a.download='품목통합양식.xlsx'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1000);
+}
+// 📤 엑셀 업로드 (고유품목/별칭 2열) → 통합 그룹 교체
+function prodAliasExcelUp(file){
+  if(!file) return; if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패'); return; }
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      var groups={};   // 고유품목 → [별칭]
+      rows.forEach(function(r,ri){
+        if(ri===0) return;   // 헤더
+        var canon=String(r[0]||'').trim(), alias=String(r[1]||'').trim();
+        if(!canon || canon.charAt(0)==='#') return;
+        groups[canon]=groups[canon]||[];
+        if(alias && groups[canon].map(_prodNrm).indexOf(_prodNrm(alias))<0) groups[canon].push(alias);
+      });
+      var cnt=Object.keys(groups).length;
+      if(!cnt){ alert('읽은 그룹이 없어요. (A열=고유품목, B열=별칭 형식)'); return; }
+      if(!confirm(cnt+'개 고유품목 그룹으로 통합설정을 덮어쓸까요?\n(기존 설정은 대체됩니다)')) return;
+      var newNode={};
+      Object.keys(groups).forEach(function(c,i){ newNode['pa'+Date.now()+'_'+i]={canon:c, aliases:groups[c]}; });
+      fbDb.ref('/excel_config/prodAlias').set(newNode).then(function(){ alert('✅ 품목 통합설정 업로드 완료: '+cnt+'개 그룹'); }).catch(function(err){ alert('저장 실패: '+err.message); });
+    }catch(err){ alert('파일 읽기 실패: '+err.message); }
+    var fe=document.getElementById('_paFile'); if(fe) fe.value='';
+  };
+  rd.readAsArrayBuffer(file);
+}
 function calSetBasis(b){ CAL_STATE.basis=b; renderShipCal(); }
 function calSetCols(c){ CAL_STATE.cols=c; try{localStorage.setItem('gamunCalCols',c);}catch(e){} renderShipCal(); }
 function calSetTxt(t){ CAL_STATE.txt=t; try{localStorage.setItem('gamunCalTxt',t);}catch(e){} renderShipCal(); }
@@ -22215,7 +22318,9 @@ function shipCalAgg(basis){
     m.cnt++;
     var q=Number(String(d['수량']==null?'':d['수량']).replace(/[^0-9.]/g,''))||0; m.qty+=q;
     var p=d['플랫폼']||'(기타)'; var pp=m.plat[p]||(m.plat[p]={cnt:0,qty:0}); pp.cnt++; pp.qty+=q;
-    var nm=String(d['상품명']||'(품명없음)').trim()||'(품명없음)'; var rp=m.prod[nm]||(m.prod[nm]={cnt:0,qty:0}); rp.cnt++; rp.qty+=(q||1);
+    var nm=String(d['상품명']||'(품명없음)').trim()||'(품명없음)';
+    if(CAL_STATE.uniq) nm=_prodCanon(nm);   // 고유품목 통합 ON이면 별칭→고유품목
+    var rp=m.prod[nm]||(m.prod[nm]={cnt:0,qty:0}); rp.cnt++; rp.qty+=(q||1);
     if(m.orders.length<800) m.orders.push(d);
   });
   return map;
@@ -22228,6 +22333,8 @@ function dShipCal(){
   h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipCal();renderShipCal();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="자동으로 실시간 반영됩니다. 이 버튼은 강제 새로고침">🔄 새로고침</button>';
   h+='<button class="btn" style="background:#0088cc;color:#fff;font-weight:700" onclick="calRecipModal()" title="텔레그램으로 스케줄을 받을 사람(챗ID)을 미리 등록해 둡니다">👥 텔레그램 받는사람 <span id="cal_recip_n"></span></button>';
+  h+='<button id="cal_uniq_btn" class="btn" style="font-weight:700" onclick="calSetUniq(!CAL_STATE.uniq)" title="이름 다른 같은 제품을 하나로 합쳐 수량 집계">🏷 고유품목 통합</button>';
+  h+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="prodAliasModal()" title="같은 제품인데 이름이 다른 것들을 묶어 등록">⚙ 품목 통합설정</button>';
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:700" onclick="calCopyLink()" title="택배 스케줄 화면으로 바로 열리는 링크 복사 (직원에게 공유)">🔗 스케줄 링크복사</button>';
   h+='<span style="width:1px;height:20px;background:#cbd5e1"></span>';
   h+='<button class="btn" style="background:#475569;color:#fff;font-weight:700" onclick="calNav(-1)">◀ 이전</button>';
@@ -22263,11 +22370,13 @@ function calCopyLink(){
 function loadShipCal(){
   if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
   if(!CAL_STATE.sel) CAL_STATE.sel=todayKST();
-  try{ var _sc=localStorage.getItem('gamunCalCols'); if(_sc) CAL_STATE.cols=_sc; var _st=localStorage.getItem('gamunCalTxt'); if(_st) CAL_STATE.txt=_st; }catch(e){}
+  try{ var _sc=localStorage.getItem('gamunCalCols'); if(_sc) CAL_STATE.cols=_sc; var _st=localStorage.getItem('gamunCalTxt'); if(_st) CAL_STATE.txt=_st; var _su=localStorage.getItem('gamunCalUniq'); if(_su) CAL_STATE.uniq=(_su==='1'); }catch(e){}
   loadOrderHist();     // /excel_orders 리스너 부착 (데이터 오면 renderShipCal 재호출)
   loadCalRecip();      // 텔레그램 받는사람 명단 로드 (버튼 카운트/모달 갱신)
+  loadProdAlias();     // 품목 별칭(고유품목) 로드
   renderShipCal();
 }
+function calSetUniq(on){ CAL_STATE.uniq=!!on; try{localStorage.setItem('gamunCalUniq',on?'1':'0');}catch(e){} renderShipCal(); }
 function calNav(dir){
   if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
   if(dir===0){ CAL_STATE.anchor=todayKST(); CAL_STATE.sel=todayKST(); }
@@ -22306,6 +22415,8 @@ function renderShipCal(){
   var tsel=document.getElementById('cal_txt');
   if(tsel){ var tb=function(v,l){ var on=(CAL_STATE.txt||'1')==v; return '<button class="btn" style="font-weight:700;padding:5px 10px;background:'+(on?'#d97706':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetTxt(\''+v+'\')">'+l+'</button>'; };
     tsel.innerHTML=tb('1','보통')+tb('1.3','크게')+tb('1.6','더크게')+tb('2','최대'); }
+  var ub=document.getElementById('cal_uniq_btn');
+  if(ub){ var on=!!CAL_STATE.uniq; ub.style.background=on?'#16a34a':'#e2e8f0'; ub.style.color=on?'#fff':'#475569'; ub.textContent=(on?'🏷 고유품목 통합 ON':'🏷 고유품목 통합'); }
   var title=document.getElementById('cal_title');
   var det=document.getElementById('cal_detail');
   if(CAL_STATE.view==='month'){
