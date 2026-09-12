@@ -22599,6 +22599,11 @@ function dOrderHist(){
   h+='<span style="font-weight:700;font-size:12px;color:#475569">기간</span>';
   var _pb=function(mode,label){ var on=ORDH_DATE.mode===mode; return '<button class="btn" id="ordh_pb_'+mode+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#2563eb':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhDateSet(\''+mode+'\')">'+label+'</button>'; };
   h+=_pb('today','오늘')+_pb('7','최근 7일')+_pb('month','이번달')+_pb('all','전체');
+  h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
+  h+='<span style="font-weight:700;font-size:12px;color:#b45309">⏱ 방금 들어온것</span>';
+  var _rb=function(min,label){ var on=(ORDH_DATE.mode==='recent'&&ORDH_DATE.recentMin===min); return '<button class="btn" id="ordh_rb_'+min+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#d97706':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhRecent('+min+')">'+label+'</button>'; };
+  h+=_rb(30,'30분')+_rb(60,'1시간')+_rb(180,'3시간')+_rb(360,'6시간');
+  h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
   h+='<span style="color:#94a3b8;font-size:12px;margin-left:4px">직접:</span>';
   h+='<input type="date" id="ordh_dfrom" value="'+ORDH_DATE.from+'" onchange="ordhDateManual()" style="width:auto;font-size:12px"> ~ ';
   h+='<input type="date" id="ordh_dto" value="'+ORDH_DATE.to+'" onchange="ordhDateManual()" style="width:auto;font-size:12px">';
@@ -22682,6 +22687,9 @@ function ordhDateManual(){
   ORDH_DATE={from:fi?fi.value:'',to:ti?ti.value:'',mode:'manual',basis:(ORDH_DATE.basis||'reg')};
   renderOrderHist();
 }
+// ⏱ 최근 N분 안에 등록된 것만 (방금 들어온 주문 보기)
+function _ordhTs(s){ var m=String(s||'').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]).getTime():0; }
+function ordhRecent(min){ ORDH_DATE={from:'',to:'',mode:'recent',recentMin:min,basis:(ORDH_DATE.basis||'reg')}; var fi=document.getElementById('ordh_dfrom'),ti=document.getElementById('ordh_dto'); if(fi)fi.value=''; if(ti)ti.value=''; renderOrderHist(); }
 // 기간/기준 버튼 하이라이트 갱신 (renderOrderHist는 표만 다시 그려서 버튼색은 따로 갱신)
 function ordhDateHi(){
   ['today','7','month','all'].forEach(function(mode){
@@ -22693,6 +22701,11 @@ function ordhDateHi(){
     var b=document.getElementById('ordh_basis_'+bs); if(!b) return;
     var on=(ORDH_DATE.basis||'reg')===bs;
     b.style.background=on?'#0d9488':'#e2e8f0'; b.style.color=on?'#fff':'#475569';
+  });
+  [30,60,180,360].forEach(function(min){
+    var b=document.getElementById('ordh_rb_'+min); if(!b) return;
+    var on=(ORDH_DATE.mode==='recent'&&ORDH_DATE.recentMin===min);
+    b.style.background=on?'#d97706':'#e2e8f0'; b.style.color=on?'#fff':'#475569';
   });
 }
 // 선택 유지 — 검색/필터 바꿔도 체크 상태 보존 (화면 체크박스 대신 여기에 기억)
@@ -22952,12 +22965,14 @@ function _ordhVisibleKeys(){
   var q=(document.getElementById('ordh_q')?document.getElementById('ordh_q').value:'').trim().toLowerCase();
   var f=(document.getElementById('ordh_f')?document.getElementById('ordh_f').value:'');
   var df=ORDH_DATE.from, dt=ORDH_DATE.to, out=[];
+  var _recCut=(ORDH_DATE.mode==='recent')?(Date.now()-(ORDH_DATE.recentMin||60)*60000):0;
   Object.keys(ORDH_DATA).forEach(function(k){
     var d=ORDH_DATA[k]||{};
     if(d['del']) return;   // 삭제됨 주문은 문자 대상에서 제외
     if(f==='no' && d['송장번호']) return;
     if(f==='yes' && !d['송장번호']) return;
-    if(df||dt){ var dd=_ordhDateVal(d,ORDH_DATE.basis); if(!dd) return; if(df&&dd<df) return; if(dt&&dd>dt) return; }
+    if(_recCut){ var _t=_ordhTs(d['등록일시']); if(!_t||_t<_recCut) return; }
+    else if(df||dt){ var dd=_ordhDateVal(d,ORDH_DATE.basis); if(!dd) return; if(df&&dd<df) return; if(dt&&dd>dt) return; }
     if(q){ var hay=((d['수취인명']||'')+' '+(d['주문번호']||'')+' '+(d['상품명']||'')+' '+(d['송장번호']||'')+' '+(d['플랫폼']||'')+' '+(d['수취인전화']||'')).toLowerCase(); if(hay.indexOf(q)<0) return; }
     out.push(k);
   });
@@ -23012,12 +23027,15 @@ function renderOrderHist(){
   var keys=Object.keys(ORDH_DATA);
   if(!keys.length){ el.innerHTML='데이터 없음 (엑셀에서 [주문 가져오기] 하면 쌓입니다)'; return; }
   var df=ORDH_DATE.from, dt=ORDH_DATE.to;
+  var _recCut=(ORDH_DATE.mode==='recent')?(Date.now()-(ORDH_DATE.recentMin||60)*60000):0;
   var rows=[];
   keys.forEach(function(k){
     var d=ORDH_DATA[k]||{};
     if(f==='no' && d['송장번호']) return;
     if(f==='yes' && !d['송장번호']) return;
-    if(df||dt){   // 📅 기간 필터 (등록일/발송일 기준)
+    if(_recCut){   // ⏱ 최근 N분 (등록일시 기준)
+      var _t=_ordhTs(d['등록일시']); if(!_t||_t<_recCut) return;
+    } else if(df||dt){   // 📅 기간 필터 (등록일/발송일 기준)
       var dd=_ordhDateVal(d,ORDH_DATE.basis);
       if(!dd) return;
       if(df && dd<df) return;
@@ -23033,9 +23051,14 @@ function renderOrderHist(){
   rows.sort(function(a,b){ var x=((a.d['등록일시'])||'')+'|'+a.k, y=((b.d['등록일시'])||'')+'|'+b.k; return x<y?1:(x>y?-1:0); });
   ordhDateHi();   // 기간 버튼 하이라이트 갱신
   var cnt=document.getElementById('ordh_cnt');
-  var _pl=ORDH_DATE.mode==='all'?'전체 기간':(df===dt?df:(df+'~'+dt));
-  var _bl=(ORDH_DATE.basis==='ship'?'발송일':'등록일');
-  if(cnt) cnt.textContent='['+_bl+' · '+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
+  var _rlbl={30:'최근 30분',60:'최근 1시간',180:'최근 3시간',360:'최근 6시간'};
+  if(ORDH_DATE.mode==='recent'){
+    if(cnt) cnt.textContent='[⏱ '+(_rlbl[ORDH_DATE.recentMin]||('최근 '+ORDH_DATE.recentMin+'분'))+' 등록] '+rows.length+'건 (전체 '+keys.length+'건)';
+  } else {
+    var _pl=ORDH_DATE.mode==='all'?'전체 기간':(df===dt?df:(df+'~'+dt));
+    var _bl=(ORDH_DATE.basis==='ship'?'발송일':'등록일');
+    if(cnt) cnt.textContent='['+_bl+' · '+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
+  }
   var show=rows.slice(0,300);
   var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>📅발송일자</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>주소</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th>주소확인</th><th>수정/삭제</th></tr></thead><tbody>';
   show.forEach(function(row){
