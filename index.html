@@ -21619,7 +21619,7 @@ async function shipOpen(k){
     var _rs=esc(((r||[]).join(' ')+' '+String(memo)).toLowerCase());
     h+='<tr data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'" style="'+(rowDel?'opacity:.5;':'')+(bg?('background:'+bg+';'):'')+'">';
     h+='<td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
-    (r||[]).forEach(function(v){ h+='<td>'+(v||'')+'</td>'; });
+    (r||[]).forEach(function(v,ci){ h+='<td>'+((ci===ti)?_telLink(v):(v||''))+'</td>'; });
     if(ni>=0){ var tm=trkMap[i]; h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>'; }
     h+='<td><input type="date" value="'+esc(rowSd[i]||'')+'" onchange="shipRowDate(\''+k+'\','+i+',this.value)" style="width:128px;font-size:12px;padding:2px 4px;border:1px solid '+(rowSd[i]?'#16a34a':'#cbd5e1')+';border-radius:6px'+(rowSd[i]?';background:#f0fdf4;font-weight:700':'')+'"></td>';
     h+='<td style="text-align:center"><label style="cursor:pointer;font-size:11px;font-weight:700;color:'+(rok?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(rok?'checked':'')+' onclick="shipRowOk(\''+k+'\','+i+',this.checked,this)"> <span class="_oklbl">'+(rok?'✅':'미확인')+'</span></label></td>';
@@ -21718,6 +21718,14 @@ function _trkNrm(s){
   return s;
 }
 function _trkTail(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
+// 전화번호 → 탭하면 전화 걸리는 링크(tel:). 번호 없거나 형식오류면 빨간 표시
+function _telLink(v){
+  var s=String(v==null?'':v).trim();
+  var dg=s.replace(/[^0-9]/g,'');
+  if(!s) return '<b style="color:#dc2626">없음</b>';
+  if(dg.length<9) return '<span style="color:#dc2626">'+esc(s)+'</span>';
+  return '<a href="tel:'+dg+'" style="color:#2563eb;font-weight:700;text-decoration:underline;white-space:nowrap" title="탭하면 전화 걸림">📞'+esc(s)+'</a>';
+}
 // 택배사 결과 엑셀 → 헤더 자동감지 후 [{nmRaw,tel,trk,car}] 배열. 못 찾으면 null
 function _parseCourierRows(rows){
   var hr=-1,nameCol=-1,telCol=-1,trkCol=-1,carCol=-1;
@@ -23017,10 +23025,10 @@ function renderOrderHist(){
     h+='<td><input type="date" value="'+esc(_shipDateOf(d))+'" onchange="ordhSetShipDate(\''+row.k+'\',this.value)" style="width:130px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'" title="'+(d['발송일자']?'발송일자 지정됨':'미지정 (등록일 기준 표시)')+'"></td>';
     h+='<td>'+(d['플랫폼']||'')+'</td>';
     h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
-    h+='<td style="font-family:monospace;font-size:12px'+(rtel.length<10?';color:#dc2626':'')+'">'+(d['수취인전화']||'<b>없음</b>')+'</td>';
+    h+='<td style="font-size:12px">'+_telLink(d['수취인전화'])+'</td>';
     h+='<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;font-size:12px" title="'+esc(d['주소']||'')+'">'+esc(d['주소']||'')+'</td>';
     h+='<td>'+(d['구매자명']||'')+'</td>';
-    h+='<td style="font-family:monospace;font-size:12px'+(btel.length<10?';color:#dc2626':'')+'">'+(d['구매자전화']||'<b>없음</b>')+'</td>';
+    h+='<td style="font-size:12px">'+_telLink(d['구매자전화'])+'</td>';
     h+='<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">'+(d['상품명']||'')+'</td>';
     h+='<td>'+(d['수량']||'')+'</td>';
     h+='<td>'+(d['택배사']||'')+'</td>';
