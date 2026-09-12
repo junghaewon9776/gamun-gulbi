@@ -21535,6 +21535,7 @@ function renderShipSummary(fileKeys){
 
 var SHIP_OPEN_KEY=null;
 var SHIP_ROWPATH={};   // shipOpen 행별 연결 주문 경로 (발송일자/삭제 저장용)
+var SHIP_ROWFILTER=null, SHIP_ROWFILTER_KEY=null;   // 파일 상세 필터 상태(재렌더 후 유지)
 async function shipOpen(k){
   var card=document.getElementById('ship_rows_card');
   // 토글: 같은 파일 다시 클릭하면 닫기
@@ -21634,6 +21635,14 @@ async function shipOpen(k){
   });
   h+='</tbody></table></div>';
   document.getElementById('ship_rows').innerHTML=h;
+  // 재렌더(색상/삭제 등) 시 같은 파일이면 필터 복원, 다른 파일 열면 초기화
+  if(SHIP_ROWFILTER && SHIP_ROWFILTER_KEY===k){
+    var _q=document.getElementById('shiprow_q'); if(_q) _q.value=SHIP_ROWFILTER.q||'';
+    var _a=document.getElementById('shiprow_fok'); if(_a) _a.value=SHIP_ROWFILTER.fok||'';
+    var _b=document.getElementById('shiprow_fmemo'); if(_b) _b.value=SHIP_ROWFILTER.fm||'';
+    var _c=document.getElementById('shiprow_fcolor'); if(_c) _c.value=SHIP_ROWFILTER.fc||'';
+    _shipRowFilter();
+  } else { SHIP_ROWFILTER=null; }
   card.style.display='';
   card.scrollIntoView({behavior:'smooth'});
 }
@@ -21643,6 +21652,7 @@ function _shipRowFilter(){
   var fok=(document.getElementById('shiprow_fok')||{}).value||'';
   var fm=(document.getElementById('shiprow_fmemo')||{}).value||'';
   var fc=(document.getElementById('shiprow_fcolor')||{}).value||'';
+  SHIP_ROWFILTER={q:(document.getElementById('shiprow_q')||{}).value||'', fok:fok, fm:fm, fc:fc}; SHIP_ROWFILTER_KEY=SHIP_OPEN_KEY;   // 재렌더 후 복원용
   var trs=document.querySelectorAll('#ship_rows tbody tr'); var shown=0;
   trs.forEach(function(tr){
     var s=tr.getAttribute('data-s')||'';
