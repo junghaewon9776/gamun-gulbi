@@ -22236,7 +22236,7 @@ function _prodAliasBody(){
   else{
     h+='<table class="tbl" style="width:100%;font-size:13px"><thead><tr><th>고유품목</th><th>별칭(합쳐지는 이름들)</th><th></th></tr></thead><tbody>';
     ids.map(function(id){return {id:id,g:PROD_ALIAS_RAW[id]||{}};}).sort(function(a,b){return String(a.g.canon)<String(b.g.canon)?-1:1;}).forEach(function(x){
-      h+='<tr><td style="font-weight:700">'+esc(x.g.canon||'')+'</td><td style="font-size:12px;color:#475569">'+esc((x.g.aliases||[]).join(', '))+'</td><td><button class="btn" style="background:#dc2626;color:#fff;padding:2px 8px" onclick="prodAliasDel(\''+x.id+'\')">삭제</button></td></tr>';
+      h+='<tr><td style="font-weight:700">'+esc(x.g.canon||'')+'</td><td style="font-size:12px;color:#475569">'+esc((x.g.aliases||[]).join(', '))+'</td><td style="white-space:nowrap"><button class="btn" style="background:#2563eb;color:#fff;padding:2px 8px" onclick="_paEdit(\''+x.id+'\')" title="이 그룹 불러와 수정">✏️</button> <button class="btn" style="background:#dc2626;color:#fff;padding:2px 8px" onclick="prodAliasDel(\''+x.id+'\')">삭제</button></td></tr>';
     });
     h+='</tbody></table>';
   }
@@ -22244,16 +22244,37 @@ function _prodAliasBody(){
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">'
     +'<input id="_paCanon" placeholder="고유품목명 (예: 명품1호단품)" style="flex:1;min-width:150px;padding:8px;border:1px solid #cbd5e1;border-radius:8px">'
     +'<input id="_paAlias" placeholder="별칭들 쉼표로 (예: 명1호단품, 명품1호 단품)" style="flex:2;min-width:220px;padding:8px;border:1px solid #cbd5e1;border-radius:8px">'
-    +'<button class="btn" style="background:#7c3aed;color:#fff;font-weight:700" onclick="prodAliasAdd()">저장</button></div>';
+    +'<button id="_paSaveBtn" class="btn" style="background:#7c3aed;color:#fff;font-weight:700" onclick="prodAliasAdd()">저장</button>'
+    +'<button id="_paCancelBtn" class="btn" style="background:#e2e8f0;color:#334155;font-weight:700;display:none" onclick="_paClear()">취소</button></div>';
   var prods=_distinctProds();
   if(prods.length){ h+='<div style="margin-top:10px;font-size:11px;color:#64748b">현재 품목(클릭해 별칭칸에 추가):<br>'+prods.slice(0,120).map(function(p){ return '<span onclick="_paIns(this.getAttribute(\'data-p\'))" data-p="'+esc(p)+'" style="display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 6px;margin:2px;cursor:pointer">'+esc(p)+'</span>'; }).join('')+'</div>'; }
   el.innerHTML=h;
 }
 function _paIns(p){ var a=document.getElementById('_paAlias'); if(!a) return; a.value=(a.value.trim()?a.value.replace(/,\s*$/,'')+', ':'')+p; a.focus(); }
+var _paEditId=null;
+function _paEdit(id){
+  var g=PROD_ALIAS_RAW[id]||{};
+  var c=document.getElementById('_paCanon'), a=document.getElementById('_paAlias');
+  if(c) c.value=g.canon||''; if(a) a.value=(g.aliases||[]).join(', ');
+  _paEditId=id;
+  var b=document.getElementById('_paSaveBtn'); if(b){ b.textContent='✏️ 수정 저장'; b.style.background='#d97706'; }
+  var cb=document.getElementById('_paCancelBtn'); if(cb) cb.style.display='';
+  if(c) c.focus();
+}
+function _paClear(){
+  var c=document.getElementById('_paCanon'), a=document.getElementById('_paAlias'); if(c)c.value=''; if(a)a.value='';
+  _paEditId=null;
+  var b=document.getElementById('_paSaveBtn'); if(b){ b.textContent='저장'; b.style.background='#7c3aed'; }
+  var cb=document.getElementById('_paCancelBtn'); if(cb) cb.style.display='none';
+}
 function prodAliasAdd(){
   var c=(document.getElementById('_paCanon').value||'').trim();
   var a=(document.getElementById('_paAlias').value||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
   if(!c){ alert('고유품목명을 입력하세요.'); return; }
+  if(_paEditId){   // 수정: 이 그룹을 통째 교체(이름 변경·별칭 제거 가능)
+    fbDb.ref('/excel_config/prodAlias/'+_paEditId).set({canon:c, aliases:a}).then(function(){ _paClear(); toast('✏️ 수정 저장됨'); }).catch(function(e){ alert('실패: '+e.message); });
+    return;
+  }
   // 같은 고유품목명 그룹 있으면 별칭 합치기, 없으면 새로
   var exId=Object.keys(PROD_ALIAS_RAW).filter(function(id){ return _prodNrm((PROD_ALIAS_RAW[id]||{}).canon)===_prodNrm(c); })[0];
   var merged=a.slice(); if(exId){ (PROD_ALIAS_RAW[exId].aliases||[]).forEach(function(x){ if(merged.map(_prodNrm).indexOf(_prodNrm(x))<0) merged.push(x); }); }
