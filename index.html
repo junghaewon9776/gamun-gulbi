@@ -21234,9 +21234,13 @@ function shipDateSet(mode){
   if(fi)fi.value=SHIP_DATE.from; if(ti)ti.value=SHIP_DATE.to;
   renderShip();
 }
-function shipDateManual(){
+function shipDateManual(which){
   var fi=document.getElementById('ship_dfrom'),ti=document.getElementById('ship_dto');
-  SHIP_DATE={from:fi?fi.value:'',to:ti?ti.value:'',mode:'manual',basis:(SHIP_DATE.basis||'reg')};
+  var from=fi?fi.value:'', to=ti?ti.value:'';
+  if(from && to && from>to){
+    if(which==='to'){ from=to; if(fi)fi.value=from; } else { to=from; if(ti)ti.value=to; }
+  }
+  SHIP_DATE={from:from,to:to,mode:'manual',basis:(SHIP_DATE.basis||'reg')};
   renderShip();
 }
 function shipDateHi(){
@@ -21268,8 +21272,8 @@ function dShipData(){
   var _spb=function(mode,label){ var on=SHIP_DATE.mode===mode; return '<button class="btn" id="ship_pb_'+mode+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#2563eb':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="shipDateSet(\''+mode+'\')">'+label+'</button>'; };
   h+=_spb('today','오늘')+_spb('7','최근 7일')+_spb('month','이번달')+_spb('all','전체');
   h+='<span style="color:#94a3b8;font-size:12px;margin-left:4px">직접:</span>';
-  h+='<input type="date" id="ship_dfrom" value="'+SHIP_DATE.from+'" onchange="shipDateManual()" style="width:auto;font-size:12px"> ~ ';
-  h+='<input type="date" id="ship_dto" value="'+SHIP_DATE.to+'" onchange="shipDateManual()" style="width:auto;font-size:12px">';
+  h+='<input type="date" id="ship_dfrom" value="'+SHIP_DATE.from+'" onchange="shipDateManual(\'from\')" style="width:auto;font-size:12px"> ~ ';
+  h+='<input type="date" id="ship_dto" value="'+SHIP_DATE.to+'" onchange="shipDateManual(\'to\')" style="width:auto;font-size:12px">';
   h+='</div></div>';
   h+='<div class="grid2" style="gap:12px;align-items:start">';
   h+='<div class="card"><h4 style="margin:0 0 6px">📄 파일 목록 (플랫폼별)</h4><div id="ship_files" class="muted">불러오는 중...</div></div>';
@@ -22716,8 +22720,8 @@ function dOrderHist(){
   h+=_rb(30,'30분')+_rb(60,'1시간')+_rb(180,'3시간')+_rb(360,'6시간');
   h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
   h+='<span style="color:#94a3b8;font-size:12px;margin-left:4px">직접:</span>';
-  h+='<input type="date" id="ordh_dfrom" value="'+ORDH_DATE.from+'" onchange="ordhDateManual()" style="width:auto;font-size:12px"> ~ ';
-  h+='<input type="date" id="ordh_dto" value="'+ORDH_DATE.to+'" onchange="ordhDateManual()" style="width:auto;font-size:12px">';
+  h+='<input type="date" id="ordh_dfrom" value="'+ORDH_DATE.from+'" onchange="ordhDateManual(\'from\')" style="width:auto;font-size:12px"> ~ ';
+  h+='<input type="date" id="ordh_dto" value="'+ORDH_DATE.to+'" onchange="ordhDateManual(\'to\')" style="width:auto;font-size:12px">';
   h+='</div></div>';
   h+='<div class="card"><div id="ordh_list" class="muted" style="overflow:auto;max-height:66vh">불러오는 중...</div></div>';
   return h;
@@ -22793,9 +22797,13 @@ function ordhDateSet(mode){
   if(fi)fi.value=ORDH_DATE.from; if(ti)ti.value=ORDH_DATE.to;
   renderOrderHist();
 }
-function ordhDateManual(){
+function ordhDateManual(which){
   var fi=document.getElementById('ordh_dfrom'),ti=document.getElementById('ordh_dto');
-  ORDH_DATE={from:fi?fi.value:'',to:ti?ti.value:'',mode:'manual',basis:(ORDH_DATE.basis||'reg')};
+  var from=fi?fi.value:'', to=ti?ti.value:'';
+  if(from && to && from>to){   // 앞>뒤 뒤집힘 → 방금 바꾼 쪽 기준으로 나머지 맞춤
+    if(which==='to'){ from=to; if(fi)fi.value=from; } else { to=from; if(ti)ti.value=to; }
+  }
+  ORDH_DATE={from:from,to:to,mode:'manual',basis:(ORDH_DATE.basis||'reg')};
   renderOrderHist();
 }
 // ⏱ 최근 N분 안에 등록된 것만 (방금 들어온 주문 보기)
