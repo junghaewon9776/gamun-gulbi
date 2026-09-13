@@ -21540,8 +21540,22 @@ function renderShipSummary(fileKeys){
 var SHIP_OPEN_KEY=null;
 var SHIP_ROWPATH={};   // shipOpen 행별 연결 주문 경로 (발송일자/삭제 저장용)
 var SHIP_ROWFILTER=null, SHIP_ROWFILTER_KEY=null;   // 파일 상세 필터 상태(재렌더 후 유지)
-var SHIP_ROWSEL={}, SHIP_ROWSEL_KEY=null;   // 파일 상세 행 선택(선택 발송용)
-function shipRowSel(i,on){ if(on) SHIP_ROWSEL[i]=1; else delete SHIP_ROWSEL[i]; _shipSelCount(); }
+var SHIP_ROWSEL={}, SHIP_ROWSEL_KEY=null, _shipLastVal=null;   // 파일 상세 행 선택(선택 발송용)
+function shipRowSel(i,on){ if(on) SHIP_ROWSEL[i]=1; else delete SHIP_ROWSEL[i]; _shipLastVal=String(i); _shipSelCount(); }
+// Shift+클릭 = 직전 클릭 행부터 지금 행까지 범위 전체 선택/해제 (보이는 행만)
+function shipRowCkClick(cb, ev){
+  var boxes=Array.prototype.slice.call(document.querySelectorAll('#ship_rows .shiprow_ck')).filter(function(c){ var tr=c.closest('tr'); return !tr || tr.style.display!=='none'; });
+  var idx=boxes.indexOf(cb), aIdx=-1, j;
+  if(_shipLastVal!=null){ for(j=0;j<boxes.length;j++){ if(boxes[j].value===_shipLastVal){ aIdx=j; break; } } }
+  if(ev && ev.shiftKey && aIdx>=0 && aIdx!==idx){
+    var lo=Math.min(idx,aIdx), hi=Math.max(idx,aIdx), i;
+    for(i=lo;i<=hi;i++){ boxes[i].checked=cb.checked; if(cb.checked) SHIP_ROWSEL[boxes[i].value]=1; else delete SHIP_ROWSEL[boxes[i].value]; }
+  } else {
+    if(cb.checked) SHIP_ROWSEL[cb.value]=1; else delete SHIP_ROWSEL[cb.value];
+  }
+  _shipLastVal=cb.value;
+  _shipSelCount();
+}
 function shipRowSelAll(on){ document.querySelectorAll('#ship_rows tbody tr').forEach(function(tr){ if(tr.style.display==='none') return; var cb=tr.querySelector('.shiprow_ck'); if(!cb) return; cb.checked=on; if(on) SHIP_ROWSEL[cb.value]=1; else delete SHIP_ROWSEL[cb.value]; }); _shipSelCount(); }
 function _shipSelCount(){ var n=Object.keys(SHIP_ROWSEL).length; var el=document.getElementById('shiprow_seln'); if(el) el.textContent=n?('✓ '+n+'명 선택'):''; }
 async function shipOpen(k){
@@ -21568,7 +21582,7 @@ async function shipOpen(k){
       bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'접수\')">📩 접수 안내</button>';
       bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'직접\')">✏️ 직접</button>';
       bar+='<span style="width:1px;height:20px;background:#bae6fd"></span>';
-      bar+='<span style="font-weight:700;font-size:11px;color:#b45309">☑ 선택한 것만:</span>';
+      bar+='<span style="font-weight:700;font-size:11px;color:#b45309">☑ 선택한 것만 <span style="font-weight:600;color:#94a3b8">(Shift+클릭 범위선택)</span>:</span>';
       bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'접수\',true)">📩 접수</button>';
       bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'발송\',true)">🚚 송장</button>';
       bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'직접\',true)">✏️ 직접</button>';
@@ -21614,7 +21628,7 @@ async function shipOpen(k){
     }catch(e){}
   }
   SHIP_ROWPATH[k]=rowPath;   // 행별 연결 주문 경로 (발송일자/삭제 저장용)
-  if(SHIP_ROWSEL_KEY!==k){ SHIP_ROWSEL={}; SHIP_ROWSEL_KEY=k; }   // 다른 파일 열면 선택 초기화
+  if(SHIP_ROWSEL_KEY!==k){ SHIP_ROWSEL={}; SHIP_ROWSEL_KEY=k; _shipLastVal=null; }   // 다른 파일 열면 선택 초기화
   var COLORS={'':'', 'y':'#fef08a','g':'#bbf7d0','b':'#bfdbfe','p':'#e9d5ff','r':'#fecaca'};
   var h=bar;
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
@@ -21635,7 +21649,7 @@ async function shipOpen(k){
     var bg = rowDel ? '#fef2f2' : (COLORS[col]||'');
     var _rs=esc(((r||[]).join(' ')+' '+String(memo)).toLowerCase());
     h+='<tr data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'" style="'+(rowDel?'opacity:.5;':'')+(bg?('background:'+bg+';'):'')+'">';
-    h+='<td><input type="checkbox" class="shiprow_ck" value="'+i+'"'+(SHIP_ROWSEL[i]?' checked':'')+' onclick="shipRowSel('+i+',this.checked)"></td>';
+    h+='<td><input type="checkbox" class="shiprow_ck" value="'+i+'"'+(SHIP_ROWSEL[i]?' checked':'')+' onclick="shipRowCkClick(this,event)"></td>';
     h+='<td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
     (r||[]).forEach(function(v,ci){ h+='<td>'+((ci===ti)?_telLink(v):(v||''))+'</td>'; });
     if(ni>=0){ var tm=trkMap[i]; h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>'; }
