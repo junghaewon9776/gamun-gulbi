@@ -22196,7 +22196,7 @@ async function shipSetFileDate(k, val){
   }).catch(function(e){ alert('저장 실패: '+e.message); });
 }
 
-var CAL_STATE={view:'month', anchor:'', sel:'', basis:'ship', cols:'auto', txt:'1', uniq:false};
+var CAL_STATE={view:'month', anchor:'', sel:'', basis:'ship', cols:'auto', txt:'1', uniq:true};
 // 🏷 품목 별칭(고유품목) — 이름 다른 같은 제품을 하나로 통합
 var PROD_ALIAS_RAW={}, PROD_REV={}, PROD_ALIAS_LISTENER=false;   // PROD_ALIAS_RAW: {pushId:{canon,aliases:[]}}
 function _prodNrm(s){ return String(s==null?'':s).replace(/\s+/g,'').toLowerCase(); }
