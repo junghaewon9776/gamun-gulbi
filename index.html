@@ -22574,23 +22574,40 @@ function _calDayDetailHtml(agg, ds){
   // ── 세부 주문내역 (펼치기 · 기본 접힘) ──
   var os=m.orders.slice();
   os.sort(function(a,b){ var x=String(a['등록일시']||''), y=String(b['등록일시']||''); return x<y?1:(x>y?-1:0); });   // 위=최신, 먼저 등록이 아래
-  h+='<button onclick="var e=document.getElementById(\'calDetRows\');var o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.innerHTML=(o?\'▼\':\'▶\')+\' 세부 주문내역 ('+os.length+'건)\'" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">▶ 세부 주문내역 ('+os.length+'건)</button>';
-  h+='<div id="calDetRows" style="display:none;margin-top:8px;overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>상품명</th><th>수량</th><th>플랫폼</th><th>구매자</th><th>송장번호</th></tr></thead><tbody>';
+  h+='<button onclick="var e=document.getElementById(\'calDetWrap\');var o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.innerHTML=(o?\'▼\':\'▶\')+\' 세부 주문내역 ('+os.length+'건)\'" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">▶ 세부 주문내역 ('+os.length+'건)</button>';
+  h+='<div id="calDetWrap" style="display:none;margin-top:8px">';
+  h+='<input id="calDetSearch" type="text" placeholder="🔍 받는분·연락처·상품·구매자·송장 검색" oninput="_calDetFilter(this.value)" style="width:100%;max-width:360px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;margin-bottom:8px">';
+  h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>받는분 연락처</th><th>상품명</th><th>수량</th><th>플랫폼</th><th>구매자</th><th>보내는분 연락처</th><th>송장번호</th></tr></thead><tbody id="calDetBody">';
   os.forEach(function(d,i){
     var trk=d['송장번호']||'';
-    h+='<tr><td>'+(i+1)+'</td>';
+    var s=((d['수취인명']||'')+' '+(d['수취인전화']||'')+' '+(d['상품명']||'')+' '+(d['플랫폼']||'')+' '+(d['구매자명']||'')+' '+(d['구매자전화']||'')+' '+trk).toLowerCase();
+    h+='<tr data-s="'+esc(s)+'"><td>'+(i+1)+'</td>';
     h+='<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>';
+    h+='<td>'+_telLink(d['수취인전화'])+'</td>';
     h+='<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">'+esc(d['상품명']||'')+'</td>';
     h+='<td>'+esc(d['수량']||'')+'</td>';
     h+='<td>'+esc(d['플랫폼']||'')+'</td>';
     h+='<td>'+esc(d['구매자명']||'')+'</td>';
+    h+='<td>'+_telLink(d['구매자전화'])+'</td>';
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+esc(trk)+'</td>'):('<td style="color:#d97706">미발송</td>');
     h+='</tr>';
   });
-  h+='</tbody></table>';
+  h+='</tbody></table></div>';
   if(m.orders.length>=800) h+='<div class="muted" style="font-size:11px;margin-top:4px">※ 표시는 최대 800건까지입니다.</div>';
   h+='</div>';
   return h;
+}
+// 세부 주문내역 검색 (받는분·연락처·상품·구매자·송장)
+function _calDetFilter(q){
+  q=String(q||'').trim().toLowerCase();
+  var tb=document.getElementById('calDetBody'); if(!tb) return;
+  var rows=tb.getElementsByTagName('tr'), i, shown=0;
+  for(i=0;i<rows.length;i++){
+    var s=rows[i].getAttribute('data-s')||'';
+    var ok=(q==='' || s.indexOf(q)>=0);
+    rows[i].style.display=ok?'':'none';
+    if(ok) shown++;
+  }
 }
 // 📨 그날 택배 수량 요약을 텔레그램(택배봇)으로 전송 (+ 달력 웹 링크 포함)
 async function calSendTg(ds){
