@@ -22483,7 +22483,7 @@ function renderShipCal(){
     vsel.innerHTML=vb('day','일')+vb('week','주')+vb('month','월'); }
   var csel=document.getElementById('cal_cols');
   if(csel){ var cb=function(v,l){ var on=(CAL_STATE.cols||'auto')==v; return '<button class="btn" style="font-weight:700;padding:5px 10px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetCols(\''+v+'\')">'+l+'</button>'; };
-    csel.innerHTML=cb('auto','자동')+cb('3','3')+cb('4','4')+cb('6','6')+cb('8','8'); }
+    csel.innerHTML=IS_MOBILE ? (cb('auto','자동')+cb('1','1')+cb('2','2')+cb('3','3')+cb('4','4')) : (cb('auto','자동')+cb('3','3')+cb('4','4')+cb('6','6')+cb('8','8')); }
   var tsel=document.getElementById('cal_txt');
   if(tsel){ var tb=function(v,l){ var on=(CAL_STATE.txt||'1')==v; return '<button class="btn" style="font-weight:700;padding:5px 10px;background:'+(on?'#d97706':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetTxt(\''+v+'\')">'+l+'</button>'; };
     tsel.innerHTML=tb('1','보통')+tb('1.3','크게')+tb('1.6','더크게')+tb('2','최대'); }
@@ -22580,21 +22580,26 @@ function _calProdCubes(m){
   var gtc=(cols==='auto')?'repeat(auto-fill,minmax(150px,1fr))':('repeat('+cols+',minmax(0,1fr))');
   var cf=({'3':1.9,'4':1.55,'6':1.15,'8':0.95})[cols]||1;   // 칸 적을수록 글씨·큐브 크게
   var ts=parseFloat(CAL_STATE.txt||'1')||1;                 // 사용자 글씨 배율(보통/크게/더크게/최대)
-  var mob=IS_MOBILE, mf=mob?0.62:1;                          // 폰은 큐브 높이·숫자 축소(세로로 안 길게)
-  var h='<div style="display:grid;grid-template-columns:'+gtc+';gap:10px;align-items:stretch">';
+  var mob=IS_MOBILE, mf=mob?0.5:1;                           // 폰은 큐브 전체(높이·숫자·품명·여백) 축소
+  // 폰은 칸수 자체를 더 촘촘히 반영(1칸=크게 → 4칸=작게), 세로도 같이 줄어들게
+  if(mob) cf=({'1':1.7,'2':1.15,'3':0.85,'4':0.68})[cols]||1.15;
+  var baseH=mob?52:96, ratioH=mob?30:72;                     // 큐브 기본높이 · 수량비례 추가높이
+  var gap=mob?6:10;
+  var h='<div style="display:grid;grid-template-columns:'+gtc+';gap:'+gap+'px;align-items:stretch">';
   pk.forEach(function(p){
     var q=m.prod[p].qty, ratio=maxQ>0?(q/maxQ):0;
     var dg=String(q).length;                                       // 자릿수 (많으면 폭 넘침 방지로 축소)
     var numF=Math.round((30+ratio*46)*cf*ts*mf/(dg>=3?1.9:(dg==2?1.3:1)));
-    numF=Math.max(mob?18:24,Math.min(200,numF));                   // 숫자: 수량비례 × 칸배율 × 글씨배율 (자릿수 보정)
-    var minH=Math.round((96+ratio*72)*cf*mf*(1+(ts-1)*0.6));      // 큐브 높이(글씨배율 60%만 반영)
+    numF=Math.max(mob?15:24,Math.min(200,numF));                   // 숫자: 수량비례 × 칸배율 × 글씨배율 (자릿수 보정)
+    var minH=Math.round((baseH+ratio*ratioH)*cf*mf*(1+(ts-1)*0.6));// 큐브 높이(글씨배율 60%만 반영)
     var L=p.length, nmBase=L>22?15:(L>16?18:(L>11?22:(L>7?26:30)));
-    var nmF=Math.max(13,Math.min(90,Math.round(nmBase*cf*ts)));   // 품명: 길이별 × 칸배율 × 글씨배율
+    var nmF=Math.max(mob?10:13,Math.min(90,Math.round(nmBase*cf*ts*(mob?mf*1.15:1))));   // 품명: 폰은 함께 축소
+    var pad=mob?'6px 5px':'12px 10px', brad=mob?12:16, bw=mob?1:2, nmMb=mob?3:8, cntMt=mob?2:5, cntF=mob?9:11;
     var bord=ratio>=0.66?'#7c3aed':(ratio>=0.33?'#c4b5fd':'#e2e8f0');
-    h+='<div style="background:#fff;border:2px solid '+bord+';border-radius:16px;padding:12px 10px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
-      +'<div style="font-weight:800;font-size:'+nmF+'px;line-height:1.2;margin-bottom:8px;word-break:break-all;color:#0f172a">'+esc(p)+'</div>'
+    h+='<div style="background:#fff;border:'+bw+'px solid '+bord+';border-radius:'+brad+'px;padding:'+pad+';text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
+      +'<div style="font-weight:800;font-size:'+nmF+'px;line-height:1.15;margin-bottom:'+nmMb+'px;word-break:break-all;color:#0f172a">'+esc(p)+'</div>'
       +'<div style="font-weight:900;color:#7c3aed;line-height:1;font-size:'+numF+'px">'+q+'<span style="font-size:'+Math.round(numF*0.34)+'px;color:#94a3b8">개</span></div>'
-      +'<div style="font-size:11px;color:#94a3b8;margin-top:5px">'+m.prod[p].cnt+'건</div>'
+      +'<div style="font-size:'+cntF+'px;color:#94a3b8;margin-top:'+cntMt+'px">'+m.prod[p].cnt+'건</div>'
       +'</div>';
   });
   h+='</div>';
