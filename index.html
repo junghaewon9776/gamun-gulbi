@@ -22523,9 +22523,9 @@ function _calMonthHtml(agg){
   var first=new Date(y,mo,1); var start=_calAddDays(_calFmt(first), -first.getDay());
   var today=todayKST(), sel=CAL_STATE.sel;
   var mTot=0, mQty=0; Object.keys(agg).forEach(function(ds){ if(ds.slice(0,7)===_calFmt(first).slice(0,7)){ mTot+=agg[ds].cnt; mQty+=agg[ds].qty; } });
-  var h='<div style="margin-bottom:8px;font-weight:800;color:#0f172a">이번 달 합계: <span style="color:#2563eb">택배 '+mTot+'건</span>'+(mQty?(' · 상품 '+mQty+'개'):'')+'</div>';
-  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;table-layout:fixed;'+(mob?'':'min-width:640px')+'">';
-  h+='<thead><tr>'+_WD.map(function(w,i){ return '<th style="padding:'+(mob?'3px':'6px')+';border:1px solid #e2e8f0;background:#f8fafc;color:'+(i===0?'#dc2626':(i===6?'#2563eb':'#475569'))+';font-size:'+(mob?'11':'12')+'px">'+w+'</th>'; }).join('')+'</tr></thead><tbody>';
+  var h='<div style="margin-bottom:'+(mob?'4px':'8px')+';font-weight:800;font-size:'+(mob?'12':'14')+'px;color:#0f172a">이번 달 합계: <span style="color:#2563eb">택배 '+mTot+'건</span>'+(mQty?(' · 상품 '+mQty+'개'):'')+'</div>';
+  h+='<div style="'+(mob?'':'overflow-x:auto')+'"><table style="width:100%;border-collapse:collapse;table-layout:fixed;'+(mob?'':'min-width:640px')+'">';
+  h+='<thead><tr>'+_WD.map(function(w,i){ return '<th style="padding:'+(mob?'2px':'6px')+';border:1px solid #e2e8f0;background:#f8fafc;color:'+(i===0?'#dc2626':(i===6?'#2563eb':'#475569'))+';font-size:'+(mob?'10':'12')+'px">'+w+'</th>'; }).join('')+'</tr></thead><tbody>';
   var ds=start;
   for(var r=0;r<6;r++){
     h+='<tr>';
@@ -22536,7 +22536,7 @@ function _calMonthHtml(agg){
       var bg=isSel?'#ede9fe':(isToday?'#eff6ff':(inMonth?'#fff':'#f8fafc'));
       var dow=_calParse(ds).getDay();
       var dcol=inMonth?(dow===0?'#dc2626':(dow===6?'#2563eb':'#0f172a')):'#cbd5e1';
-      h+='<td onclick="calPick(\''+ds+'\')" style="vertical-align:top;height:'+(mob?'44px':'64px')+';padding:'+(mob?'2px 3px':'4px')+';border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';cursor:pointer;background:'+bg+(isSel?';box-shadow:inset 0 0 0 2px #7c3aed':'')+'">';
+      h+='<td onclick="calPick(\''+ds+'\')" style="vertical-align:top;height:'+(mob?'36px':'64px')+';padding:'+(mob?'1px 2px':'4px')+';border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';cursor:pointer;background:'+bg+(isSel?';box-shadow:inset 0 0 0 2px #7c3aed':'')+'">';
       h+='<div style="font-weight:700;font-size:'+(mob?'11':'12')+'px;color:'+dcol+'">'+_calParse(ds).getDate()+(isToday?(mob?' <span style="font-size:8px;color:#2563eb">•</span>':' <span style="font-size:9px;color:#2563eb">오늘</span>'):'')+'</div>';
       h+=_calCellBadge(m,mob);
       h+='</td>';
