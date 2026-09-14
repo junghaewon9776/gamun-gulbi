@@ -429,7 +429,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <div id="mainPage">
   <div class="topBar">
     <div><h2>🐟 가문굴비 관리시스템</h2><small>가문굴비 | 주문·재고·운영 통합 관리</small></div>
-    <div class="userArea"><span id="uBadge" class="badge2"></span><button id="vendorBtn" class="logoutBtn" style="background:#7c3aed;display:none" onclick="openVendorManage()" title="거래처 관리">🏢 거래처</button><button id="mainSSBtn" class="logoutBtn" style="background:#10b981;display:none" onclick="openSheet('Users')" title="데이터 시트 열기 (super 전용)">📊 시트</button><button class="logoutBtn" style="background:#0ea5e9" onclick="refreshData(true)" title="서버에서 최신 데이터 다시 가져오기">🔄 새로고침</button><button class="logoutBtn" style="background:#0891b2" onclick="senderModal()" title="문자 발신번호 설정">📱 발신번호</button><button class="logoutBtn" style="background:#16a34a" onclick="_openPwModal()" title="비밀번호 변경">🔑 비번</button><button class="logoutBtn" onclick="logout()">로그아웃</button></div>
+    <div class="userArea"><span id="uBadge" class="badge2"></span><button id="themeBtn" class="logoutBtn" style="background:#334155" onclick="gmToggleTheme()" title="화면 밝기 — 이 기기에만 저장 (밝게 ↔ 기기설정 따름)">☀️ 밝게</button><button id="vendorBtn" class="logoutBtn" style="background:#7c3aed;display:none" onclick="openVendorManage()" title="거래처 관리">🏢 거래처</button><button id="mainSSBtn" class="logoutBtn" style="background:#10b981;display:none" onclick="openSheet('Users')" title="데이터 시트 열기 (super 전용)">📊 시트</button><button class="logoutBtn" style="background:#0ea5e9" onclick="refreshData(true)" title="서버에서 최신 데이터 다시 가져오기">🔄 새로고침</button><button class="logoutBtn" style="background:#0891b2" onclick="senderModal()" title="문자 발신번호 설정">📱 발신번호</button><button class="logoutBtn" style="background:#16a34a" onclick="_openPwModal()" title="비밀번호 변경">🔑 비번</button><button class="logoutBtn" onclick="logout()">로그아웃</button></div>
   </div>
   <div id="evtBar" class="evtBar"></div>
   <div class="tabs" id="tabBar"></div>
@@ -951,8 +951,35 @@ var IDLE_MS=IS_MOBILE?60*60*1000:10*60*1000; // 모바일 1시간 / PC 10분 무
 function _idleLabel(){ return IDLE_MS>=3600000 ? (Math.round(IDLE_MS/3600000))+'시간' : (Math.round(IDLE_MS/60000))+'분'; }
 var WARN_COUNT_MS=60*1000;  // 팝업 뜬 뒤 60초 내 응답 없으면 자동 로그아웃
 // 자동로그인 TTL — 로그인한 시점부터 이 시간이 지나면 자동로그인 X, 수동 로그인 필요 (활동해도 연장 안 됨)
-var AUTO_LOGIN_TTL_MS=6*60*60*1000; // 6시간
+// 규칙: 핸드폰 앱 + 서브어드민 이상 = 24시간 / 그 외(PC·조회용) = 6시간
+var AUTO_LOGIN_TTL_MS=6*60*60*1000; // 기본 6시간
+function _autoTtlFor(role){
+  var admPlus=(role==="super"||role==="admin"||role==="subAdm");
+  return (IS_MOBILE && admPlus) ? 24*60*60*1000 : 6*60*60*1000;
+}
+function _autoTtlLabel(role){ return _autoTtlFor(role)>=24*60*60*1000 ? "24시간" : "6시간"; }
 var idleTimer=null, warnTimer=null, warnCountdown=null;
+
+// ===== 화면 테마 (이 기기에만 저장 · 폰/PC 각각 별개) =====
+// 이 시스템은 밝은(라이트) 디자인 전용. 기본을 '밝게'로 고정해, 폰 다크모드가
+// 페이지를 멋대로 어둡게 뒤집는 것을 막는다. 각 기기에서 개별 선택 가능(localStorage).
+function gmApplyTheme(t){
+  t=(t==='auto')?'auto':'light';
+  var de=document.documentElement;
+  de.setAttribute('data-theme',t);
+  de.style.colorScheme=(t==='auto')?'light dark':'only light';   // 'only light' = 기기 다크 강제뒤집기 차단
+  var b=document.getElementById('themeBtn');
+  if(b) b.textContent=(t==='auto')?'📱 기기설정':'☀️ 밝게';
+}
+function gmToggleTheme(){
+  var cur='light'; try{ cur=localStorage.getItem('gamunTheme')||'light'; }catch(e){}
+  var next=(cur==='auto')?'light':'auto';   // 밝게(고정) ↔ 기기설정 따름
+  try{ localStorage.setItem('gamunTheme',next); }catch(e){}
+  gmApplyTheme(next);
+  try{ toast(next==='auto'?'📱 기기 밝기 설정을 따릅니다 (이 기기만)':'☀️ 항상 밝게 (이 기기만)'); }catch(e){}
+}
+function gmInitTheme(){ var t='light'; try{ t=localStorage.getItem('gamunTheme')||'light'; }catch(e){} gmApplyTheme(t); }
+try{ gmInitTheme(); }catch(e){}   // 스크립트 로드 즉시 적용(깜빡임 방지)
 
 function saveAuth(id,pw,preserveLoginTs){
   try{
@@ -961,7 +988,7 @@ function saveAuth(id,pw,preserveLoginTs){
       var prev=null; try{ prev=JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){}
       if(prev&&Number(prev.loginTs)) loginTs=Number(prev.loginTs);
     }
-    localStorage.setItem(AUTH_KEY, JSON.stringify({id:id,pw:pw,ts:Date.now(),loginTs:loginTs}));
+    localStorage.setItem(AUTH_KEY, JSON.stringify({id:id,pw:pw,ts:Date.now(),loginTs:loginTs,r:(ME&&ME.r)||''}));
   }catch(e){}
 }
 // 기존 저장된 id/pw 는 유지하고 타임스탬프만 갱신 (활동 중이란 신호)
@@ -1069,14 +1096,13 @@ async function doLogin(id,pw,keep,silent){
   hideLoading();
 
   // 백그라운드로 텔레그램 로그인 알림 (refreshData 후 — Config 캐시 필요)
+  // silent(자동로그인)도 알림 발송 — "켤 때마다 로그인 신호" 요청 반영
   try {
-    if(!silent){
-      var uaNow = navigator.userAgent || "";
-      _fetchIp_().then(function(ip){
-        LAST_IP = ip||"";
-        api("notifyLogin",{id:CID, nm:ME.nm||"", role:ME.r||"", evtId:(CUR_EVT && CUR_EVT.evtId)||"", evtNm:(CUR_EVT && CUR_EVT.nm)||"", ip:LAST_IP, ua:uaNow}).catch(function(){});
-      });
-    }
+    var uaNow = navigator.userAgent || "";
+    _fetchIp_().then(function(ip){
+      LAST_IP = ip||"";
+      api("notifyLogin",{id:CID, nm:ME.nm||"", role:ME.r||"", auto:!!silent, evtId:(CUR_EVT && CUR_EVT.evtId)||"", evtNm:(CUR_EVT && CUR_EVT.nm)||"", ip:LAST_IP, ua:uaNow}).catch(function(){});
+    });
   } catch(e){ console.warn("notifyLogin err:", e); }
   // 환영 메시지 (자동 로그인 포함)
   setTimeout(function(){ toast("👋 어서오세요, "+(ME.nm||ME.id)+"님"); }, 200);
@@ -1253,11 +1279,12 @@ async function tryAutoLogin(){
     if(er0){ er0.style.color="#6b7280"; er0.textContent="다시 로그인해주세요."; }
     return;
   }
-  // 로그인 후 6시간이 지나면 자동 로그인 해제 (활동해도 연장 안 됨) — 수동 로그인 필요
-  if(loginTs && (Date.now()-loginTs) > AUTO_LOGIN_TTL_MS){
+  // 로그인 후 TTL(앱+서브어드민↑=24h / 그외=6h)이 지나면 자동 로그인 해제 — 수동 로그인 필요
+  var _ttl=_autoTtlFor(a.r||'');
+  if(loginTs && (Date.now()-loginTs) > _ttl){
     clearAuth();
     var erT=document.getElementById("loginErr");
-    if(erT){ erT.style.color="#6b7280"; erT.textContent="자동 로그인이 만료되었습니다 (6시간). 다시 로그인해주세요."; }
+    if(erT){ erT.style.color="#6b7280"; erT.textContent="자동 로그인이 만료되었습니다 ("+_autoTtlLabel(a.r||'')+"). 다시 로그인해주세요."; }
     return;
   }
   // 자동로그인 중 UI — 로그인 폼 잠금 + 풀스크린 로딩
@@ -1274,6 +1301,8 @@ async function tryAutoLogin(){
   if(!ok&&er){er.style.color="#dc2626";er.textContent="자동 로그인 실패 — 다시 로그인하세요";}
 }
 window.addEventListener("load",function(){
+  // 화면 테마 적용(이 기기 저장값) — 버튼 라벨 동기화 위해 로드 후 재적용
+  try{ gmInitTheme(); }catch(e){}
   // 공개 신청폼 모드면 자동 로그인 스킵
   if (IS_APPLY_MODE) return;
   // Firebase 실시간 동기화 시작
@@ -1295,8 +1324,9 @@ function _checkLoginExpiry(){
   if(typeof CID==='undefined'||!CID) return;   // 로그인 상태일 때만
   var a=loadAuth(); if(!a) return;
   var loginTs=Number(a.loginTs)||Number(a.ts)||0;
-  if(loginTs && (Date.now()-loginTs) > AUTO_LOGIN_TTL_MS){
-    logout("자동 로그인이 만료되었습니다 (6시간). 다시 로그인해주세요.");
+  var _role=a.r||(ME&&ME.r)||'';
+  if(loginTs && (Date.now()-loginTs) > _autoTtlFor(_role)){
+    logout("자동 로그인이 만료되었습니다 ("+_autoTtlLabel(_role)+"). 다시 로그인해주세요.");
   }
 }
 document.addEventListener("visibilitychange",function(){ if(!document.hidden) _checkLoginExpiry(); });
@@ -22211,6 +22241,9 @@ async function shipSetFileDate(k, val){
 }
 
 var CAL_STATE={view:'month', anchor:'', sel:'', basis:'ship', cols:'auto', txt:'1', uniq:true};
+// 보는 방식(칸수·글씨)은 기기별로 따로 저장 — 폰과 PC가 서로 다른 설정 유지
+var CAL_COLS_KEY=IS_MOBILE?'gamunCalCols_m':'gamunCalCols';
+var CAL_TXT_KEY =IS_MOBILE?'gamunCalTxt_m' :'gamunCalTxt';
 // 🏷 품목 별칭(고유품목) — 이름 다른 같은 제품을 하나로 통합
 var PROD_ALIAS_RAW={}, PROD_REV={}, PROD_ALIAS_LISTENER=false;   // PROD_ALIAS_RAW: {pushId:{canon,aliases:[]}}
 function _prodNrm(s){ return String(s==null?'':s).replace(/\s+/g,'').toLowerCase(); }
@@ -22336,8 +22369,8 @@ function prodAliasExcelUp(file){
   rd.readAsArrayBuffer(file);
 }
 function calSetBasis(b){ CAL_STATE.basis=b; renderShipCal(); }
-function calSetCols(c){ CAL_STATE.cols=c; try{localStorage.setItem('gamunCalCols',c);}catch(e){} renderShipCal(); }
-function calSetTxt(t){ CAL_STATE.txt=t; try{localStorage.setItem('gamunCalTxt',t);}catch(e){} renderShipCal(); }
+function calSetCols(c){ CAL_STATE.cols=c; try{localStorage.setItem(CAL_COLS_KEY,c);}catch(e){} renderShipCal(); }
+function calSetTxt(t){ CAL_STATE.txt=t; try{localStorage.setItem(CAL_TXT_KEY,t);}catch(e){} renderShipCal(); }
 function _calParse(s){ var a=String(s).split('-'); return new Date(+a[0], (+a[1]||1)-1, +a[2]||1); }
 function _calFmt(dt){ return dt.getFullYear()+'-'+('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2); }
 function _calAddDays(s,n){ var d=_calParse(s); d.setDate(d.getDate()+n); return _calFmt(d); }
@@ -22409,7 +22442,7 @@ function calCopyLink(){
 function loadShipCal(){
   if(!CAL_STATE.anchor) CAL_STATE.anchor=todayKST();
   if(!CAL_STATE.sel) CAL_STATE.sel=todayKST();
-  try{ var _sc=localStorage.getItem('gamunCalCols'); if(_sc) CAL_STATE.cols=_sc; var _st=localStorage.getItem('gamunCalTxt'); if(_st) CAL_STATE.txt=_st; var _su=localStorage.getItem('gamunCalUniq'); if(_su) CAL_STATE.uniq=(_su==='1'); }catch(e){}
+  try{ var _sc=localStorage.getItem(CAL_COLS_KEY); if(_sc) CAL_STATE.cols=_sc; else if(IS_MOBILE) CAL_STATE.cols='2'; var _st=localStorage.getItem(CAL_TXT_KEY); if(_st) CAL_STATE.txt=_st; var _su=localStorage.getItem('gamunCalUniq'); if(_su) CAL_STATE.uniq=(_su==='1'); }catch(e){}
   loadOrderHist();     // /excel_orders 리스너 부착 (데이터 오면 renderShipCal 재호출)
   loadCalRecip();      // 텔레그램 받는사람 명단 로드 (버튼 카운트/모달 갱신)
   loadProdAlias();     // 품목 별칭(고유품목) 로드
@@ -22474,20 +22507,25 @@ function renderShipCal(){
     if(det){ det.style.display='none'; det.innerHTML=''; }
   }
 }
-// 셀 안 요약(택배 건수 크게 + 상품수량)
-function _calCellBadge(m){
+// 셀 안 요약(택배 건수 크게 + 상품수량) — 폰은 좁으니 이모지·'개' 빼고 작게
+function _calCellBadge(m,mob){
   if(!m) return '';
+  if(mob){
+    return '<div style="margin-top:1px"><span style="display:inline-block;background:#2563eb;color:#fff;border-radius:6px;padding:0 5px;font-weight:800;font-size:12px">'+m.cnt+'</span>'
+      +(m.qty?(' <span style="font-size:10px;color:#7c3aed;font-weight:700">'+m.qty+'</span>'):'')+'</div>';
+  }
   return '<div style="margin-top:2px"><span style="display:inline-block;background:#2563eb;color:#fff;border-radius:8px;padding:1px 7px;font-weight:800;font-size:13px">🚚'+m.cnt+'</span>'
     +(m.qty?(' <span style="font-size:11px;color:#7c3aed;font-weight:700">'+m.qty+'개</span>'):'')+'</div>';
 }
 function _calMonthHtml(agg){
+  var mob=IS_MOBILE;
   var a=_calParse(CAL_STATE.anchor); var y=a.getFullYear(), mo=a.getMonth();
   var first=new Date(y,mo,1); var start=_calAddDays(_calFmt(first), -first.getDay());
   var today=todayKST(), sel=CAL_STATE.sel;
   var mTot=0, mQty=0; Object.keys(agg).forEach(function(ds){ if(ds.slice(0,7)===_calFmt(first).slice(0,7)){ mTot+=agg[ds].cnt; mQty+=agg[ds].qty; } });
   var h='<div style="margin-bottom:8px;font-weight:800;color:#0f172a">이번 달 합계: <span style="color:#2563eb">택배 '+mTot+'건</span>'+(mQty?(' · 상품 '+mQty+'개'):'')+'</div>';
-  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;table-layout:fixed;min-width:640px">';
-  h+='<thead><tr>'+_WD.map(function(w,i){ return '<th style="padding:6px;border:1px solid #e2e8f0;background:#f8fafc;color:'+(i===0?'#dc2626':(i===6?'#2563eb':'#475569'))+';font-size:12px">'+w+'</th>'; }).join('')+'</tr></thead><tbody>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;table-layout:fixed;'+(mob?'':'min-width:640px')+'">';
+  h+='<thead><tr>'+_WD.map(function(w,i){ return '<th style="padding:'+(mob?'3px':'6px')+';border:1px solid #e2e8f0;background:#f8fafc;color:'+(i===0?'#dc2626':(i===6?'#2563eb':'#475569'))+';font-size:'+(mob?'11':'12')+'px">'+w+'</th>'; }).join('')+'</tr></thead><tbody>';
   var ds=start;
   for(var r=0;r<6;r++){
     h+='<tr>';
@@ -22498,9 +22536,9 @@ function _calMonthHtml(agg){
       var bg=isSel?'#ede9fe':(isToday?'#eff6ff':(inMonth?'#fff':'#f8fafc'));
       var dow=_calParse(ds).getDay();
       var dcol=inMonth?(dow===0?'#dc2626':(dow===6?'#2563eb':'#0f172a')):'#cbd5e1';
-      h+='<td onclick="calPick(\''+ds+'\')" style="vertical-align:top;height:64px;padding:4px;border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';cursor:pointer;background:'+bg+(isSel?';box-shadow:inset 0 0 0 2px #7c3aed':'')+'">';
-      h+='<div style="font-weight:700;font-size:12px;color:'+dcol+'">'+_calParse(ds).getDate()+(isToday?' <span style="font-size:9px;color:#2563eb">오늘</span>':'')+'</div>';
-      h+=_calCellBadge(m);
+      h+='<td onclick="calPick(\''+ds+'\')" style="vertical-align:top;height:'+(mob?'44px':'64px')+';padding:'+(mob?'2px 3px':'4px')+';border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';cursor:pointer;background:'+bg+(isSel?';box-shadow:inset 0 0 0 2px #7c3aed':'')+'">';
+      h+='<div style="font-weight:700;font-size:'+(mob?'11':'12')+'px;color:'+dcol+'">'+_calParse(ds).getDate()+(isToday?(mob?' <span style="font-size:8px;color:#2563eb">•</span>':' <span style="font-size:9px;color:#2563eb">오늘</span>'):'')+'</div>';
+      h+=_calCellBadge(m,mob);
       h+='</td>';
       ds=_calAddDays(ds,1);
     }
@@ -22542,13 +22580,14 @@ function _calProdCubes(m){
   var gtc=(cols==='auto')?'repeat(auto-fill,minmax(150px,1fr))':('repeat('+cols+',minmax(0,1fr))');
   var cf=({'3':1.9,'4':1.55,'6':1.15,'8':0.95})[cols]||1;   // 칸 적을수록 글씨·큐브 크게
   var ts=parseFloat(CAL_STATE.txt||'1')||1;                 // 사용자 글씨 배율(보통/크게/더크게/최대)
+  var mob=IS_MOBILE, mf=mob?0.62:1;                          // 폰은 큐브 높이·숫자 축소(세로로 안 길게)
   var h='<div style="display:grid;grid-template-columns:'+gtc+';gap:10px;align-items:stretch">';
   pk.forEach(function(p){
     var q=m.prod[p].qty, ratio=maxQ>0?(q/maxQ):0;
     var dg=String(q).length;                                       // 자릿수 (많으면 폭 넘침 방지로 축소)
-    var numF=Math.round((30+ratio*46)*cf*ts/(dg>=3?1.9:(dg==2?1.3:1)));
-    numF=Math.max(24,Math.min(200,numF));                          // 숫자: 수량비례 × 칸배율 × 글씨배율 (자릿수 보정)
-    var minH=Math.round((96+ratio*72)*cf*(1+(ts-1)*0.6));         // 큐브 높이(글씨배율 60%만 반영)
+    var numF=Math.round((30+ratio*46)*cf*ts*mf/(dg>=3?1.9:(dg==2?1.3:1)));
+    numF=Math.max(mob?18:24,Math.min(200,numF));                   // 숫자: 수량비례 × 칸배율 × 글씨배율 (자릿수 보정)
+    var minH=Math.round((96+ratio*72)*cf*mf*(1+(ts-1)*0.6));      // 큐브 높이(글씨배율 60%만 반영)
     var L=p.length, nmBase=L>22?15:(L>16?18:(L>11?22:(L>7?26:30)));
     var nmF=Math.max(13,Math.min(90,Math.round(nmBase*cf*ts)));   // 품명: 길이별 × 칸배율 × 글씨배율
     var bord=ratio>=0.66?'#7c3aed':(ratio>=0.33?'#c4b5fd':'#e2e8f0');
