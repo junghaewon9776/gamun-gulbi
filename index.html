@@ -22558,23 +22558,28 @@ function _calMonthHtml(agg){
   return h;
 }
 function _calWeekHtml(agg, ws){
+  var mob=_calNarrow();
   var today=todayKST(), sel=CAL_STATE.sel;
   var wTot=0,wQty=0; for(var i=0;i<7;i++){ var m=agg[_calAddDays(ws,i)]; if(m){wTot+=m.cnt;wQty+=m.qty;} }
   var h='<div style="margin-bottom:8px;font-weight:800;color:#0f172a">이번 주 합계: <span style="color:#2563eb">택배 '+wTot+'건</span>'+(wQty?(' · 상품 '+wQty+'개'):'')+'</div>';
-  h+='<div style="display:flex;gap:6px;overflow-x:auto">';
+  // 폰: 7칸을 화면에 꽉 채워 배치(좌우 스크롤 없음) / PC: 넉넉한 카드 가로배치
+  h+= mob ? '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;overflow-x:hidden">'
+          : '<div style="display:flex;gap:6px;overflow-x:auto">';
   for(var d=0;d<7;d++){
     var ds=_calAddDays(ws,d), m=agg[ds], dow=_calParse(ds).getDay();
     var isToday=(ds===today), isSel=(ds===sel);
     var dcol=dow===0?'#dc2626':(dow===6?'#2563eb':'#0f172a');
-    h+='<div onclick="calPick(\''+ds+'\')" style="flex:1;min-width:110px;border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';border-radius:10px;padding:8px;cursor:pointer;background:'+(isSel?'#ede9fe':(isToday?'#eff6ff':'#fff'))+'">';
-    h+='<div style="font-weight:700;font-size:12px;color:'+dcol+'">'+_WD[dow]+' '+_calParse(ds).getDate()+'일'+(isToday?' <span style="font-size:9px;color:#2563eb">오늘</span>':'')+'</div>';
+    h+='<div onclick="calPick(\''+ds+'\')" style="'+(mob?'min-width:0;padding:4px 2px':'flex:1;min-width:110px;padding:8px')+';overflow:hidden;border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';border-radius:10px;cursor:pointer;background:'+(isSel?'#ede9fe':(isToday?'#eff6ff':'#fff'))+'">';
+    h+='<div style="font-weight:700;font-size:'+(mob?'10':'12')+'px;color:'+dcol+'">'+_WD[dow]+' '+_calParse(ds).getDate()+(mob?'':'일')+(isToday?(mob?' <span style="font-size:8px;color:#2563eb">•</span>':' <span style="font-size:9px;color:#2563eb">오늘</span>'):'')+'</div>';
     if(m){
-      h+='<div style="margin-top:6px"><span style="background:#2563eb;color:#fff;border-radius:8px;padding:2px 8px;font-weight:800">🚚'+m.cnt+'건</span></div>';
-      if(m.qty) h+='<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:2px">상품 '+m.qty+'개</div>';
-      var pk=Object.keys(m.plat).sort(function(a,b){return m.plat[b].cnt-m.plat[a].cnt;});
-      pk.slice(0,4).forEach(function(p){ h+='<div style="font-size:11px;color:#475569;margin-top:2px">· '+esc(p)+' '+m.plat[p].cnt+'</div>'; });
-      if(pk.length>4) h+='<div style="font-size:11px;color:#94a3b8">외 '+(pk.length-4)+'개</div>';
-    } else h+='<div style="font-size:11px;color:#cbd5e1;margin-top:6px">-</div>';
+      h+= mob ? ('<div style="margin-top:3px"><span style="background:#2563eb;color:#fff;border-radius:6px;padding:0 4px;font-weight:800;font-size:11px">'+m.cnt+'</span></div>'+(m.qty?('<div style="font-size:9px;color:#7c3aed;font-weight:700;margin-top:1px">'+m.qty+'개</div>'):''))
+              : ('<div style="margin-top:6px"><span style="background:#2563eb;color:#fff;border-radius:8px;padding:2px 8px;font-weight:800">🚚'+m.cnt+'건</span></div>'+(m.qty?('<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:2px">상품 '+m.qty+'개</div>'):''));
+      if(!mob){
+        var pk=Object.keys(m.plat).sort(function(a,b){return m.plat[b].cnt-m.plat[a].cnt;});
+        pk.slice(0,4).forEach(function(p){ h+='<div style="font-size:11px;color:#475569;margin-top:2px">· '+esc(p)+' '+m.plat[p].cnt+'</div>'; });
+        if(pk.length>4) h+='<div style="font-size:11px;color:#94a3b8">외 '+(pk.length-4)+'개</div>';
+      }
+    } else h+='<div style="font-size:'+(mob?'10':'11')+'px;color:#cbd5e1;margin-top:'+(mob?'3':'6')+'px">-</div>';
     h+='</div>';
   }
   h+='</div>';
@@ -22633,13 +22638,14 @@ function _calProdOrders(ds, pi){
   h+='<div style="color:#64748b;font-size:13px;margin-bottom:10px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b>'+((tot.spc>0)?(' · <b style="color:#b45309">🎴 명함·인사말 '+tot.spc+'건</b>'):'')+'</div>';
   if(!list.length){ h+='<div class="muted">해당 품목의 주문을 찾지 못했어요.</div>'; }
   else{
-    h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
+    h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>보낸분(구매자)</th><th>받는분 연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
     list.forEach(function(d,ix){
       var ins=_insOf(d);
       h+='<tr'+(ins.trim()?' style="background:#fffbeb"':'')+'><td>'+(ix+1)+'</td>'
         +'<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+esc(d['수량']||'')+'</td>'
         +'<td>'+esc(d['플랫폼']||'')+'</td>'
+        +'<td>'+esc(d['구매자명']||'')+(d['구매자전화']?('<br><span style="font-size:11px">'+_telLink(d['구매자전화'])+'</span>'):'')+'</td>'
         +'<td>'+_telLink(d['수취인전화'])+'</td>'
         +(ins.trim()?('<td style="color:#b45309;font-weight:700;white-space:normal;max-width:240px">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>'))
         +'</tr>';
