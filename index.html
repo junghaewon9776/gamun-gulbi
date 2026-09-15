@@ -22402,7 +22402,7 @@ function shipCalAgg(basis){
     var hasIns=_insOf(d).trim()!=='';   // 인사말/명함(와꾸 비고 또는 웹 입력)에 뭐라도 있으면 '있음'
     var rp=m.prod[nm]||(m.prod[nm]={cnt:0,qty:0,spc:0}); rp.cnt++; rp.qty+=(q||1); if(hasIns) rp.spc=(rp.spc||0)+1;
     if(hasIns) m.spc=(m.spc||0)+1;   // 그날 전체 명함·인사말 건수
-    if(m.orders.length<800){ d._path=x.path; m.orders.push(d); }
+    if(m.orders.length<5000){ d._path=x.path; m.orders.push(d); }
   });
   return map;
 }
@@ -22586,7 +22586,9 @@ function _calWeekHtml(agg, ws){
   return h;
 }
 // 📦 품목 큐브 — 수량에 비례해 숫자/큐브 크기 커짐, 긴 품명은 글씨 작게 맞춤. 누르면 그 품목 주문자 명단
+var _CAL_DAYM=null, _CAL_DAYDS='';   // 방금 그린 하루 상세 데이터(팝업이 그대로 사용 → 재집계 불일치 방지)
 function _calProdCubes(m, ds){
+  _CAL_DAYM=m; _CAL_DAYDS=String(ds||'').slice(0,10);
   var pk=Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;});
   if(!pk.length) return '<div class="muted">품목 정보 없음</div>';
   var maxQ=m.prod[pk[0]].qty||1;
@@ -22611,7 +22613,7 @@ function _calProdCubes(m, ds){
     var nmF=Math.max(mob?10:13,Math.min(90,Math.round(nmBase*cf*ts*(mob?mf*1.15:1))));   // 품명: 폰은 함께 축소
     var pad=mob?'6px 5px':'12px 10px', brad=mob?12:16, bw=mob?1:2, nmMb=mob?3:8, cntMt=mob?2:5, cntF=mob?9:11;
     var bord=ratio>=0.66?'#7c3aed':(ratio>=0.33?'#c4b5fd':'#e2e8f0');
-    h+='<div onclick="_calProdOrders(\''+_dsA+'\','+pi+')" title="누르면 이 품목 주문자(받는분) 명단" style="background:#fff;border:'+bw+'px solid '+bord+';border-radius:'+brad+'px;padding:'+pad+';text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);cursor:pointer;display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
+    h+='<div onclick="_calProdOrders('+pi+')" title="누르면 이 품목 주문자(받는분) 명단" style="background:#fff;border:'+bw+'px solid '+bord+';border-radius:'+brad+'px;padding:'+pad+';text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);cursor:pointer;display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
       +'<div style="font-weight:800;font-size:'+nmF+'px;line-height:1.15;margin-bottom:'+nmMb+'px;word-break:break-all;color:#0f172a">'+esc(p)+'</div>'
       +'<div style="font-weight:900;color:#7c3aed;line-height:1;font-size:'+numF+'px">'+q+'<span style="font-size:'+Math.round(numF*0.34)+'px;color:#94a3b8">개</span></div>'
       +'<div style="font-size:'+cntF+'px;color:#94a3b8;margin-top:'+cntMt+'px">'+m.prod[p].cnt+'건 ▸</div>'
@@ -22622,9 +22624,9 @@ function _calProdCubes(m, ds){
   return h;
 }
 // 품목 큐브 클릭 → 그날 그 품목의 주문자(받는분) 명단 팝업
-function _calProdOrders(ds, pi){
-  ds=String(ds||'').slice(0,10);
-  var agg=shipCalAgg(CAL_STATE.basis), m=agg[ds]; if(!m){ toast('데이터를 찾지 못했어요'); return; }
+function _calProdOrders(pi){
+  var m=_CAL_DAYM, ds=_CAL_DAYDS;                       // 방금 그린 그 데이터 그대로 사용(재집계 X)
+  if(!m||!m.prod){ toast('데이터를 찾지 못했어요'); return; }
   var pk=Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;});
   var name=pk[pi]; if(name==null){ toast('품목을 찾지 못했어요'); return; }
   var list=(m.orders||[]).filter(function(d){
@@ -22634,8 +22636,12 @@ function _calProdOrders(ds, pi){
   });
   list.sort(function(a,b){ var x=String(a['등록일시']||''), y=String(b['등록일시']||''); return x<y?1:(x>y?-1:0); });   // 등록 최신순(위) · 같은 파일끼리 모임
   var tot=m.prod[name]||{qty:0,cnt:0,spc:0};
-  var h='<div style="max-width:640px"><h3 style="margin:0 0 3px">📦 '+esc(name)+'</h3>';
-  h+='<div style="color:#64748b;font-size:13px;margin-bottom:10px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b>'+((tot.spc>0)?(' · <b style="color:#b45309">🎴 명함·인사말 '+tot.spc+'건</b>'):'')+'</div>';
+  var h='<div style="max-width:660px">';
+  h+='<div style="position:sticky;top:-4px;background:#fff;z-index:2;padding:2px 0 8px;border-bottom:1px solid #e2e8f0;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">';
+  h+='<div style="flex:1"><h3 style="margin:0 0 3px">📦 '+esc(name)+'</h3>';
+  h+='<div style="color:#64748b;font-size:13px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b>'+((tot.spc>0)?(' · <b style="color:#b45309">🎴 명함·인사말 '+tot.spc+'건</b>'):'')+'</div></div>';
+  h+='<button onclick="closePopup()" style="flex:0 0 auto;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:800;cursor:pointer;font-size:14px">✕ 닫기</button>';
+  h+='</div>';
   if(!list.length){ h+='<div class="muted">해당 품목의 주문을 찾지 못했어요.</div>'; }
   else{
     h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>보낸분(구매자)</th><th>받는분 연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
