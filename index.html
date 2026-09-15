@@ -22376,6 +22376,9 @@ function _calFmt(dt){ return dt.getFullYear()+'-'+('0'+(dt.getMonth()+1)).slice(
 function _calAddDays(s,n){ var d=_calParse(s); d.setDate(d.getDate()+n); return _calFmt(d); }
 function _calAddMonths(s,n){ var d=_calParse(s); var day=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); var last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate(); d.setDate(Math.min(day,last)); return _calFmt(d); }
 var _WD=['일','월','화','수','목','금','토'];
+// 좁은 화면(폰/앱)이면 달력·큐브 압축 — UA(IS_MOBILE)만 믿지 않고 실제 폭도 본다
+// (일부 앱 WebView는 UA에 Mobile 표기가 없어 IS_MOBILE=false → 예전엔 달력이 640px로 넘쳐 토요일이 잘림)
+function _calNarrow(){ try{ return IS_MOBILE || (window.innerWidth>0 && window.innerWidth<=680); }catch(e){ return IS_MOBILE; } }
 
 // 날짜별 집계 (전체 주문 대상, 업체필터 무시)
 //   basis='ship' → 발송일자(없으면 등록일) 기준 / basis='reg' → 등록일 기준
@@ -22483,7 +22486,7 @@ function renderShipCal(){
     vsel.innerHTML=vb('day','일')+vb('week','주')+vb('month','월'); }
   var csel=document.getElementById('cal_cols');
   if(csel){ var cb=function(v,l){ var on=(CAL_STATE.cols||'auto')==v; return '<button class="btn" style="font-weight:700;padding:5px 10px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetCols(\''+v+'\')">'+l+'</button>'; };
-    csel.innerHTML=IS_MOBILE ? (cb('auto','자동')+cb('1','1')+cb('2','2')+cb('3','3')+cb('4','4')) : (cb('auto','자동')+cb('3','3')+cb('4','4')+cb('6','6')+cb('8','8')); }
+    csel.innerHTML=_calNarrow() ? (cb('auto','자동')+cb('1','1')+cb('2','2')+cb('3','3')+cb('4','4')) : (cb('auto','자동')+cb('3','3')+cb('4','4')+cb('6','6')+cb('8','8')); }
   var tsel=document.getElementById('cal_txt');
   if(tsel){ var tb=function(v,l){ var on=(CAL_STATE.txt||'1')==v; return '<button class="btn" style="font-weight:700;padding:5px 10px;background:'+(on?'#d97706':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="calSetTxt(\''+v+'\')">'+l+'</button>'; };
     tsel.innerHTML=tb('1','보통')+tb('1.3','크게')+tb('1.6','더크게')+tb('2','최대'); }
@@ -22518,7 +22521,7 @@ function _calCellBadge(m,mob){
     +(m.qty?(' <span style="font-size:11px;color:#7c3aed;font-weight:700">'+m.qty+'개</span>'):'')+'</div>';
 }
 function _calMonthHtml(agg){
-  var mob=IS_MOBILE;
+  var mob=_calNarrow();
   var a=_calParse(CAL_STATE.anchor); var y=a.getFullYear(), mo=a.getMonth();
   var first=new Date(y,mo,1); var start=_calAddDays(_calFmt(first), -first.getDay());
   var today=todayKST(), sel=CAL_STATE.sel;
@@ -22536,8 +22539,8 @@ function _calMonthHtml(agg){
       var bg=isSel?'#ede9fe':(isToday?'#eff6ff':(inMonth?'#fff':'#f8fafc'));
       var dow=_calParse(ds).getDay();
       var dcol=inMonth?(dow===0?'#dc2626':(dow===6?'#2563eb':'#0f172a')):'#cbd5e1';
-      h+='<td onclick="calPick(\''+ds+'\')" style="vertical-align:top;height:'+(mob?'36px':'64px')+';padding:'+(mob?'1px 2px':'4px')+';border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';cursor:pointer;background:'+bg+(isSel?';box-shadow:inset 0 0 0 2px #7c3aed':'')+'">';
-      h+='<div style="font-weight:700;font-size:'+(mob?'11':'12')+'px;color:'+dcol+'">'+_calParse(ds).getDate()+(isToday?(mob?' <span style="font-size:8px;color:#2563eb">•</span>':' <span style="font-size:9px;color:#2563eb">오늘</span>'):'')+'</div>';
+      h+='<td onclick="calPick(\''+ds+'\')" style="vertical-align:top;height:'+(mob?'32px':'64px')+';padding:'+(mob?'1px':'4px')+';overflow:hidden;border:1px solid '+(isSel?'#7c3aed':'#e2e8f0')+';cursor:pointer;background:'+bg+(isSel?';box-shadow:inset 0 0 0 2px #7c3aed':'')+'">';
+      h+='<div style="font-weight:700;font-size:'+(mob?'10':'12')+'px;line-height:1.1;color:'+dcol+'">'+_calParse(ds).getDate()+(isToday?(mob?' <span style="font-size:8px;color:#2563eb">•</span>':' <span style="font-size:9px;color:#2563eb">오늘</span>'):'')+'</div>';
       h+=_calCellBadge(m,mob);
       h+='</td>';
       ds=_calAddDays(ds,1);
@@ -22571,8 +22574,8 @@ function _calWeekHtml(agg, ws){
   h+='</div>';
   return h;
 }
-// 📦 품목 큐브 — 수량에 비례해 숫자/큐브 크기 커짐, 긴 품명은 글씨 작게 맞춤
-function _calProdCubes(m){
+// 📦 품목 큐브 — 수량에 비례해 숫자/큐브 크기 커짐, 긴 품명은 글씨 작게 맞춤. 누르면 그 품목 주문자 명단
+function _calProdCubes(m, ds){
   var pk=Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;});
   if(!pk.length) return '<div class="muted">품목 정보 없음</div>';
   var maxQ=m.prod[pk[0]].qty||1;
@@ -22580,13 +22583,14 @@ function _calProdCubes(m){
   var gtc=(cols==='auto')?'repeat(auto-fill,minmax(150px,1fr))':('repeat('+cols+',minmax(0,1fr))');
   var cf=({'3':1.9,'4':1.55,'6':1.15,'8':0.95})[cols]||1;   // 칸 적을수록 글씨·큐브 크게
   var ts=parseFloat(CAL_STATE.txt||'1')||1;                 // 사용자 글씨 배율(보통/크게/더크게/최대)
-  var mob=IS_MOBILE, mf=mob?0.5:1;                           // 폰은 큐브 전체(높이·숫자·품명·여백) 축소
+  var mob=_calNarrow(), mf=mob?0.5:1;                         // 폰은 큐브 전체(높이·숫자·품명·여백) 축소
   // 폰은 칸수 자체를 더 촘촘히 반영(1칸=크게 → 4칸=작게), 세로도 같이 줄어들게
   if(mob) cf=({'1':1.7,'2':1.15,'3':0.85,'4':0.68})[cols]||1.15;
   var baseH=mob?52:96, ratioH=mob?30:72;                     // 큐브 기본높이 · 수량비례 추가높이
   var gap=mob?6:10;
+  var _dsA=String(ds||'').slice(0,10);
   var h='<div style="display:grid;grid-template-columns:'+gtc+';gap:'+gap+'px;align-items:stretch">';
-  pk.forEach(function(p){
+  pk.forEach(function(p,pi){
     var q=m.prod[p].qty, ratio=maxQ>0?(q/maxQ):0;
     var dg=String(q).length;                                       // 자릿수 (많으면 폭 넘침 방지로 축소)
     var numF=Math.round((30+ratio*46)*cf*ts*mf/(dg>=3?1.9:(dg==2?1.3:1)));
@@ -22596,14 +22600,45 @@ function _calProdCubes(m){
     var nmF=Math.max(mob?10:13,Math.min(90,Math.round(nmBase*cf*ts*(mob?mf*1.15:1))));   // 품명: 폰은 함께 축소
     var pad=mob?'6px 5px':'12px 10px', brad=mob?12:16, bw=mob?1:2, nmMb=mob?3:8, cntMt=mob?2:5, cntF=mob?9:11;
     var bord=ratio>=0.66?'#7c3aed':(ratio>=0.33?'#c4b5fd':'#e2e8f0');
-    h+='<div style="background:#fff;border:'+bw+'px solid '+bord+';border-radius:'+brad+'px;padding:'+pad+';text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
+    h+='<div onclick="_calProdOrders(\''+_dsA+'\','+pi+')" title="누르면 이 품목 주문자(받는분) 명단" style="background:#fff;border:'+bw+'px solid '+bord+';border-radius:'+brad+'px;padding:'+pad+';text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);cursor:pointer;display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
       +'<div style="font-weight:800;font-size:'+nmF+'px;line-height:1.15;margin-bottom:'+nmMb+'px;word-break:break-all;color:#0f172a">'+esc(p)+'</div>'
       +'<div style="font-weight:900;color:#7c3aed;line-height:1;font-size:'+numF+'px">'+q+'<span style="font-size:'+Math.round(numF*0.34)+'px;color:#94a3b8">개</span></div>'
-      +'<div style="font-size:'+cntF+'px;color:#94a3b8;margin-top:'+cntMt+'px">'+m.prod[p].cnt+'건</div>'
+      +'<div style="font-size:'+cntF+'px;color:#94a3b8;margin-top:'+cntMt+'px">'+m.prod[p].cnt+'건 ▸</div>'
       +'</div>';
   });
   h+='</div>';
   return h;
+}
+// 품목 큐브 클릭 → 그날 그 품목의 주문자(받는분) 명단 팝업
+function _calProdOrders(ds, pi){
+  ds=String(ds||'').slice(0,10);
+  var agg=shipCalAgg(CAL_STATE.basis), m=agg[ds]; if(!m){ toast('데이터를 찾지 못했어요'); return; }
+  var pk=Object.keys(m.prod).sort(function(a,b){return m.prod[b].qty-m.prod[a].qty;});
+  var name=pk[pi]; if(name==null){ toast('품목을 찾지 못했어요'); return; }
+  var list=(m.orders||[]).filter(function(d){
+    var nm=String(d['상품명']||'(품명없음)').trim()||'(품명없음)';
+    if(CAL_STATE.uniq) nm=_prodCanon(nm);
+    return nm===name;
+  });
+  list.sort(function(a,b){ return String(a['수취인명']||'').localeCompare(String(b['수취인명']||'')); });
+  var tot=m.prod[name]||{qty:0,cnt:0};
+  var h='<div style="max-width:560px"><h3 style="margin:0 0 3px">📦 '+esc(name)+'</h3>';
+  h+='<div style="color:#64748b;font-size:13px;margin-bottom:10px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b></div>';
+  if(!list.length){ h+='<div class="muted">해당 품목의 주문을 찾지 못했어요.</div>'; }
+  else{
+    h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>연락처</th><th>구매자</th></tr></thead><tbody>';
+    list.forEach(function(d,ix){
+      h+='<tr><td>'+(ix+1)+'</td>'
+        +'<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+esc(d['수량']||'')+'</td>'
+        +'<td>'+esc(d['플랫폼']||'')+'</td>'
+        +'<td>'+_telLink(d['수취인전화'])+'</td>'
+        +'<td>'+esc(d['구매자명']||'')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='<div style="text-align:right;margin-top:12px"><button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="closePopup()">닫기</button></div></div>';
+  openPopup(h, 580);
 }
 // 하루 상세 (품목 큐브 + 플랫폼 + 세부내역 펼치기)
 function _calDayDetailHtml(agg, ds){
@@ -22620,8 +22655,8 @@ function _calDayDetailHtml(agg, ds){
   h+='<div style="flex:1;min-width:120px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:12px;color:#475569;font-weight:700">상품 수량 합계</div><div style="font-size:26px;font-weight:900;color:#7c3aed;line-height:1.1">'+m.qty+'<span style="font-size:14px">개</span></div></div>';
   h+='</div>';
   // ── 📦 품목별 수량 합계 (큐브 · 수량 비례 크기 · 제일 중요) ──
-  h+='<div style="font-weight:800;color:#0f172a;margin:4px 0 8px;font-size:14px">📦 품목별 수량 합계 <span style="font-size:12px;color:#94a3b8;font-weight:600">(수량 많을수록 크게)</span></div>';
-  h+=_calProdCubes(m);
+  h+='<div style="font-weight:800;color:#0f172a;margin:4px 0 8px;font-size:14px">📦 품목별 수량 합계 <span style="font-size:12px;color:#94a3b8;font-weight:600">(수량 많을수록 크게 · 👆 누르면 누구 건인지)</span></div>';
+  h+=_calProdCubes(m, ds);
   h+='<div style="height:10px"></div>';
   // ── 플랫폼별 (보조 · 작게) ──
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
