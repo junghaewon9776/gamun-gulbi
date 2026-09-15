@@ -429,7 +429,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <div id="mainPage">
   <div class="topBar">
     <div><h2>🐟 가문굴비 관리시스템</h2><small>가문굴비 | 주문·재고·운영 통합 관리</small></div>
-    <div class="userArea"><span id="uBadge" class="badge2"></span><button id="themeBtn" class="logoutBtn" style="background:#334155" onclick="gmToggleTheme()" title="화면 밝기 — 이 기기에만 저장 (밝게 ↔ 기기설정 따름)">☀️ 밝게</button><button id="vendorBtn" class="logoutBtn" style="background:#7c3aed;display:none" onclick="openVendorManage()" title="거래처 관리">🏢 거래처</button><button id="mainSSBtn" class="logoutBtn" style="background:#10b981;display:none" onclick="openSheet('Users')" title="데이터 시트 열기 (super 전용)">📊 시트</button><button class="logoutBtn" style="background:#0ea5e9" onclick="refreshData(true)" title="서버에서 최신 데이터 다시 가져오기">🔄 새로고침</button><button class="logoutBtn" style="background:#0891b2" onclick="senderModal()" title="문자 발신번호 설정">📱 발신번호</button><button class="logoutBtn" style="background:#16a34a" onclick="_openPwModal()" title="비밀번호 변경">🔑 비번</button><button class="logoutBtn" onclick="logout()">로그아웃</button></div>
+    <div class="userArea"><span id="uBadge" class="badge2"></span><button id="themeBtn" class="logoutBtn" style="background:#334155;display:none" onclick="gmToggleTheme()" title="화면 밝기 — 이 기기에만 저장 (밝게 ↔ 기기설정 따름)">☀️ 밝게</button><button id="vendorBtn" class="logoutBtn" style="background:#7c3aed;display:none" onclick="openVendorManage()" title="거래처 관리">🏢 거래처</button><button id="mainSSBtn" class="logoutBtn" style="background:#10b981;display:none" onclick="openSheet('Users')" title="데이터 시트 열기 (super 전용)">📊 시트</button><button class="logoutBtn" style="background:#0ea5e9" onclick="refreshData(true)" title="서버에서 최신 데이터 다시 가져오기">🔄 새로고침</button><button class="logoutBtn" style="background:#0891b2" onclick="senderModal()" title="문자 발신번호 설정">📱 발신번호</button><button class="logoutBtn" style="background:#16a34a" onclick="_openPwModal()" title="비밀번호 변경">🔑 비번</button><button class="logoutBtn" onclick="logout()">로그아웃</button></div>
   </div>
   <div id="evtBar" class="evtBar"></div>
   <div class="tabs" id="tabBar"></div>
@@ -978,7 +978,8 @@ function gmToggleTheme(){
   gmApplyTheme(next);
   try{ toast(next==='auto'?'📱 기기 밝기 설정을 따릅니다 (이 기기만)':'☀️ 항상 밝게 (이 기기만)'); }catch(e){}
 }
-function gmInitTheme(){ var t='light'; try{ t=localStorage.getItem('gamunTheme')||'light'; }catch(e){} gmApplyTheme(t); }
+// 요청: 일단 무조건 화이트(밝게) 고정 — 저장값 무시하고 항상 라이트
+function gmInitTheme(){ gmApplyTheme('light'); }
 try{ gmInitTheme(); }catch(e){}   // 스크립트 로드 즉시 적용(깜빡임 방지)
 
 function saveAuth(id,pw,preserveLoginTs){
@@ -22380,6 +22381,13 @@ var _WD=['일','월','화','수','목','금','토'];
 // (일부 앱 WebView는 UA에 Mobile 표기가 없어 IS_MOBILE=false → 예전엔 달력이 640px로 넘쳐 토요일이 잘림)
 function _calNarrow(){ try{ return IS_MOBILE || (window.innerWidth>0 && window.innerWidth<=680); }catch(e){ return IS_MOBILE; } }
 
+// 인사말/명함 내용 — 웹에서 손댄 '인사말' 필드가 있으면 그걸, 없으면 와꾸 비고(배송메시지) 그대로.
+// 빈칸이냐 아니냐로 '명함·인사말 있음' 판단.
+function _insOf(d){
+  var v=d&&d['인사말'];
+  if(v!=null) return String(v);                                   // 웹에서 입력·수정한 값 우선(빈칸이면 '없음' 확정)
+  return String((d&&d['배송메시지'])==null?'':d['배송메시지']);   // 안 건드렸으면 와꾸 비고 그대로
+}
 // 날짜별 집계 (전체 주문 대상, 업체필터 무시)
 //   basis='ship' → 발송일자(없으면 등록일) 기준 / basis='reg' → 등록일 기준
 function shipCalAgg(basis){
@@ -22395,8 +22403,10 @@ function shipCalAgg(basis){
     var p=d['플랫폼']||'(기타)'; var pp=m.plat[p]||(m.plat[p]={cnt:0,qty:0}); pp.cnt++; pp.qty+=q;
     var nm=String(d['상품명']||'(품명없음)').trim()||'(품명없음)';
     if(CAL_STATE.uniq) nm=_prodCanon(nm);   // 고유품목 통합 ON이면 별칭→고유품목
-    var rp=m.prod[nm]||(m.prod[nm]={cnt:0,qty:0}); rp.cnt++; rp.qty+=(q||1);
-    if(m.orders.length<800) m.orders.push(d);
+    var hasIns=_insOf(d).trim()!=='';   // 인사말/명함(와꾸 비고 또는 웹 입력)에 뭐라도 있으면 '있음'
+    var rp=m.prod[nm]||(m.prod[nm]={cnt:0,qty:0,spc:0}); rp.cnt++; rp.qty+=(q||1); if(hasIns) rp.spc=(rp.spc||0)+1;
+    if(hasIns) m.spc=(m.spc||0)+1;   // 그날 전체 명함·인사말 건수
+    if(m.orders.length<800){ d._path=x.path; m.orders.push(d); }
   });
   return map;
 }
@@ -22604,6 +22614,7 @@ function _calProdCubes(m, ds){
       +'<div style="font-weight:800;font-size:'+nmF+'px;line-height:1.15;margin-bottom:'+nmMb+'px;word-break:break-all;color:#0f172a">'+esc(p)+'</div>'
       +'<div style="font-weight:900;color:#7c3aed;line-height:1;font-size:'+numF+'px">'+q+'<span style="font-size:'+Math.round(numF*0.34)+'px;color:#94a3b8">개</span></div>'
       +'<div style="font-size:'+cntF+'px;color:#94a3b8;margin-top:'+cntMt+'px">'+m.prod[p].cnt+'건 ▸</div>'
+      +((m.prod[p].spc>0)?('<div style="font-size:'+cntF+'px;color:#b45309;font-weight:800;margin-top:1px;background:#fef3c7;border-radius:6px;padding:0 4px;display:inline-block;align-self:center">🎴 명함·인사말 '+m.prod[p].spc+'건</div>'):'')
       +'</div>';
   });
   h+='</div>';
@@ -22620,25 +22631,44 @@ function _calProdOrders(ds, pi){
     if(CAL_STATE.uniq) nm=_prodCanon(nm);
     return nm===name;
   });
-  list.sort(function(a,b){ return String(a['수취인명']||'').localeCompare(String(b['수취인명']||'')); });
-  var tot=m.prod[name]||{qty:0,cnt:0};
-  var h='<div style="max-width:560px"><h3 style="margin:0 0 3px">📦 '+esc(name)+'</h3>';
-  h+='<div style="color:#64748b;font-size:13px;margin-bottom:10px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b></div>';
+  list.sort(function(a,b){ var x=String(a['등록일시']||''), y=String(b['등록일시']||''); return x<y?1:(x>y?-1:0); });   // 등록 최신순(위) · 같은 파일끼리 모임
+  var tot=m.prod[name]||{qty:0,cnt:0,spc:0};
+  var h='<div style="max-width:640px"><h3 style="margin:0 0 3px">📦 '+esc(name)+'</h3>';
+  h+='<div style="color:#64748b;font-size:13px;margin-bottom:6px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b>'+((tot.spc>0)?(' · <b style="color:#b45309">🎴 명함·인사말 '+tot.spc+'건</b>'):'')+'</div>';
+  h+='<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;margin-bottom:10px">🎴 <b>명함·인사말</b> 칸에 내용을 적으면(뭐라도) 그 건은 <b>명함·인사말 있음</b>으로 집계돼요. 비우면 없음.</div>';
   if(!list.length){ h+='<div class="muted">해당 품목의 주문을 찾지 못했어요.</div>'; }
   else{
-    h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>연락처</th><th>구매자</th></tr></thead><tbody>';
+    h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>연락처</th><th>🎴 명함·인사말 (적는 칸)</th></tr></thead><tbody>';
     list.forEach(function(d,ix){
-      h+='<tr><td>'+(ix+1)+'</td>'
+      var ins=_insOf(d);
+      var pth=d._path||'';
+      h+='<tr'+(ins.trim()?' style="background:#fffbeb"':'')+'><td>'+(ix+1)+'</td>'
         +'<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+esc(d['수량']||'')+'</td>'
         +'<td>'+esc(d['플랫폼']||'')+'</td>'
         +'<td>'+_telLink(d['수취인전화'])+'</td>'
-        +'<td>'+esc(d['구매자명']||'')+'</td></tr>';
+        +'<td><input type="text" value="'+esc(ins)+'" data-path="'+esc(pth)+'" placeholder="예: 인사말 문구 / 명함동봉" oninput="_calSaveInsert(this)" style="width:220px;padding:5px 8px;border:1px solid '+(ins.trim()?'#f59e0b':'#cbd5e1')+';border-radius:6px;font-size:13px'+(ins.trim()?';background:#fff':'')+'"></td></tr>';
     });
     h+='</tbody></table></div>';
   }
   h+='<div style="text-align:right;margin-top:12px"><button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="closePopup()">닫기</button></div></div>';
-  openPopup(h, 580);
+  openPopup(h, 660);
+}
+// 인사말/명함 칸 저장 (0.6초 디바운스) — 주문레코드 <path>/인사말 에 저장. 빈칸이면 제거.
+function _calSaveInsert(el){
+  var path=el.getAttribute('data-path'); if(!path){ return; }
+  var val=el.value;
+  el.style.borderColor = val.trim() ? '#f59e0b' : '#cbd5e1';
+  el.style.background  = val.trim() ? '#fff' : '';
+  clearTimeout(el._insT);
+  el._insT=setTimeout(function(){
+    try{
+      // 빈칸이어도 ""로 저장 → 와꾸 비고를 덮어 '없음'으로 확정(빈칸 판단 유지)
+      fbDb.ref(path+'/인사말').set(val)
+        .then(function(){ try{ el.title='저장됨'; }catch(e){} })
+        .catch(function(e){ try{ toast('저장 실패: '+(e.message||e), true); }catch(_){} });
+    }catch(e){}
+  }, 600);
 }
 // 하루 상세 (품목 큐브 + 플랫폼 + 세부내역 펼치기)
 function _calDayDetailHtml(agg, ds){
@@ -22653,6 +22683,7 @@ function _calDayDetailHtml(agg, ds){
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
   h+='<div style="flex:1;min-width:120px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:12px;color:#475569;font-weight:700">택배(건수)</div><div style="font-size:26px;font-weight:900;color:#2563eb;line-height:1.1">'+m.cnt+'</div></div>';
   h+='<div style="flex:1;min-width:120px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:12px;color:#475569;font-weight:700">상품 수량 합계</div><div style="font-size:26px;font-weight:900;color:#7c3aed;line-height:1.1">'+m.qty+'<span style="font-size:14px">개</span></div></div>';
+  if(m.spc>0) h+='<div style="flex:1;min-width:120px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:12px;color:#b45309;font-weight:700">🎴 명함·인사말</div><div style="font-size:26px;font-weight:900;color:#b45309;line-height:1.1">'+m.spc+'<span style="font-size:14px">건</span></div></div>';
   h+='</div>';
   // ── 📦 품목별 수량 합계 (큐브 · 수량 비례 크기 · 제일 중요) ──
   h+='<div style="font-weight:800;color:#0f172a;margin:4px 0 8px;font-size:14px">📦 품목별 수량 합계 <span style="font-size:12px;color:#94a3b8;font-weight:600">(수량 많을수록 크게 · 👆 누르면 누구 건인지)</span></div>';
@@ -22670,15 +22701,17 @@ function _calDayDetailHtml(agg, ds){
   h+='<button onclick="var e=document.getElementById(\'calDetWrap\');var o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.innerHTML=(o?\'▼\':\'▶\')+\' 세부 주문내역 ('+os.length+'건)\'" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">▶ 세부 주문내역 ('+os.length+'건)</button>';
   h+='<div id="calDetWrap" style="display:none;margin-top:8px">';
   h+='<input id="calDetSearch" type="text" placeholder="🔍 받는분·연락처·상품·구매자·송장 검색" oninput="_calDetFilter(this.value)" style="width:100%;max-width:360px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;margin-bottom:8px">';
-  h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>받는분 연락처</th><th>상품명</th><th>수량</th><th>플랫폼</th><th>구매자</th><th>보내는분 연락처</th><th>송장번호</th></tr></thead><tbody id="calDetBody">';
+  h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>받는분 연락처</th><th>상품명</th><th>수량</th><th>🎴 명함·인사말</th><th>플랫폼</th><th>구매자</th><th>보내는분 연락처</th><th>송장번호</th></tr></thead><tbody id="calDetBody">';
   os.forEach(function(d,i){
     var trk=d['송장번호']||'';
-    var s=((d['수취인명']||'')+' '+(d['수취인전화']||'')+' '+(d['상품명']||'')+' '+(d['플랫폼']||'')+' '+(d['구매자명']||'')+' '+(d['구매자전화']||'')+' '+trk).toLowerCase();
-    h+='<tr data-s="'+esc(s)+'"><td>'+(i+1)+'</td>';
+    var ins=_insOf(d);
+    var s=((d['수취인명']||'')+' '+(d['수취인전화']||'')+' '+(d['상품명']||'')+' '+(d['플랫폼']||'')+' '+(d['구매자명']||'')+' '+(d['구매자전화']||'')+' '+trk+' '+ins).toLowerCase();
+    h+='<tr data-s="'+esc(s)+'"'+(ins.trim()?' style="background:#fffbeb"':'')+'><td>'+(i+1)+'</td>';
     h+='<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>';
     h+='<td>'+_telLink(d['수취인전화'])+'</td>';
     h+='<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">'+esc(d['상품명']||'')+'</td>';
     h+='<td>'+esc(d['수량']||'')+'</td>';
+    h+=ins.trim()?('<td style="color:#b45309;font-weight:700;max-width:200px;white-space:normal">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>');
     h+='<td>'+esc(d['플랫폼']||'')+'</td>';
     h+='<td>'+esc(d['구매자명']||'')+'</td>';
     h+='<td>'+_telLink(d['구매자전화'])+'</td>';
