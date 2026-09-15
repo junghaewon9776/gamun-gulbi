@@ -22381,13 +22381,9 @@ var _WD=['일','월','화','수','목','금','토'];
 // (일부 앱 WebView는 UA에 Mobile 표기가 없어 IS_MOBILE=false → 예전엔 달력이 640px로 넘쳐 토요일이 잘림)
 function _calNarrow(){ try{ return IS_MOBILE || (window.innerWidth>0 && window.innerWidth<=680); }catch(e){ return IS_MOBILE; } }
 
-// 인사말/명함 내용 — 웹에서 손댄 '인사말' 필드가 있으면 그걸, 없으면 와꾸 비고(배송메시지) 그대로.
-// 빈칸이냐 아니냐로 '명함·인사말 있음' 판단.
-function _insOf(d){
-  var v=d&&d['인사말'];
-  if(v!=null) return String(v);                                   // 웹에서 입력·수정한 값 우선(빈칸이면 '없음' 확정)
-  return String((d&&d['배송메시지'])==null?'':d['배송메시지']);   // 안 건드렸으면 와꾸 비고 그대로
-}
+// 인사말/명함 내용 — 와꾸 저장 시 입력창에 적은 값이 주문의 '인사말' 필드로 넘어옴(파일 전체 공통).
+// 웹에선 입력하지 않고 표시만. 빈칸이냐 아니냐로 '명함·인사말 있음' 판단.
+function _insOf(d){ return String((d&&d['인사말'])==null?'':d['인사말']); }
 // 날짜별 집계 (전체 주문 대상, 업체필터 무시)
 //   basis='ship' → 발송일자(없으면 등록일) 기준 / basis='reg' → 등록일 기준
 function shipCalAgg(basis){
@@ -22634,41 +22630,24 @@ function _calProdOrders(ds, pi){
   list.sort(function(a,b){ var x=String(a['등록일시']||''), y=String(b['등록일시']||''); return x<y?1:(x>y?-1:0); });   // 등록 최신순(위) · 같은 파일끼리 모임
   var tot=m.prod[name]||{qty:0,cnt:0,spc:0};
   var h='<div style="max-width:640px"><h3 style="margin:0 0 3px">📦 '+esc(name)+'</h3>';
-  h+='<div style="color:#64748b;font-size:13px;margin-bottom:6px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b>'+((tot.spc>0)?(' · <b style="color:#b45309">🎴 명함·인사말 '+tot.spc+'건</b>'):'')+'</div>';
-  h+='<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;margin-bottom:10px">🎴 <b>명함·인사말</b> 칸에 내용을 적으면(뭐라도) 그 건은 <b>명함·인사말 있음</b>으로 집계돼요. 비우면 없음.</div>';
+  h+='<div style="color:#64748b;font-size:13px;margin-bottom:10px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b>'+((tot.spc>0)?(' · <b style="color:#b45309">🎴 명함·인사말 '+tot.spc+'건</b>'):'')+'</div>';
   if(!list.length){ h+='<div class="muted">해당 품목의 주문을 찾지 못했어요.</div>'; }
   else{
-    h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>연락처</th><th>🎴 명함·인사말 (적는 칸)</th></tr></thead><tbody>';
+    h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
     list.forEach(function(d,ix){
       var ins=_insOf(d);
-      var pth=d._path||'';
       h+='<tr'+(ins.trim()?' style="background:#fffbeb"':'')+'><td>'+(ix+1)+'</td>'
         +'<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+esc(d['수량']||'')+'</td>'
         +'<td>'+esc(d['플랫폼']||'')+'</td>'
         +'<td>'+_telLink(d['수취인전화'])+'</td>'
-        +'<td><input type="text" value="'+esc(ins)+'" data-path="'+esc(pth)+'" placeholder="예: 인사말 문구 / 명함동봉" oninput="_calSaveInsert(this)" style="width:220px;padding:5px 8px;border:1px solid '+(ins.trim()?'#f59e0b':'#cbd5e1')+';border-radius:6px;font-size:13px'+(ins.trim()?';background:#fff':'')+'"></td></tr>';
+        +(ins.trim()?('<td style="color:#b45309;font-weight:700;white-space:normal;max-width:240px">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>'))
+        +'</tr>';
     });
     h+='</tbody></table></div>';
   }
   h+='<div style="text-align:right;margin-top:12px"><button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="closePopup()">닫기</button></div></div>';
-  openPopup(h, 660);
-}
-// 인사말/명함 칸 저장 (0.6초 디바운스) — 주문레코드 <path>/인사말 에 저장. 빈칸이면 제거.
-function _calSaveInsert(el){
-  var path=el.getAttribute('data-path'); if(!path){ return; }
-  var val=el.value;
-  el.style.borderColor = val.trim() ? '#f59e0b' : '#cbd5e1';
-  el.style.background  = val.trim() ? '#fff' : '';
-  clearTimeout(el._insT);
-  el._insT=setTimeout(function(){
-    try{
-      // 빈칸이어도 ""로 저장 → 와꾸 비고를 덮어 '없음'으로 확정(빈칸 판단 유지)
-      fbDb.ref(path+'/인사말').set(val)
-        .then(function(){ try{ el.title='저장됨'; }catch(e){} })
-        .catch(function(e){ try{ toast('저장 실패: '+(e.message||e), true); }catch(_){} });
-    }catch(e){}
-  }, 600);
+  openPopup(h, 620);
 }
 // 하루 상세 (품목 큐브 + 플랫폼 + 세부내역 펼치기)
 function _calDayDetailHtml(agg, ds){
