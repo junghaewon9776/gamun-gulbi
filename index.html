@@ -22527,7 +22527,7 @@ function _calMonthHtml(agg){
   var today=todayKST(), sel=CAL_STATE.sel;
   var mTot=0, mQty=0; Object.keys(agg).forEach(function(ds){ if(ds.slice(0,7)===_calFmt(first).slice(0,7)){ mTot+=agg[ds].cnt; mQty+=agg[ds].qty; } });
   var h='<div style="margin-bottom:'+(mob?'4px':'8px')+';font-weight:800;font-size:'+(mob?'12':'14')+'px;color:#0f172a">이번 달 합계: <span style="color:#2563eb">택배 '+mTot+'건</span>'+(mQty?(' · 상품 '+mQty+'개'):'')+'</div>';
-  h+='<div style="'+(mob?'':'overflow-x:auto')+'"><table style="width:100%;border-collapse:collapse;table-layout:fixed;'+(mob?'':'min-width:640px')+'">';
+  h+='<div style="overflow-x:hidden"><table style="width:100%;border-collapse:collapse;table-layout:fixed;max-width:100%">';
   h+='<thead><tr>'+_WD.map(function(w,i){ return '<th style="padding:'+(mob?'2px':'6px')+';border:1px solid #e2e8f0;background:#f8fafc;color:'+(i===0?'#dc2626':(i===6?'#2563eb':'#475569'))+';font-size:'+(mob?'10':'12')+'px">'+w+'</th>'; }).join('')+'</tr></thead><tbody>';
   var ds=start;
   for(var r=0;r<6;r++){
