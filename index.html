@@ -60,6 +60,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Goth
 #mc{padding:16px 24px;max-width:none;margin:0 auto}
 
 .card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:12px}
+/* 가로 스크롤바 항상 보이게(폰에서도) — 오른쪽 열 보기 편하게 */
+.calxscroll{overflow-x:scroll;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:auto;scrollbar-color:#64748b #e2e8f0}
+.calxscroll::-webkit-scrollbar{height:14px;-webkit-appearance:none}
+.calxscroll::-webkit-scrollbar-track{background:#e2e8f0;border-radius:7px}
+.calxscroll::-webkit-scrollbar-thumb{background:#64748b;border-radius:7px;border:3px solid #e2e8f0}
 .card h3{font-size:14px;margin-bottom:12px;color:#333}
 table{width:100%;border-collapse:collapse}
 th{padding:8px;text-align:left;border-bottom:2px solid #e5e5e5;font-size:11px;color:#999;font-weight:600}
@@ -22636,15 +22641,22 @@ function _calProdOrders(pi){
   });
   list.sort(function(a,b){ var x=String(a['등록일시']||''), y=String(b['등록일시']||''); return x<y?1:(x>y?-1:0); });   // 등록 최신순(위) · 같은 파일끼리 모임
   var tot=m.prod[name]||{qty:0,cnt:0,spc:0};
+  var _plain=(tot.cnt||0)-(tot.spc||0);   // 인사말 없는 일반 건수
   var h='<div style="max-width:660px">';
   h+='<div style="position:sticky;top:-4px;background:#fff;z-index:2;padding:2px 0 8px;border-bottom:1px solid #e2e8f0;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">';
-  h+='<div style="flex:1"><h3 style="margin:0 0 3px">📦 '+esc(name)+'</h3>';
-  h+='<div style="color:#64748b;font-size:13px">'+ds+' 발송 · 총 <b style="color:#7c3aed">'+tot.qty+'개</b> · <b style="color:#2563eb">'+tot.cnt+'건</b>'+((tot.spc>0)?(' · <b style="color:#b45309">🎴 명함·인사말 '+tot.spc+'건</b>'):'')+'</div></div>';
+  h+='<div style="flex:1"><h3 style="margin:0 0 4px">📦 '+esc(name)+'</h3>';
+  // 계산 편하게: 총 / 일반 / 인사말 세 줄로 크게
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:13px">';
+  h+='<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:3px 10px;font-weight:800;color:#2563eb">총 '+tot.cnt+'건</span>';
+  h+='<span style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:3px 10px;font-weight:800;color:#0f172a">일반 '+_plain+'건</span>';
+  h+='<span style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:3px 10px;font-weight:800;color:#b45309">🎴 인사말 '+(tot.spc||0)+'건</span>';
+  h+='<span style="color:#94a3b8;padding:3px 4px">('+ds+' · 상품 '+tot.qty+'개)</span>';
+  h+='</div></div>';
   h+='<button onclick="closePopup()" style="flex:0 0 auto;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:800;cursor:pointer;font-size:14px">✕ 닫기</button>';
   h+='</div>';
   if(!list.length){ h+='<div class="muted">해당 품목의 주문을 찾지 못했어요.</div>'; }
   else{
-    h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>보낸분(구매자)</th><th>받는분 연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
+    h+='<div class="calxscroll"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>보낸분(구매자)</th><th>받는분 연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
     list.forEach(function(d,ix){
       var ins=_insOf(d);
       h+='<tr'+(ins.trim()?' style="background:#fffbeb"':'')+'><td>'+(ix+1)+'</td>'
@@ -22692,7 +22704,7 @@ function _calDayDetailHtml(agg, ds){
   h+='<button onclick="var e=document.getElementById(\'calDetWrap\');var o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.innerHTML=(o?\'▼\':\'▶\')+\' 세부 주문내역 ('+os.length+'건)\'" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">▶ 세부 주문내역 ('+os.length+'건)</button>';
   h+='<div id="calDetWrap" style="display:none;margin-top:8px">';
   h+='<input id="calDetSearch" type="text" placeholder="🔍 받는분·연락처·상품·구매자·송장 검색" oninput="_calDetFilter(this.value)" style="width:100%;max-width:360px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;margin-bottom:8px">';
-  h+='<div style="overflow-x:auto"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>받는분 연락처</th><th>상품명</th><th>수량</th><th>🎴 명함·인사말</th><th>플랫폼</th><th>구매자</th><th>보내는분 연락처</th><th>송장번호</th></tr></thead><tbody id="calDetBody">';
+  h+='<div class="calxscroll"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>받는분 연락처</th><th>상품명</th><th>수량</th><th>🎴 명함·인사말</th><th>플랫폼</th><th>구매자</th><th>보내는분 연락처</th><th>송장번호</th></tr></thead><tbody id="calDetBody">';
   os.forEach(function(d,i){
     var trk=d['송장번호']||'';
     var ins=_insOf(d);
