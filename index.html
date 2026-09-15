@@ -22621,8 +22621,8 @@ function _calProdCubes(m, ds){
     h+='<div onclick="_calProdOrders('+pi+')" title="누르면 이 품목 주문자(받는분) 명단" style="background:#fff;border:'+bw+'px solid '+bord+';border-radius:'+brad+'px;padding:'+pad+';text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.05);cursor:pointer;display:flex;flex-direction:column;justify-content:center;min-height:'+minH+'px">'
       +'<div style="font-weight:800;font-size:'+nmF+'px;line-height:1.15;margin-bottom:'+nmMb+'px;word-break:break-all;color:#0f172a">'+esc(p)+'</div>'
       +'<div style="font-weight:900;color:#7c3aed;line-height:1;font-size:'+numF+'px">'+q+'<span style="font-size:'+Math.round(numF*0.34)+'px;color:#94a3b8">개</span></div>'
-      +'<div style="font-size:'+cntF+'px;color:#94a3b8;margin-top:'+cntMt+'px">'+m.prod[p].cnt+'건 ▸</div>'
-      +((m.prod[p].spc>0)?('<div style="font-size:'+cntF+'px;color:#b45309;font-weight:800;margin-top:1px;background:#fef3c7;border-radius:6px;padding:0 4px;display:inline-block;align-self:center">🎴 명함·인사말 '+m.prod[p].spc+'건</div>'):'')
+      +'<div style="font-size:'+cntF+'px;color:#94a3b8;margin-top:'+cntMt+'px">총 '+m.prod[p].cnt+'건 ▸</div>'
+      +((m.prod[p].spc>0)?('<div style="font-size:'+cntF+'px;color:#b45309;font-weight:800;margin-top:1px;background:#fef3c7;border-radius:6px;padding:0 5px;display:inline-block;align-self:center;line-height:1.4">일반 '+(m.prod[p].cnt-m.prod[p].spc)+' · 🎴 '+m.prod[p].spc+'건</div>'):'')
       +'</div>';
   });
   h+='</div>';
