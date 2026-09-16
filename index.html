@@ -21622,6 +21622,9 @@ async function shipOpen(k){
       bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'접수\',true)">📩 접수</button>';
       bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'발송\',true)">🚚 송장</button>';
       bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'직접\',true)">✏️ 직접</button>';
+      bar+='<span style="width:1px;height:20px;background:#fde68a"></span>';
+      bar+='<button class="btn" style="background:#b45309;color:#fff;font-weight:700;opacity:.95" onclick="shipBulkInsert(\''+k+'\',true)" title="선택한 행을 명함·인사말 있음으로 일괄 체크">🎴 일괄 체크</button>';
+      bar+='<button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="shipBulkInsert(\''+k+'\',false)" title="선택한 행 명함·인사말 일괄 해제">🎴 일괄 해제</button>';
       bar+='<span id="shiprow_seln" style="font-size:11px;font-weight:700;color:#b45309"></span>';
     }
     bar+='<span style="margin-left:auto">'+shipSmsBadges(k)+'</span>';
@@ -21778,6 +21781,18 @@ function shipRowInsert(k,i,on,el){
   fbDb.ref(p+'/인사말').set(on?'명함·인사말':'')
     .then(function(){ toast(on?'🎴 명함·인사말 체크':'명함·인사말 해제'); })
     .catch(function(e){ alert('실패: '+e.message); });
+}
+// 🎴 선택한 접수 행 일괄 명함·인사말 체크/해제
+function shipBulkInsert(k, on){
+  var idxs=Object.keys(SHIP_ROWSEL);
+  if(!idxs.length){ alert('먼저 왼쪽 체크박스로 행을 선택하세요. (Shift+클릭 범위선택)'); return; }
+  var paths=SHIP_ROWPATH[k]||[], up={}, n=0, skip=0;
+  idxs.forEach(function(ii){ var p=paths[ii]; if(p){ up[p+'/인사말']=(on?'명함·인사말':''); n++; } else skip++; });
+  if(!n){ alert('선택한 행에 연결된 주문이 없어요. (옛 파일은 주문히스토리에서 처리)'); return; }
+  fbDb.ref().update(up).then(function(){
+    toast('🎴 '+n+'건 '+(on?'명함·인사말 체크':'해제')+(skip?(' · 연결없음 '+skip+' 제외'):''));
+    if(SHIP_OPEN_KEY===k){ SHIP_OPEN_KEY=null; shipOpen(k); }
+  }).catch(function(e){ alert('실패: '+e.message); });
 }
 // ✏️ 접수 행 수정 (주소 등) — 팝업
 function shipRowEdit(k,i){
@@ -22874,6 +22889,8 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(true)">🚚 송장문자</button>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\',true)">🎁 받는분문자</button>';
   h+='<button class="btn" style="background:#0d9488;color:#fff;font-weight:600" onclick="ordhBulkShipDate()" title="체크한 주문들의 택배 발송일자를 한번에 지정">📅 발송일자 지정</button>';
+  h+='<button class="btn" style="background:#b45309;color:#fff;font-weight:700" onclick="ordhBulkInsert(true)" title="체크한 주문을 명함·인사말 있음으로 일괄 체크">🎴 명함·인사말 체크</button>';
+  h+='<button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="ordhBulkInsert(false)" title="체크한 주문 명함·인사말 일괄 해제">🎴 해제</button>';
   h+='<button class="btn" style="background:#15803d;color:#fff;font-weight:600" onclick="ordhExportSelected()" title="선택한 주문을 엑셀 파일로 — 택배변환에 넣어 송장 재발행">📥 선택 파일변환(엑셀)</button>';
   h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="ordhDelSelected()">🗑 선택 삭제</button>';
   h+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="ordhSelClear()">선택 해제</button>';
@@ -23061,6 +23078,16 @@ function ordhInsertOk(k,on){
   fbDb.ref((ORDH_PATH[k]||'/excel_orders/'+k)+'/인사말').set(on?'명함·인사말':'')
     .then(function(){ if(ORDH_DATA[k]) ORDH_DATA[k]['인사말']=on?'명함·인사말':''; toast(on?'🎴 명함·인사말 체크':'명함·인사말 해제'); })
     .catch(function(e){ alert('실패: '+e.message); });
+}
+// 🎴 선택한 주문 일괄 명함·인사말 체크/해제
+function ordhBulkInsert(on){
+  var keys=ordhSelectedKeys();
+  if(!keys.length){ alert('먼저 행을 체크하세요. (Shift+클릭 범위선택)'); return; }
+  var up={}; keys.forEach(function(k){ up[(ORDH_PATH[k]||'/excel_orders/'+k)+'/인사말']=(on?'명함·인사말':''); });
+  fbDb.ref().update(up).then(function(){
+    keys.forEach(function(k){ if(ORDH_DATA[k]) ORDH_DATA[k]['인사말']=on?'명함·인사말':''; });
+    toast('🎴 '+keys.length+'건 '+(on?'명함·인사말 체크':'해제')); ordhSelClear();
+  }).catch(function(e){ alert('실패: '+e.message); });
 }
 // ✏️ 주문 수정 (주소·상품 등) — 팝업 폼
 function ordhEdit(k){
