@@ -22386,9 +22386,10 @@ var _WD=['일','월','화','수','목','금','토'];
 // (일부 앱 WebView는 UA에 Mobile 표기가 없어 IS_MOBILE=false → 예전엔 달력이 640px로 넘쳐 토요일이 잘림)
 function _calNarrow(){ try{ return IS_MOBILE || (window.innerWidth>0 && window.innerWidth<=680); }catch(e){ return IS_MOBILE; } }
 
-// 인사말/명함 내용 — 와꾸 저장 시 입력창에 적은 값이 주문의 '인사말' 필드로 넘어옴(파일 전체 공통).
-// 웹에선 입력하지 않고 표시만. 빈칸이냐 아니냐로 '명함·인사말 있음' 판단.
+// 인사말/명함 내용 — 와꾸 저장 시 특이사항 입력값이 주문의 '인사말' 필드로 넘어옴(파일 전체 공통).
+// 웹에선 표시만. 특이사항엔 다른 메모도 들어오므로, '명함' 또는 '인사말' 글자가 있을 때만 집계.
 function _insOf(d){ return String((d&&d['인사말'])==null?'':d['인사말']); }
+function _hasInsert(d){ var v=_insOf(d).replace(/\s/g,''); return v.indexOf('명함')>=0 || v.indexOf('인사말')>=0; }
 // 날짜별 집계 (전체 주문 대상, 업체필터 무시)
 //   basis='ship' → 발송일자(없으면 등록일) 기준 / basis='reg' → 등록일 기준
 function shipCalAgg(basis){
@@ -22404,7 +22405,7 @@ function shipCalAgg(basis){
     var p=d['플랫폼']||'(기타)'; var pp=m.plat[p]||(m.plat[p]={cnt:0,qty:0}); pp.cnt++; pp.qty+=q;
     var nm=String(d['상품명']||'(품명없음)').trim()||'(품명없음)';
     if(CAL_STATE.uniq) nm=_prodCanon(nm);   // 고유품목 통합 ON이면 별칭→고유품목
-    var hasIns=_insOf(d).trim()!=='';   // 인사말/명함(와꾸 비고 또는 웹 입력)에 뭐라도 있으면 '있음'
+    var hasIns=_hasInsert(d);   // 특이사항에 '명함'/'인사말' 글자가 있을 때만 '있음'
     var rp=m.prod[nm]||(m.prod[nm]={cnt:0,qty:0,spc:0}); rp.cnt++; rp.qty+=(q||1); if(hasIns) rp.spc=(rp.spc||0)+1;
     if(hasIns) m.spc=(m.spc||0)+1;   // 그날 전체 명함·인사말 건수
     if(m.orders.length<5000){ d._path=x.path; m.orders.push(d); }
@@ -22658,14 +22659,14 @@ function _calProdOrders(pi){
   else{
     h+='<div class="calxscroll"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>보낸분(구매자)</th><th>받는분 연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
     list.forEach(function(d,ix){
-      var ins=_insOf(d);
-      h+='<tr'+(ins.trim()?' style="background:#fffbeb"':'')+'><td>'+(ix+1)+'</td>'
+      var ins=_insOf(d), isIns=_hasInsert(d);
+      h+='<tr'+(isIns?' style="background:#fffbeb"':'')+'><td>'+(ix+1)+'</td>'
         +'<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+esc(d['수량']||'')+'</td>'
         +'<td>'+esc(d['플랫폼']||'')+'</td>'
         +'<td>'+esc(d['구매자명']||'')+(d['구매자전화']?('<br><span style="font-size:11px">'+_telLink(d['구매자전화'])+'</span>'):'')+'</td>'
         +'<td>'+_telLink(d['수취인전화'])+'</td>'
-        +(ins.trim()?('<td style="color:#b45309;font-weight:700;white-space:normal;max-width:240px">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>'))
+        +(isIns?('<td style="color:#b45309;font-weight:700;white-space:normal;max-width:240px">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>'))
         +'</tr>';
     });
     h+='</tbody></table></div>';
@@ -22707,14 +22708,14 @@ function _calDayDetailHtml(agg, ds){
   h+='<div class="calxscroll"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>받는분 연락처</th><th>상품명</th><th>수량</th><th>🎴 명함·인사말</th><th>플랫폼</th><th>구매자</th><th>보내는분 연락처</th><th>송장번호</th></tr></thead><tbody id="calDetBody">';
   os.forEach(function(d,i){
     var trk=d['송장번호']||'';
-    var ins=_insOf(d);
+    var ins=_insOf(d), isIns=_hasInsert(d);
     var s=((d['수취인명']||'')+' '+(d['수취인전화']||'')+' '+(d['상품명']||'')+' '+(d['플랫폼']||'')+' '+(d['구매자명']||'')+' '+(d['구매자전화']||'')+' '+trk+' '+ins).toLowerCase();
-    h+='<tr data-s="'+esc(s)+'"'+(ins.trim()?' style="background:#fffbeb"':'')+'><td>'+(i+1)+'</td>';
+    h+='<tr data-s="'+esc(s)+'"'+(isIns?' style="background:#fffbeb"':'')+'><td>'+(i+1)+'</td>';
     h+='<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>';
     h+='<td>'+_telLink(d['수취인전화'])+'</td>';
     h+='<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">'+esc(d['상품명']||'')+'</td>';
     h+='<td>'+esc(d['수량']||'')+'</td>';
-    h+=ins.trim()?('<td style="color:#b45309;font-weight:700;max-width:200px;white-space:normal">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>');
+    h+=isIns?('<td style="color:#b45309;font-weight:700;max-width:200px;white-space:normal">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>');
     h+='<td>'+esc(d['플랫폼']||'')+'</td>';
     h+='<td>'+esc(d['구매자명']||'')+'</td>';
     h+='<td>'+_telLink(d['구매자전화'])+'</td>';
