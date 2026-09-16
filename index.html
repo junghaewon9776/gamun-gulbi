@@ -22904,6 +22904,8 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 전체 받는분문자</button>';
   h+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ordh_trkfile\').click()">📤 송장 업로드</button>';
   h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
+  h+='<button class="btn" style="background:#ea580c;color:#fff;font-weight:700" onclick="document.getElementById(\'ordh_addrlog\').click()" title="택배 출력 로그(.log) 올리면 원래 주소와 달라진 건을 찾아 주소변경으로 표시 (미리보기 후 적용)">📍 주소로그 업로드</button>';
+  h+='<input type="file" id="ordh_addrlog" accept=".log,.txt,.csv" multiple style="display:none" onchange="ordhAddrLogUpload(this.files);this.value=\'\'">';
   h+='</div>';
   h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
   h+='<span style="font-weight:700;font-size:12px">☑ 선택한 것만:</span>';
@@ -23628,6 +23630,69 @@ function ordhTrackUpload(file){
     document.getElementById('ordh_trkfile').value='';
   };
   rd.readAsArrayBuffer(file);
+}
+// 📍 주소로그(.log) 업로드 → 원래 주소와 달라진 건만 찾아 '변경주소'로 표시. 나머지(동일)는 건너뜀.
+// .log = 택배 출력 로그(탭구분·CP949). col7=수취인명 col8=전화 col10=최종주소
+function ordhAddrLogUpload(files){
+  if(!files||!files.length) return;
+  var arr=Array.prototype.slice.call(files);
+  Promise.all(arr.map(function(f){ return new Promise(function(res){
+    var rd=new FileReader();
+    rd.onload=function(e){
+      var buf=new Uint8Array(e.target.result), txt='';
+      try{ txt=new TextDecoder('euc-kr').decode(buf); }
+      catch(_){ try{ txt=new TextDecoder('utf-8').decode(buf); }catch(__){ txt=''; } }
+      // 깨졌으면(euc-kr 실패) utf-8 재시도
+      if(/�/.test(txt)){ try{ var t2=new TextDecoder('utf-8').decode(buf); if(!/�/.test(t2)) txt=t2; }catch(_){} }
+      res({name:f.name, txt:txt});
+    };
+    rd.onerror=function(){ res({name:f.name, txt:''}); };
+    rd.readAsArrayBuffer(f);
+  }); })).then(_ordhAddrLogProcess).catch(function(e){ alert('로그 읽기 실패: '+(e.message||e)); });
+}
+function _addrNorm(s){ return String(s||'').replace(/\([0-9]{3,6}\)/g,'').replace(/[\s.,·・\-]/g,'').toLowerCase(); }
+function _ordhAddrLogProcess(fileDatas){
+  function tail(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
+  function nrm(s){ return _trkNrm(s); }
+  var idx={};
+  Object.keys(ORDH_DATA).forEach(function(key){ var o=ORDH_DATA[key]||{}; if(o['del'])return; var k1=nrm(o['수취인명'])+'|'+tail(o['수취인전화']); (idx[k1]=idx[k1]||[]).push(key); });
+  var cands=[], total=0, matched=0, miss=0;
+  fileDatas.forEach(function(fd){
+    String(fd.txt||'').split(/\r?\n/).forEach(function(ln){
+      if(!ln.trim()) return;
+      var c=ln.split('\t'); if(c.length<11) return;
+      var nm=String(c[7]||'').trim(), tel=String(c[8]||''), addr=String(c[10]||'').trim();
+      if(!nm||!addr||!/\d/.test(tel)) return;   // col8이 전화가 아니면(형식 안 맞음) 건너뜀
+      total++;
+      var key=null, kk=[nrm(nm)+'|'+tail(tel), nrm(nm)+'|'];
+      for(var q=0;q<kk.length && !key;q++){ if(idx[kk[q]] && idx[kk[q]].length) key=idx[kk[q]].shift(); }
+      if(!key){ var bn=Object.keys(idx).filter(function(x){return x.indexOf(nrm(nm)+'|')===0 && idx[x].length;}); if(bn.length) key=idx[bn[0]].shift(); }
+      if(!key){ miss++; return; }
+      matched++;
+      var o=ORDH_DATA[key]||{}, orig=o['주소']||'', curChg=o['변경주소']||'';
+      if(_addrNorm(addr)!==_addrNorm(orig) && _addrNorm(addr)!==_addrNorm(curChg)){
+        cands.push({key:key, name:nm, oldAddr:orig, newAddr:addr});
+      }
+    });
+  });
+  if(!total){ alert('로그에서 읽은 주문이 없어요.\n파일 형식(탭 구분·수취인명/전화/주소)이 맞는지 확인해주세요.'); return; }
+  if(!cands.length){ alert('주소가 바뀐 건이 없습니다. ✅\n총 '+total+'건 · 매칭 '+matched+'건 — 모두 원래 주소와 동일.'); return; }
+  window._ADDRLOG=cands;
+  var h='<div style="max-width:760px"><h3 style="margin:0 0 4px">📍 주소 바뀐 '+cands.length+'건 발견</h3>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:10px">로그 총 '+total+'건 중 <b style="color:#ea580c">'+cands.length+'건</b>만 원래 주소와 다릅니다. (나머지 '+(matched-cands.length)+'건 동일'+(miss?(' · 매칭안됨 '+miss):'')+') 아래 건들을 <b>변경주소로 한번에 적용</b>합니다.</div>';
+  h+='<div class="calxscroll" style="max-height:52vh;overflow-y:auto"><table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>#</th><th>받는분</th><th>원래 주소</th><th>→ 바뀐 주소</th></tr></thead><tbody>';
+  cands.forEach(function(c,i){ h+='<tr><td>'+(i+1)+'</td><td style="font-weight:600;white-space:nowrap">'+esc(c.name)+'</td><td style="color:#94a3b8;max-width:250px;white-space:normal;text-decoration:line-through">'+esc(c.oldAddr)+'</td><td style="color:#ea580c;font-weight:700;max-width:270px;white-space:normal">📍'+esc(c.newAddr)+'</td></tr>'; });
+  h+='</tbody></table></div>';
+  h+='<div style="text-align:right;margin-top:12px"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="closePopup()">취소</button> <button class="btn" style="background:#ea580c;color:#fff;font-weight:800" onclick="_ordhAddrLogApply()">📍 '+cands.length+'건 주소변경 적용</button></div></div>';
+  openPopup(h, 780);
+}
+function _ordhAddrLogApply(){
+  var cands=window._ADDRLOG||[]; if(!cands.length){ closePopup(); return; }
+  var up={}; cands.forEach(function(c){ up[(ORDH_PATH[c.key]||'/excel_orders/'+c.key)+'/변경주소']=c.newAddr; });
+  fbDb.ref().update(up).then(function(){
+    cands.forEach(function(c){ if(ORDH_DATA[c.key]) ORDH_DATA[c.key]['변경주소']=c.newAddr; });
+    closePopup(); toast('📍 '+cands.length+'건 주소변경 적용 완료'); renderOrderHist();
+  }).catch(function(e){ alert('적용 실패: '+e.message); });
 }
 
 // ============================================================================
