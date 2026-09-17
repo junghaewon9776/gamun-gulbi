@@ -23057,6 +23057,10 @@ function ordhDateHi(){
 }
 // 선택 유지 — 검색/필터 바꿔도 체크 상태 보존 (화면 체크박스 대신 여기에 기억)
 var ORDH_SEL={};
+var ORDH_LIMIT=300;   // 주문히스토리 표시 개수 (더보기/전체펼치기로 증가)
+function ordhShowMore(){ ORDH_LIMIT+=300; renderOrderHist(); }
+function ordhShowAll(){ ORDH_LIMIT=1000000; renderOrderHist(); }
+function ordhShowReset(){ ORDH_LIMIT=300; renderOrderHist(); }
 function ordhToggle(k,on){ if(on) ORDH_SEL[k]=1; else delete ORDH_SEL[k]; ordhSelCount(); }
 // Shift+클릭 = 직전 클릭 행부터 지금 행까지 범위 전체 선택/해제
 var _ordhLastIdx=-1;
@@ -23447,7 +23451,7 @@ function renderOrderHist(){
     var _bl=(ORDH_DATE.basis==='ship'?'발송일':'등록일');
     if(cnt) cnt.textContent='['+_bl+' · '+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
   }
-  var show=rows.slice(0,300);
+  var show=rows.slice(0,ORDH_LIMIT);
   var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>📅발송일자</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>주소</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th>주소확인</th><th>🎴명함·인사말</th><th>📍주소변경</th><th>수정/삭제</th></tr></thead><tbody>';
   show.forEach(function(row){
     var d=row.d;
@@ -23483,7 +23487,17 @@ function renderOrderHist(){
       : '<td style="white-space:nowrap"><button class="btn" style="background:#2563eb;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhEdit(\''+row.k+'\')" title="주소·상품 등 수정">✏️</button> <button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="ordhDel(\''+row.k+'\')" title="삭제됨 표시 (되돌리기 가능)">🗑</button></td>';
     h+='</tr>';
   });
-  h+='</tbody></table>'+(rows.length>300?'<div class="muted" style="font-size:11px;margin-top:4px">최근 300건만 표시 — 검색으로 좁혀보세요</div>':'');
+  h+='</tbody></table>';
+  if(rows.length>show.length){
+    var _rest=rows.length-show.length;
+    h+='<div style="text-align:center;margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center">';
+    h+='<span class="muted" style="font-size:12px">'+show.length+'/'+rows.length+'건 표시</span>';
+    h+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:700" onclick="ordhShowMore()">▼ 더보기 (다음 '+Math.min(300,_rest)+'건)</button>';
+    h+='<button class="btn" style="background:#0d9488;color:#fff;font-weight:700" onclick="ordhShowAll()">📋 전체 펼치기 ('+rows.length+'건)</button>';
+    h+='</div>';
+  } else if(ORDH_LIMIT>300 && rows.length>300){
+    h+='<div style="text-align:center;margin-top:10px"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="ordhShowReset()">▲ 접기 (300건만)</button></div>';
+  }
   el.innerHTML=h;
   ordhSelCount();
 }
