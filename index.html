@@ -21606,6 +21606,7 @@ async function shipOpen(k){
   // 이 파일에 받는분+전화 열이 있으면 문자발송 버튼 노출 (특정 업체 요청 시)
   var ni=heads.findIndex(function(x){return /받는분|수취인/.test(x);});
   var ti=heads.findIndex(function(x){return /전화|연락처|휴대/.test(x);});
+  var aci=heads.findIndex(function(x){return /주소/.test(x);});   // 주소 열 — 변경주소 주황 표시용
   var bar='';
   if(ni>=0){
     bar='<div style="margin-bottom:8px;padding:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
@@ -21694,7 +21695,12 @@ async function shipOpen(k){
     h+='<tr data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'" style="'+(rowDel?'opacity:.5;':'')+(bg?('background:'+bg+';'):'')+'">';
     h+='<td><input type="checkbox" class="shiprow_ck" value="'+i+'"'+(SHIP_ROWSEL[i]?' checked':'')+' onclick="shipRowCkClick(this,event)"></td>';
     h+='<td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
-    (r||[]).forEach(function(v,ci){ h+='<td>'+((ci===ti)?_telLink(v):(v||''))+'</td>'; });
+    var _chgA=rowChg[i];
+    (r||[]).forEach(function(v,ci){
+      if(ci===ti){ h+='<td>'+_telLink(v)+'</td>'; }
+      else if(ci===aci){ h+='<td style="white-space:normal;max-width:280px">'+((_chgA)?('<div style="color:#94a3b8;text-decoration:line-through">'+esc(v||'')+'</div><div style="color:#ea580c;font-weight:800;margin-top:2px">📍'+esc(_chgA)+'</div>'):(v||''))+'</td>'; }
+      else { h+='<td>'+(v||'')+'</td>'; }
+    });
     if(ni>=0){ var tm=trkMap[i]; h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>'; }
     h+='<td><input type="date" value="'+esc(rowSd[i]||'')+'" onchange="shipRowDate(\''+k+'\','+i+',this.value)" style="width:128px;font-size:12px;padding:2px 4px;border:1px solid '+(rowSd[i]?'#16a34a':'#cbd5e1')+';border-radius:6px'+(rowSd[i]?';background:#f0fdf4;font-weight:700':'')+'"></td>';
     h+='<td style="text-align:center"><label style="cursor:pointer;font-size:11px;font-weight:700;color:'+(rok?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(rok?'checked':'')+' onclick="shipRowOk(\''+k+'\','+i+',this.checked,this)"> <span class="_oklbl">'+(rok?'✅':'미확인')+'</span></label></td>';
@@ -21705,7 +21711,7 @@ async function shipOpen(k){
     var _chg=rowChg[i];
     h+= (_chg==null)
       ? '<td style="text-align:center;color:#cbd5e1" title="연결된 주문이 없어(옛 파일) 입력 불가">-</td>'
-      : '<td style="white-space:nowrap;text-align:center">'+(_chg?('<div style="color:#ea580c;font-weight:700;white-space:normal;max-width:180px;font-size:11px;margin-bottom:2px">📍'+esc(_chg)+'</div>'):'')+'<button class="btn" style="background:'+(_chg?'#ea580c':'#e2e8f0')+';color:'+(_chg?'#fff':'#334155')+';font-weight:700;padding:2px 8px" onclick="shipRowAddrChange(\''+k+'\','+i+')" title="회신으로 바뀐 주소 입력(원래 주소는 보존)">📍'+(_chg?'변경됨':'주소변경')+'</button></td>';
+      : '<td style="white-space:nowrap;text-align:center"><button class="btn" style="background:'+(_chg?'#ea580c':'#e2e8f0')+';color:'+(_chg?'#fff':'#334155')+';font-weight:700;padding:2px 8px" onclick="shipRowAddrChange(\''+k+'\','+i+')" title="회신으로 바뀐 주소 입력(원래 주소는 보존) · 바뀐 주소는 주소칸에 주황색으로 표시됨">📍'+(_chg?'변경됨':'주소변경')+'</button></td>';
     h+='<td><input value="'+esc(memo)+'" placeholder="비고" onchange="shipRowMemo(\''+k+'\','+i+',this.value,this)" style="width:130px;font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px"></td>';
     var colBtns=''; ['','y','g','b','p','r'].forEach(function(c){ var on=(col===c); colBtns+='<span onclick="shipRowColor(\''+k+'\','+i+',\''+c+'\')" title="'+(c===''?'색없음':'색칠')+'" style="display:inline-block;width:17px;height:17px;border-radius:4px;margin:0 1px;cursor:pointer;vertical-align:middle;border:'+(on?'2px solid #111':'1px solid #cbd5e1')+';background:'+(c===''?'#fff':COLORS[c])+';text-align:center;line-height:15px;font-size:9px;color:#94a3b8">'+(c===''?'x':'')+'</span>'; });
     h+='<td style="white-space:nowrap">'+colBtns+'</td>';
@@ -21797,12 +21803,11 @@ function shipRowAddrChange(k,i){
   var ai=-1; heads.forEach(function(hd,c){ if(ai<0 && /주소/.test(hd)) ai=c; });
   var orig = ai>=0 ? (row[ai]||'') : '';
   var cur = (SHIP_ROWCHG[k]||[])[i] || '';
-  var v=prompt('회신으로 바뀐 주소를 입력하세요. (원래 주소는 그대로 보존)\n\n원래 주소: '+orig+'\n\n※ 비우고 확인하면 변경 표시 해제', cur);
-  if(v===null) return;
-  v=v.trim();
-  fbDb.ref(p+'/변경주소').set(v||null)
-    .then(function(){ toast(v?'📍 변경주소 저장':'변경 표시 해제'); if(SHIP_OPEN_KEY===k){ SHIP_OPEN_KEY=null; shipOpen(k); } })
-    .catch(function(e){ alert('실패: '+e.message); });
+  _addrChangeModal(orig, cur, function(v){
+    fbDb.ref(p+'/변경주소').set(v||null)
+      .then(function(){ closePopup(); toast(v?'📍 변경주소 저장':'변경 표시 해제'); if(SHIP_OPEN_KEY===k){ SHIP_OPEN_KEY=null; shipOpen(k); } })
+      .catch(function(e){ alert('실패: '+e.message); });
+  });
 }
 // 🎴 선택한 접수 행 일괄 명함·인사말 체크/해제
 function shipBulkInsert(k, on){
@@ -23103,18 +23108,30 @@ function ordhInsertOk(k,on){
     .then(function(){ if(ORDH_DATA[k]) ORDH_DATA[k]['인사말']=on?'명함·인사말':''; toast(on?'🎴 명함·인사말 체크':'명함·인사말 해제'); })
     .catch(function(e){ alert('실패: '+e.message); });
 }
+// 📍 주소 변경 입력 모달 (원래 주소는 선택·복사 가능, 변경주소만 따로 저장)
+function _addrChangeModal(orig, cur, saveFn){
+  var h='<div style="max-width:520px"><h3 style="margin:0 0 8px">📍 주소 변경 입력</h3>';
+  h+='<label style="font-size:12px;font-weight:700;color:#475569">원래 주소 <span style="font-weight:600;color:#94a3b8">(눌러서 전체선택·복사)</span></label>';
+  h+='<textarea id="_ac_orig" readonly onclick="this.focus();this.select()" style="width:100%;box-sizing:border-box;height:56px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#334155;margin:3px 0 4px;font-size:13px">'+esc(orig)+'</textarea>';
+  h+='<div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:10px"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700;font-size:12px;padding:4px 10px" onclick="_acCopyOrig()">📋 복사</button><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700;font-size:12px;padding:4px 10px" onclick="var n=document.getElementById(\'_ac_new\');n.value=document.getElementById(\'_ac_orig\').value;n.focus()">↓ 아래로 가져오기</button></div>';
+  h+='<label style="font-size:12px;font-weight:700;color:#ea580c">바뀐 주소 <span style="font-weight:600;color:#94a3b8">(여기 입력 · 원래 주소는 보존됨)</span></label>';
+  h+='<textarea id="_ac_new" placeholder="회신으로 바뀐 주소" style="width:100%;box-sizing:border-box;height:66px;padding:8px;border:1px solid #f59e0b;border-radius:8px;margin:3px 0 3px;font-size:13px">'+esc(cur)+'</textarea>';
+  h+='<div style="font-size:11px;color:#94a3b8;margin-bottom:12px">※ 비우고 저장하면 변경 표시가 해제됩니다.</div>';
+  h+='<div style="text-align:right"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="closePopup()">취소</button> <button class="btn" id="_ac_save" style="background:#ea580c;color:#fff;font-weight:800">📍 저장</button></div></div>';
+  openPopup(h,540);
+  var b=document.getElementById('_ac_save'); if(b) b.onclick=function(){ var el=document.getElementById('_ac_new'); saveFn((el&&el.value||'').trim()); };
+}
+function _acCopyOrig(){ var t=document.getElementById('_ac_orig'); if(!t) return; t.focus(); t.select(); var done=function(){ toast('📋 원래주소 복사됨'); }; try{ if(document.execCommand('copy')){ done(); return; } }catch(e){} try{ if(navigator.clipboard) navigator.clipboard.writeText(t.value).then(done); }catch(e){} }
 // 📍 주소 변경 입력 (원래 주소는 보존, 변경주소 필드에 따로 저장)
 function ordhAddrChange(k){
   var d=ORDH_DATA[k]||{};
-  var cur=d['변경주소']||'';
-  var v=prompt('회신으로 바뀐 주소를 입력하세요. (원래 주소는 그대로 보존됩니다)\n\n원래 주소: '+(d['주소']||'')+'\n\n※ 비우고 확인하면 변경 표시 해제', cur);
-  if(v===null) return;
-  v=v.trim();
-  var ref=fbDb.ref((ORDH_PATH[k]||'/excel_orders/'+k)+'/변경주소');
-  (v?ref.set(v):ref.remove()).then(function(){
-    if(ORDH_DATA[k]){ if(v) ORDH_DATA[k]['변경주소']=v; else delete ORDH_DATA[k]['변경주소']; }
-    toast(v?'📍 변경주소 저장':'변경 표시 해제'); renderOrderHist();
-  }).catch(function(e){ alert('실패: '+e.message); });
+  _addrChangeModal(d['주소']||'', d['변경주소']||'', function(v){
+    var ref=fbDb.ref((ORDH_PATH[k]||'/excel_orders/'+k)+'/변경주소');
+    (v?ref.set(v):ref.remove()).then(function(){
+      if(ORDH_DATA[k]){ if(v) ORDH_DATA[k]['변경주소']=v; else delete ORDH_DATA[k]['변경주소']; }
+      closePopup(); toast(v?'📍 변경주소 저장':'변경 표시 해제'); renderOrderHist();
+    }).catch(function(e){ alert('실패: '+e.message); });
+  });
 }
 // 🎴 선택한 주문 일괄 명함·인사말 체크/해제
 function ordhBulkInsert(on){
