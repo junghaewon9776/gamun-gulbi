@@ -65,6 +65,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Goth
 .calxscroll::-webkit-scrollbar{height:14px;-webkit-appearance:none}
 .calxscroll::-webkit-scrollbar-track{background:#e2e8f0;border-radius:7px}
 .calxscroll::-webkit-scrollbar-thumb{background:#64748b;border-radius:7px;border:3px solid #e2e8f0}
+/* 주문히스토리 열너비 드래그 조절 */
+.ordhtbl{table-layout:fixed}
+.ordhtbl th,.ordhtbl td{overflow:hidden;text-overflow:ellipsis}
+.ordhrz{position:absolute;top:0;right:-1px;width:10px;height:100%;cursor:col-resize;user-select:none;touch-action:none;z-index:3}
+.ordhrz:hover{background:rgba(37,99,235,.4)}
 .card h3{font-size:14px;margin-bottom:12px;color:#333}
 table{width:100%;border-collapse:collapse}
 th{padding:8px;text-align:left;border-bottom:2px solid #e5e5e5;font-size:11px;color:#999;font-weight:600}
@@ -22911,6 +22916,7 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ordh_trkfile\').click()">📤 송장 업로드</button>';
   h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
   h+='<button class="btn" style="background:#15803d;color:#fff;font-weight:700" onclick="ordhExportData()" title="지금 보이는(필터된) 주문을 엑셀로 저장. 체크한 게 있으면 체크된 것만 저장">📥 엑셀 다운로드</button>';
+  h+='<button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="ordhColReset()" title="표 열너비를 기본값으로 되돌림 (열 경계선을 마우스로 끌면 너비 조절돼요)">↔ 열너비 초기화</button>';
   h+='<button class="btn" style="background:#ea580c;color:#fff;font-weight:700" onclick="document.getElementById(\'ordh_addrlog\').click()" title="택배 출력 로그(.log) 올리면 원래 주소와 달라진 건을 찾아 주소변경으로 표시 (미리보기 후 적용)">📍 주소로그 업로드</button>';
   h+='<input type="file" id="ordh_addrlog" accept=".log,.txt,.csv" multiple style="display:none" onchange="ordhAddrLogUpload(this.files);this.value=\'\'">';
   h+='</div>';
@@ -23062,6 +23068,35 @@ var ORDH_SEL={};
 var ORDH_LIMIT=300;   // 주문히스토리 표시 개수 (더보기/전체펼치기로 증가)
 var ORDH_RENDER_TOKEN=0;   // 청크 렌더 중복 방지 토큰
 var ORDH_LAST_ROWS=[];     // 현재 필터 결과(엑셀 다운로드용)
+// 주문히스토리 열너비(px) — 이 PC에 저장. 순서: 체크·등록일시·발송일자·플랫폼·수취인·수취인전화·주소·구매자·구매자전화·상품명·수량·택배사·송장번호·문자·주소확인·명함인사말·주소변경·수정삭제
+var ORDH_COLW_DEF=[34,132,140,72,76,118,240,76,118,180,48,66,120,84,78,110,86,88];
+var ORDH_COLW=(function(){ try{ var s=JSON.parse(localStorage.getItem('gamunOrdhColW')||'null'); if(s&&s.length===ORDH_COLW_DEF.length) return s.map(Number); }catch(e){} return ORDH_COLW_DEF.slice(); })();
+function _ordhSaveColW(){ try{ localStorage.setItem('gamunOrdhColW', JSON.stringify(ORDH_COLW)); }catch(e){} }
+function _ordhColgroup(){ return '<colgroup>'+ORDH_COLW.map(function(w){return '<col style="width:'+w+'px">';}).join('')+'</colgroup>'; }
+function _ordhTblWidth(){ return ORDH_COLW.reduce(function(a,b){return a+b;},0); }
+function ordhColReset(){ ORDH_COLW=ORDH_COLW_DEF.slice(); _ordhSaveColW(); renderOrderHist(); toast('↔ 열너비 초기화'); }
+var _ordhRz=null;
+function _ordhRzStart(e, ci){
+  e.preventDefault(); e.stopPropagation();
+  _ordhRz={ci:ci, x:e.clientX, w:ORDH_COLW[ci]};
+  window.addEventListener('pointermove', _ordhRzMove);
+  window.addEventListener('pointerup', _ordhRzEnd);
+  document.body.style.userSelect='none';
+}
+function _ordhRzMove(e){
+  if(!_ordhRz) return;
+  var nw=Math.max(28, _ordhRz.w + (e.clientX - _ordhRz.x));
+  ORDH_COLW[_ordhRz.ci]=nw;
+  var cols=document.querySelectorAll('#ordh_list colgroup col');
+  if(cols[_ordhRz.ci]) cols[_ordhRz.ci].style.width=nw+'px';
+  var tbl=document.querySelector('#ordh_list table'); if(tbl) tbl.style.width=_ordhTblWidth()+'px';
+}
+function _ordhRzEnd(){
+  window.removeEventListener('pointermove', _ordhRzMove);
+  window.removeEventListener('pointerup', _ordhRzEnd);
+  document.body.style.userSelect='';
+  if(_ordhRz){ _ordhRz=null; _ordhSaveColW(); }
+}
 // 📥 주문히스토리 엑셀 다운로드 — 체크 없으면 현재 필터 전체, 체크 있으면 체크된 것만
 function ordhExportData(){
   if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패 — 새로고침 후 다시 시도하세요.'); return; }
@@ -23501,7 +23536,9 @@ function renderOrderHist(){
     if(cnt) cnt.textContent='['+_bl+' · '+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
   }
   var show=rows.slice(0,ORDH_LIMIT);
-  var h='<table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)"></th><th>등록일시</th><th>📅발송일자</th><th>플랫폼</th><th>수취인</th><th>수취인전화</th><th>주소</th><th>구매자</th><th>구매자전화</th><th>상품명</th><th>수량</th><th>택배사</th><th>송장번호</th><th>문자</th><th>주소확인</th><th>🎴명함·인사말</th><th>📍주소변경</th><th>수정/삭제</th></tr></thead><tbody id="ordh_body"></tbody></table>';
+  var _labels=['<input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)">','등록일시','📅발송일자','플랫폼','수취인','수취인전화','주소','구매자','구매자전화','상품명','수량','택배사','송장번호','문자','주소확인','🎴명함·인사말','📍주소변경','수정/삭제'];
+  var _thead='<thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:2">'+_labels.map(function(lb,ci){ return '<th style="position:relative">'+lb+'<span class="ordhrz" onpointerdown="_ordhRzStart(event,'+ci+')" title="드래그로 열너비 조절"></span></th>'; }).join('')+'</tr></thead>';
+  var h='<table class="tbl ordhtbl" style="width:'+_ordhTblWidth()+'px;white-space:nowrap">'+_ordhColgroup()+_thead+'<tbody id="ordh_body"></tbody></table>';
   h+='<div id="ordh_loading" style="text-align:center;padding:10px;color:#2563eb;font-weight:800;font-size:14px;display:none">⏳ 불러오는 중...</div>';
   if(rows.length>show.length){
     var _rest=rows.length-show.length;
