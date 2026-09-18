@@ -22930,7 +22930,7 @@ function dOrderHist(){
   h+='<b style="color:#c026d3">업체</b> <select id="ordh_company" onchange="renderOrderHist()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
   h+='<b style="color:#7c3aed">지점</b> <select id="ordh_jijeom" onchange="renderOrderHist()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
   h+='<input id="ordh_q" placeholder="🔍 검색 (수취인·주문번호·상품명·송장·전화)" style="width:340px;max-width:70vw;padding:11px 14px;font-size:15px;border:2px solid #94a3b8;border-radius:10px" oninput="renderOrderHist()">';
-  h+='<select id="ordh_f" onchange="renderOrderHist()" style="width:auto;padding:10px 12px;font-size:14px;border:2px solid #cbd5e1;border-radius:10px"><option value="">전체</option><option value="no">송장 없음 (미발송)</option><option value="yes">송장 있음 (발송)</option></select>';
+  h+='<select id="ordh_f" onchange="ordhShowReset();renderOrderHist()" style="width:auto;padding:10px 12px;font-size:14px;border:2px solid #cbd5e1;border-radius:10px"><option value="">전체</option><option value="no">송장 없음 (미발송)</option><option value="yes">송장 있음 (발송)</option><option value="chg">📍 주소변경건만</option><option value="ins">🎴 명함·인사말건만</option></select>';
   h+='<span id="ordh_cnt" class="muted" style="font-size:12px"></span>';
   h+='</div>';
   // 📅 기간 필터 (오늘/최근7일/이번달/전체 + 직접 날짜)
@@ -23060,7 +23060,7 @@ var ORDH_SEL={};
 var ORDH_LIMIT=300;   // 주문히스토리 표시 개수 (더보기/전체펼치기로 증가)
 var ORDH_RENDER_TOKEN=0;   // 청크 렌더 중복 방지 토큰
 function ordhShowMore(){ ORDH_LIMIT+=300; renderOrderHist(); }
-function ordhShowAll(){ ORDH_LIMIT=1000000; renderOrderHist(); }
+function ordhShowAll(n){ if(n>1500 && !confirm(n+'건을 다 불러오면 시간이 꽤 걸려요(멈추진 않고 불러오는 중 표시됨).\n계속할까요?\n\n※ 보통은 [더보기]로 조금씩 보는 걸 권장해요.')) return; ORDH_LIMIT=1000000; renderOrderHist(); }
 function ordhShowReset(){ ORDH_LIMIT=300; renderOrderHist(); }
 function ordhToggle(k,on){ if(on) ORDH_SEL[k]=1; else delete ORDH_SEL[k]; ordhSelCount(); }
 // Shift+클릭 = 직전 클릭 행부터 지금 행까지 범위 전체 선택/해제
@@ -23426,13 +23426,18 @@ function renderOrderHist(){
     var d=ORDH_DATA[k]||{};
     if(f==='no' && d['송장번호']) return;
     if(f==='yes' && !d['송장번호']) return;
-    if(_recCut){   // ⏱ 최근 N분 (등록일시 기준)
-      var _t=_ordhTs(d['등록일시']); if(!_t||_t<_recCut) return;
-    } else if(df||dt){   // 📅 기간 필터 (등록일/발송일 기준)
-      var dd=_ordhDateVal(d,ORDH_DATE.basis);
-      if(!dd) return;
-      if(df && dd<df) return;
-      if(dt && dd>dt) return;
+    if(f==='chg' && !String(d['변경주소']||'').trim()) return;   // 📍 주소변경건만
+    if(f==='ins' && !_hasInsert(d)) return;                       // 🎴 명함·인사말건만
+    // 📍주소변경/🎴명함인사말 필터는 날짜 무시하고 전체에서 찾음
+    if(f!=='chg' && f!=='ins'){
+      if(_recCut){   // ⏱ 최근 N분 (등록일시 기준)
+        var _t=_ordhTs(d['등록일시']); if(!_t||_t<_recCut) return;
+      } else if(df||dt){   // 📅 기간 필터 (등록일/발송일 기준)
+        var dd=_ordhDateVal(d,ORDH_DATE.basis);
+        if(!dd) return;
+        if(df && dd<df) return;
+        if(dt && dd>dt) return;
+      }
     }
     if(q){
       var hay=((d['수취인명']||'')+' '+(d['주문번호']||'')+' '+(d['상품명']||'')+' '+(d['송장번호']||'')+' '+(d['플랫폼']||'')+' '+(d['수취인전화']||'')).toLowerCase();
@@ -23460,7 +23465,7 @@ function renderOrderHist(){
     h+='<div style="text-align:center;margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center">';
     h+='<span class="muted" style="font-size:12px">'+show.length+'/'+rows.length+'건 표시</span>';
     h+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:700" onclick="ordhShowMore()">▼ 더보기 (다음 '+Math.min(300,_rest)+'건)</button>';
-    h+='<button class="btn" style="background:#0d9488;color:#fff;font-weight:700" onclick="ordhShowAll()">📋 전체 펼치기 ('+rows.length+'건)</button>';
+    h+='<button class="btn" style="background:#0d9488;color:#fff;font-weight:700" onclick="ordhShowAll('+rows.length+')">📋 전체 펼치기 ('+rows.length+'건)</button>';
     h+='</div>';
   } else if(ORDH_LIMIT>300 && rows.length>300){
     h+='<div style="text-align:center;margin-top:10px"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="ordhShowReset()">▲ 접기 (300건만)</button></div>';
