@@ -21612,6 +21612,7 @@ async function shipOpen(k){
     bar='<div style="margin-bottom:8px;padding:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
     bar+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ship_trkfile\').setAttribute(\'data-k\',\''+k+'\');document.getElementById(\'ship_trkfile\').click()">📤 송장 업로드</button>';
     bar+='<input type="file" id="ship_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="shipTrackUpload(this.getAttribute(\'data-k\'),this.files[0])">';
+    bar+='<button class="btn" style="background:#15803d;color:#fff;font-weight:700" onclick="shipExportData(\''+k+'\')" title="이 파일 데이터를 엑셀로 저장. 체크한 행이 있으면 체크된 것만 저장">📥 엑셀 다운로드</button>';
     if(ti>=0){
       bar+='<span style="width:1px;height:20px;background:#bae6fd"></span>';
       bar+='<span style="font-weight:700;font-size:12px">📨 문자:</span>';
@@ -22909,6 +22910,7 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 전체 받는분문자</button>';
   h+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ordh_trkfile\').click()">📤 송장 업로드</button>';
   h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
+  h+='<button class="btn" style="background:#15803d;color:#fff;font-weight:700" onclick="ordhExportData()" title="지금 보이는(필터된) 주문을 엑셀로 저장. 체크한 게 있으면 체크된 것만 저장">📥 엑셀 다운로드</button>';
   h+='<button class="btn" style="background:#ea580c;color:#fff;font-weight:700" onclick="document.getElementById(\'ordh_addrlog\').click()" title="택배 출력 로그(.log) 올리면 원래 주소와 달라진 건을 찾아 주소변경으로 표시 (미리보기 후 적용)">📍 주소로그 업로드</button>';
   h+='<input type="file" id="ordh_addrlog" accept=".log,.txt,.csv" multiple style="display:none" onchange="ordhAddrLogUpload(this.files);this.value=\'\'">';
   h+='</div>';
@@ -23059,6 +23061,46 @@ function ordhDateHi(){
 var ORDH_SEL={};
 var ORDH_LIMIT=300;   // 주문히스토리 표시 개수 (더보기/전체펼치기로 증가)
 var ORDH_RENDER_TOKEN=0;   // 청크 렌더 중복 방지 토큰
+var ORDH_LAST_ROWS=[];     // 현재 필터 결과(엑셀 다운로드용)
+// 📥 주문히스토리 엑셀 다운로드 — 체크 없으면 현재 필터 전체, 체크 있으면 체크된 것만
+function ordhExportData(){
+  if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패 — 새로고침 후 다시 시도하세요.'); return; }
+  var selKeys=ordhSelectedKeys();
+  var list = selKeys.length ? selKeys.map(function(k){return ORDH_DATA[k]||{};})
+                            : (ORDH_LAST_ROWS||[]).map(function(r){return r.d;});
+  if(!list.length){ alert('내보낼 데이터가 없어요.'); return; }
+  var head=['등록일시','발송일자','플랫폼','수취인','수취인전화','주소','변경주소','구매자','구매자전화','상품명','수량','옵션','배송메시지','택배사','송장번호','주소확인','명함·인사말','주문번호'];
+  var aoa=[head];
+  list.forEach(function(d){
+    aoa.push([ d['등록일시']||'', _shipDateOf(d)||'', d['플랫폼']||'', d['수취인명']||'', d['수취인전화']||'', d['주소']||'', d['변경주소']||'', d['구매자명']||'', d['구매자전화']||'', d['상품명']||'', d['수량']||'', d['옵션']||'', d['배송메시지']||'', d['택배사']||'', d['송장번호']||'', d['주소확인']?'확인':'', (_hasInsert(d)?(_insOf(d)||'있음'):''), d['주문번호']||'' ]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:16},{wch:11},{wch:10},{wch:10},{wch:14},{wch:34},{wch:34},{wch:10},{wch:14},{wch:22},{wch:6},{wch:12},{wch:16},{wch:9},{wch:14},{wch:8},{wch:16},{wch:20}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'주문내역');
+  var fn='주문내역_'+todayKST()+'_'+(selKeys.length?('선택'+list.length+'건'):(list.length+'건')) +'.xlsx';
+  XLSX.writeFile(wb, fn);
+  toast('📥 '+list.length+'건 엑셀 저장'+(selKeys.length?' (선택분)':' (전체)'));
+}
+// 📥 접수데이터 파일 엑셀 다운로드 — 체크 없으면 전체 행, 체크 있으면 체크된 행만 (+비고·변경주소)
+function shipExportData(k){
+  if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리 로딩 실패 — 새로고침 후 다시 시도하세요.'); return; }
+  var d=SHIP_DATA[k]||{}, heads=(d.headers||[]).slice(), rows=d.rows||[];
+  if(!rows.length){ alert('내보낼 행이 없어요.'); return; }
+  var sel=Object.keys(SHIP_ROWSEL).map(Number).filter(function(x){return !isNaN(x);}).sort(function(a,b){return a-b;});
+  var idxs = sel.length ? sel : rows.map(function(_,i){return i;});
+  var chg=SHIP_ROWCHG[k]||[], memo=d.memo||{};
+  var aoa=[heads.concat(['비고','변경주소'])];
+  idxs.forEach(function(i){
+    var r=(rows[i]||[]).slice(); while(r.length<heads.length) r.push('');
+    var mm=(memo[i]!=null?memo[i]:memo[String(i)])||'';
+    aoa.push(r.concat([mm, chg[i]||'']));
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'접수데이터');
+  var fn=String(d.file||'접수데이터').replace(/\.[^.]+$/,'')+'_'+(sel.length?('선택'+idxs.length+'건'):(idxs.length+'건'))+'.xlsx';
+  XLSX.writeFile(wb, fn);
+  toast('📥 '+idxs.length+'건 엑셀 저장'+(sel.length?' (선택분)':' (전체)'));
+}
 function ordhShowMore(){ ORDH_LIMIT+=300; renderOrderHist(); }
 function ordhShowAll(n){ if(n>1500 && !confirm(n+'건을 다 불러오면 시간이 꽤 걸려요(멈추진 않고 불러오는 중 표시됨).\n계속할까요?\n\n※ 보통은 [더보기]로 조금씩 보는 걸 권장해요.')) return; ORDH_LIMIT=1000000; renderOrderHist(); }
 function ordhShowReset(){ ORDH_LIMIT=300; renderOrderHist(); }
@@ -23447,6 +23489,7 @@ function renderOrderHist(){
   });
   // 위=최신 · 아래로 갈수록 먼저 등록(먼저한 게 밑으로). 같은 시각이면 키(입력순번)로 안정 정렬
   rows.sort(function(a,b){ var x=((a.d['등록일시'])||'')+'|'+a.k, y=((b.d['등록일시'])||'')+'|'+b.k; return x<y?1:(x>y?-1:0); });
+  ORDH_LAST_ROWS=rows;   // 현재 필터로 걸러진 전체(엑셀 다운로드용)
   ordhDateHi();   // 기간 버튼 하이라이트 갱신
   var cnt=document.getElementById('ordh_cnt');
   var _rlbl={30:'최근 30분',60:'최근 1시간',180:'최근 3시간',360:'최근 6시간'};
