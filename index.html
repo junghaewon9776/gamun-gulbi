@@ -21584,6 +21584,7 @@ var SHIP_ROWCHG={};    // shipOpen 행별 변경주소 (프롬프트 기본값�
 var SHIP_ROWTRK={};    // shipOpen 행별 {trk,car} (송장문자·엑셀 공용)
 var SHIP_ROWSD={};     // shipOpen 행별 발송일자
 var SHIP_ROWINS={};    // shipOpen 행별 인사말(명함)
+var SHIP_ROWBTEL={};   // shipOpen 행별 {tel,name} 구매자(주문자) — 접수데이터엔 없어 주문에서 당겨옴
 var SHIP_ROWFILTER=null, SHIP_ROWFILTER_KEY=null;   // 파일 상세 필터 상태(재렌더 후 유지)
 var SHIP_ROWSEL={}, SHIP_ROWSEL_KEY=null, _shipLastVal=null;   // 파일 상세 행 선택(선택 발송용)
 function shipRowSel(i,on){ if(on) SHIP_ROWSEL[i]=1; else delete SHIP_ROWSEL[i]; _shipLastVal=String(i); _shipSelCount(); }
@@ -21627,11 +21628,13 @@ async function shipOpen(k){
       bar+='<span style="font-weight:700;font-size:11px;color:#334155">전체:</span>';
       bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="shipSmsChoose(\''+k+'\')">🚚 송장 발송</button>';
       bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'접수\')">📩 접수 안내</button>';
+      bar+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'주문자\')" title="주문자(구매자)에게 송장 안내 문자 — 구매자 전화는 주문히스토리에서 매칭해 가져옴">🧑‍💼 주문자에게</button>';
       bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'직접\')">✏️ 직접</button>';
       bar+='<span style="width:1px;height:20px;background:#bae6fd"></span>';
       bar+='<span style="font-weight:700;font-size:11px;color:#b45309">☑ 선택한 것만 <span style="font-weight:600;color:#94a3b8">(Shift+클릭 범위선택)</span>:</span>';
       bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'접수\',true)">📩 접수</button>';
       bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'발송\',true)">🚚 송장</button>';
+      bar+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'주문자\',true)">🧑‍💼 주문자</button>';
       bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'직접\',true)">✏️ 직접</button>';
       bar+='<span style="width:1px;height:20px;background:#fde68a"></span>';
       bar+='<button class="btn" style="background:#b45309;color:#fff;font-weight:700;opacity:.95" onclick="shipBulkInsert(\''+k+'\',true)" title="선택한 행을 명함·인사말 있음으로 일괄 체크">🎴 일괄 체크</button>';
@@ -21642,7 +21645,7 @@ async function shipOpen(k){
     bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">📤 송장 업로드 = 이 파일 받는분과 매칭해 송장 저장(주문히스토리도 갱신) · 송장 발송 = 받는분/담당자에게 문자 (미리보기 확인)</div></div>';
   }
   // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) 우선 ② 없으면 주문히스토리(excel_orders)에서 이름+전화로 조회
-  var trkMap=[], delFlag=[], rowSd=[], rowPath=[], rowIns=[], rowChg=[];
+  var trkMap=[], delFlag=[], rowSd=[], rowPath=[], rowIns=[], rowChg=[], rowBtel=[];
   var _fileNm=String(d.file||'');   // 이 파일 주문: 주문번호가 "파일명-순번"
   if(ni>=0){
     var stored=d.trk||{};   // {행번호: {t:송장, c:택배사}}
@@ -21654,7 +21657,7 @@ async function shipOpen(k){
         if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){
           var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']);
           var ono=String(v['주문번호']||'');
-          if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), ins:String(v['인사말']||''), chg:String(v['변경주소']||''), path:p};
+          if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), ins:String(v['인사말']||''), chg:String(v['변경주소']||''), btel:String(v['구매자전화']||''), bname:String(v['구매자명']||''), path:p};
           if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); }
           if(v['del'] && _fileNm && ono.indexOf(_fileNm+'-')===0) delSet[key]=1;
         }
@@ -21676,6 +21679,7 @@ async function shipOpen(k){
         rowPath[i2] = rec ? rec.path : '';
         rowIns[i2] = rec ? (rec.ins||'') : null;   // null=연결 주문 없음(옛 파일)
         rowChg[i2] = rec ? (rec.chg||'') : null;   // 변경주소 (null=연결 주문 없음)
+        rowBtel[i2] = rec ? {tel:(rec.btel||''), name:(rec.bname||'')} : null;   // 구매자(주문자) 연락처
       });
     }catch(e){}
   }
@@ -21684,6 +21688,7 @@ async function shipOpen(k){
   SHIP_ROWTRK[k]=trkMap;     // 행별 {trk,car} — 화면 표시와 동일 (송장문자·엑셀 공용)
   SHIP_ROWSD[k]=rowSd;       // 행별 발송일자
   SHIP_ROWINS[k]=rowIns;     // 행별 인사말
+  SHIP_ROWBTEL[k]=rowBtel;   // 행별 구매자(주문자) 연락처
   if(SHIP_ROWSEL_KEY!==k){ SHIP_ROWSEL={}; SHIP_ROWSEL_KEY=k; _shipLastVal=null; }   // 다른 파일 열면 선택 초기화
   var COLORS={'':'', 'y':'#fef08a','g':'#bbf7d0','b':'#bfdbfe','p':'#e9d5ff','r':'#fecaca'};
   var h=bar;
@@ -21966,6 +21971,7 @@ function shipSmsChoose(k){
   h+='<h3 style="margin:0 0 6px">🚚 송장 발송 — 누구에게 보낼까요?</h3>';
   h+='<div style="font-size:12px;color:#64748b;margin-bottom:14px">['+esc(d.file||'')+']<br>다음 화면에서 문자 내용을 미리 보고 최종 확인합니다</div>';
   h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:14px;background:#16a34a;color:#fff;font-weight:800;font-size:15px;margin-bottom:8px" onclick="closePopup();shipFileSms(\''+k+'\',\'발송\')">👤 받는분(수취인) 각자에게 발송</button>';
+  h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:14px;background:#2563eb;color:#fff;font-weight:800;font-size:15px;margin-bottom:8px" onclick="closePopup();shipFileSms(\''+k+'\',\'주문자\')">🧑‍💼 주문자(구매자)에게 발송</button>';
   h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:14px;background:#0d9488;color:#fff;font-weight:800;font-size:15px;margin-bottom:8px" onclick="closePopup();shipMgrSms(\''+k+'\')">👨‍💼 담당자 한 명에게 목록 전달 (1통)</button>';
   h+='<button class="btn" style="width:100%;box-sizing:border-box;padding:12px;background:#64748b;color:#fff;font-weight:700" onclick="closePopup()">✕ 문자 취소 (안 보냄)</button>';
   h+='</div>';
@@ -21999,12 +22005,24 @@ async function shipFileSms(k, forceType, selectedOnly){
     });
   }
   // 전화별로 묶기 (같은 번호 = 한 통)
-  var grp={}, noTrk=0, noTrkNames=[];
+  var grp={}, noTrk=0, noTrkNames=[], noBt=0, noBtNames=[];
   rows.forEach(function(r,ri){
     if(selectedOnly && !SHIP_ROWSEL[ri]) return;   // 선택 발송이면 체크된 행만
+    var nm=r[ni]||'';
+    // 👤 주문자(구매자)에게 발송 — 접수데이터엔 구매자 전화가 없어 주문에서 당겨온 번호 사용, 송장 내용 전달
+    if(type==='주문자'){
+      var bt=(SHIP_ROWBTEL[k]||[])[ri]||{};
+      var btel=String(bt.tel||'').replace(/[^0-9]/g,'');
+      if(btel.length<10){ noBt++; if(noBtNames.length<8) noBtNames.push(nm); return; }
+      var rt=(SHIP_ROWTRK[k]||[])[ri]||{};
+      var trk2=rt.trk||'', car2=rt.car||'';
+      var bnm=bt.name||'';
+      if(!grp[btel]) grp[btel]={name:bnm||'주문자', lines:[], vars:{받는분:nm, 고객명:bnm, 보내신분:bnm, 구매자:bnm, 주문자:bnm, 송장번호:trk2, 택배사:(car2||'택배'), 상품명:(si>=0?String(r[si]||''):''), 수량:(qi>=0?String(r[qi]||''):''), 주소:(adi>=0?String(r[adi]||''):'')}};
+      grp[btel].lines.push(nm+'님'+(trk2?(' '+(car2||'택배')+' '+trk2):' (송장 준비중)'));
+      return;
+    }
     var tel=String(r[ti]||'').replace(/[^0-9]/g,'');
     if(tel.length<10) return;
-    var nm=r[ni]||'';
     var item=(si>=0?(r[si]||''):'')+(qi>=0&&r[qi]?(' '+r[qi]+'개'):'');
     if(type==='발송'){
       // 발송 문자 = 이름+택배사+송장번호만.
@@ -22031,11 +22049,14 @@ async function shipFileSms(k, forceType, selectedOnly){
     grp[tel].lines.push(nm+'님'+(item?(' '+item):''));
   });
   var tels=Object.keys(grp);
-  if(!tels.length){ alert(type==='발송'?('송장번호가 있는 받는분이 없습니다.\n먼저 송장 업로드를 해주세요.'+(noTrkNames.length?('\n(송장 없음: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')+')'):'')):'전화번호가 있는 받는분이 없습니다.'); return; }
+  if(!tels.length){
+    if(type==='주문자'){ alert('주문자(구매자) 연락처를 찾지 못했습니다.\n구매자 전화는 주문히스토리(엑셀에서 올린 주문)에서 받는분 이름+전화로 매칭해 가져옵니다.\n매칭이 안 되면 주문히스토리 탭에서 발송해 주세요.'+(noBtNames.length?('\n\n(구매자번호 없음: '+noBtNames.join(', ')+(noBt>8?' 외':'')+')'):'')); return; }
+    alert(type==='발송'?('송장번호가 있는 받는분이 없습니다.\n먼저 송장 업로드를 해주세요.'+(noTrkNames.length?('\n(송장 없음: '+noTrkNames.join(', ')+(noTrk>8?' 외':'')+')'):'')):'전화번호가 있는 받는분이 없습니다.'); return;
+  }
   // 편집폼(템플릿) 으로 — 서울지점 택배관리 모듈과 동일
   var recips=tels.map(function(t){ var g=grp[t]; return {tel:t, name:g.name, lines:g.lines, keys:[], vars:g.vars||{받는분:g.name}}; });
   taekbaeSmsCompose({
-    title:'['+type+'] '+(d.file||'')+(type==='발송'&&noTrk?(' · 송장없는 '+noTrk+'명 제외'):''),
+    title:(type==='주문자'?'[주문자에게] ':'['+type+'] ')+(d.file||'')+(type==='발송'&&noTrk?(' · 송장없는 '+noTrk+'명 제외'):'')+(type==='주문자'&&noBt?(' · 구매자번호 없는 '+noBt+'명 제외'):''),
     typeKey:'ship_'+type, markKind:type, markShip:(SHIP_PATH[k]||'/excel_ship/'+k),
     recipients:recips
   });
