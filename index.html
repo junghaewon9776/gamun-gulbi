@@ -21297,7 +21297,7 @@ function dShipData(){
   h+='<b style="color:#c026d3">업체</b> <select id="ship_company" onchange="renderShip()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
   if(isA()) h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="shipDelCompany()" title="선택한 업체 데이터 통째 삭제 (깨진/잘못된 업체 정리용)">🗑 업체삭제</button> ';
   h+='<b style="color:#7c3aed">지점</b> <select id="ship_jijeom" onchange="renderShip()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
-  h+='<input id="ship_q" placeholder="🔍 검색 (파일명·보내는분·플랫폼)" style="width:300px;max-width:70vw;padding:11px 14px;font-size:15px;border:2px solid #94a3b8;border-radius:10px" oninput="renderShip()"> ';
+  h+='<input id="ship_q" placeholder="🔍 검색 (파일명·보내는분·받는분·전화·주소·상품)" style="width:340px;max-width:70vw;padding:11px 14px;font-size:15px;border:2px solid #94a3b8;border-radius:10px" oninput="renderShip()"> ';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData();renderShip();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="자동으로 실시간 반영됩니다. 이 버튼은 강제 새로고침">🔄 새로고침</button> ';
   h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">📨 재계산 텔레그램</button> ';
   h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipSmsHistory()">📋 문자 발송내역</button>';
@@ -21489,7 +21489,14 @@ function renderShip(){
   var files=Object.keys(SHIP_DATA).filter(function(k){
     var d=SHIP_DATA[k]||{};
     if(df||dt){ var dd=_shipFileDateVal(d,basis); if(!dd) return false; if(df&&dd<df) return false; if(dt&&dd>dt) return false; }
-    if(q){ var hay=((d.file||'')+' '+(d.app||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+    if(q){
+      if(d._search==null){   // 파일명·플랫폼 + 파일 안 모든 행(받는분·전화·주소·상품 등) 캐시
+        var parts=[(d.file||''),(d.app||'')];
+        (d.rows||[]).forEach(function(r){ parts.push((r||[]).join(' ')); });
+        d._search=parts.join(' ').toLowerCase();
+      }
+      if(d._search.indexOf(q)<0) return false;
+    }
     return true;
   });
   // 정렬: 위=최신, 먼저 등록한 파일이 아래로 (기준날짜 → 저장시각 → 키 순 내림차순)
@@ -23207,6 +23214,16 @@ function ordhInsertOk(k,on){
     .then(function(){ if(ORDH_DATA[k]) ORDH_DATA[k]['인사말']=on?'명함·인사말':''; toast(on?'🎴 명함·인사말 체크':'명함·인사말 해제'); })
     .catch(function(e){ alert('실패: '+e.message); });
 }
+// 📄 주문번호(와꾸는 파일명) 보기 — 길어서 눌러서 확인·복사
+function ordhShowNo(k){
+  var d=ORDH_DATA[k]||{};
+  var no=String(d['주문번호']||'(주문번호 없음)');
+  var h='<div style="max-width:560px"><h3 style="margin:0 0 6px">📄 주문번호 / 파일명</h3>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px">'+esc(d['수취인명']||'')+' · '+esc(d['플랫폼']||'')+' · '+esc(d['상품명']||'')+'</div>';
+  h+='<textarea id="_onoTa" readonly onclick="this.focus();this.select()" style="width:100%;box-sizing:border-box;height:74px;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:13px">'+esc(no)+'</textarea>';
+  h+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="var t=document.getElementById(\'_onoTa\');t.focus();t.select();try{document.execCommand(\'copy\');toast(\'📋 복사됨\')}catch(e){}">📋 복사</button><button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="closePopup()">닫기</button></div></div>';
+  openPopup(h,580);
+}
 // 📍 주소 변경 입력 모달 (원래 주소는 선택·복사 가능, 변경주소만 따로 저장)
 function _addrChangeModal(orig, cur, saveFn){
   var h='<div style="max-width:520px"><h3 style="margin:0 0 8px">📍 주소 변경 입력</h3>';
@@ -23565,7 +23582,7 @@ function _ordhRowHtml(row){
   h+='<td><input type="checkbox" class="ordh_ck" value="'+row.k+'"'+(ORDH_SEL[row.k]?' checked':'')+' onclick="ordhCkClick(this,event)"></td>';
   h+='<td style="font-size:12px">'+(d['등록일시']||'')+(isDel?' <span style="background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:800">삭제됨</span>':'')+'</td>';
   h+='<td><input type="date" value="'+esc(_shipDateOf(d))+'" onchange="ordhSetShipDate(\''+row.k+'\',this.value)" style="width:130px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'" title="'+(d['발송일자']?'발송일자 지정됨':'미지정 (등록일 기준 표시)')+'"></td>';
-  h+='<td>'+(d['플랫폼']||'')+'</td>';
+  h+='<td onclick="ordhShowNo(\''+row.k+'\')" style="cursor:pointer" title="주문번호(와꾸는 파일명) 보기">'+(d['플랫폼']||'')+' <span style="color:#94a3b8;font-size:11px">📄</span></td>';
   h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
   h+='<td style="font-size:12px">'+_telLink(d['수취인전화'])+'</td>';
   h+='<td style="max-width:220px;font-size:12px" title="'+esc(d['주소']||'')+(_chg?(' → 📍변경: '+esc(_chg)):'')+'"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap'+(_chg?';color:#94a3b8;text-decoration:line-through':'')+'">'+esc(d['주소']||'')+'</div>'+(_chg?('<div style="color:#ea580c;font-weight:700;white-space:normal">📍'+esc(_chg)+'</div>'):'')+'</td>';
