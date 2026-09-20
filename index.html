@@ -21592,6 +21592,7 @@ var SHIP_ROWTRK={};    // shipOpen 행별 {trk,car} (송장문자·엑셀 공용
 var SHIP_ROWSD={};     // shipOpen 행별 발송일자
 var SHIP_ROWINS={};    // shipOpen 행별 인사말(명함)
 var SHIP_ROWBTEL={};   // shipOpen 행별 {tel,name} 구매자(주문자) — 접수데이터엔 없어 주문에서 당겨옴
+var SHIP_ROWNO={};     // shipOpen 행별 주문번호(연결 주문)
 var SHIP_ROWFILTER=null, SHIP_ROWFILTER_KEY=null;   // 파일 상세 필터 상태(재렌더 후 유지)
 var SHIP_ROWSEL={}, SHIP_ROWSEL_KEY=null, _shipLastVal=null;   // 파일 상세 행 선택(선택 발송용)
 function shipRowSel(i,on){ if(on) SHIP_ROWSEL[i]=1; else delete SHIP_ROWSEL[i]; _shipLastVal=String(i); _shipSelCount(); }
@@ -21652,7 +21653,7 @@ async function shipOpen(k){
     bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">📤 송장 업로드 = 이 파일 받는분과 매칭해 송장 저장(주문히스토리도 갱신) · 송장 발송 = 받는분/담당자에게 문자 (미리보기 확인)</div></div>';
   }
   // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) 우선 ② 없으면 주문히스토리(excel_orders)에서 이름+전화로 조회
-  var trkMap=[], delFlag=[], rowSd=[], rowPath=[], rowIns=[], rowChg=[], rowBtel=[];
+  var trkMap=[], delFlag=[], rowSd=[], rowPath=[], rowIns=[], rowChg=[], rowBtel=[], rowNo=[];
   var _fileNm=String(d.file||'');   // 이 파일 주문: 주문번호가 "파일명-순번"
   if(ni>=0){
     var stored=d.trk||{};   // {행번호: {t:송장, c:택배사}}
@@ -21664,7 +21665,7 @@ async function shipOpen(k){
         if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){
           var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']);
           var ono=String(v['주문번호']||'');
-          if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), ins:String(v['인사말']||''), chg:String(v['변경주소']||''), btel:String(v['구매자전화']||''), bname:String(v['구매자명']||''), path:p};
+          if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), ins:String(v['인사말']||''), chg:String(v['변경주소']||''), btel:String(v['구매자전화']||''), bname:String(v['구매자명']||''), no:ono, path:p};
           if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); }
           if(v['del'] && _fileNm && ono.indexOf(_fileNm+'-')===0) delSet[key]=1;
         }
@@ -21687,6 +21688,7 @@ async function shipOpen(k){
         rowIns[i2] = rec ? (rec.ins||'') : null;   // null=연결 주문 없음(옛 파일)
         rowChg[i2] = rec ? (rec.chg||'') : null;   // 변경주소 (null=연결 주문 없음)
         rowBtel[i2] = rec ? {tel:(rec.btel||''), name:(rec.bname||'')} : null;   // 구매자(주문자) 연락처
+        rowNo[i2] = rec ? (rec.no||'') : '';   // 연결 주문번호
       });
     }catch(e){}
   }
@@ -21696,6 +21698,7 @@ async function shipOpen(k){
   SHIP_ROWSD[k]=rowSd;       // 행별 발송일자
   SHIP_ROWINS[k]=rowIns;     // 행별 인사말
   SHIP_ROWBTEL[k]=rowBtel;   // 행별 구매자(주문자) 연락처
+  SHIP_ROWNO[k]=rowNo;       // 행별 주문번호
   if(SHIP_ROWSEL_KEY!==k){ SHIP_ROWSEL={}; SHIP_ROWSEL_KEY=k; _shipLastVal=null; }   // 다른 파일 열면 선택 초기화
   var COLORS={'':'', 'y':'#fef08a','g':'#bbf7d0','b':'#bfdbfe','p':'#e9d5ff','r':'#fecaca'};
   var h=bar;
@@ -23126,13 +23129,15 @@ function ordhExportData(){
   var list = selKeys.length ? selKeys.map(function(k){return ORDH_DATA[k]||{};})
                             : (ORDH_LAST_ROWS||[]).map(function(r){return r.d;});
   if(!list.length){ alert('내보낼 데이터가 없어요.'); return; }
-  var head=['등록일시','발송일자','플랫폼','수취인','수취인전화','주소','변경주소','구매자','구매자전화','상품명','수량','옵션','배송메시지','택배사','송장번호','주소확인','명함·인사말','주문번호'];
+  var head=['파일명','주문번호','등록일시','발송일자','플랫폼','수취인','수취인전화','주소','변경주소','구매자','구매자전화','상품명','수량','옵션','배송메시지','택배사','송장번호','주소확인','명함·인사말'];
   var aoa=[head];
   list.forEach(function(d){
-    aoa.push([ d['등록일시']||'', _shipDateOf(d)||'', d['플랫폼']||'', d['수취인명']||'', d['수취인전화']||'', d['주소']||'', d['변경주소']||'', d['구매자명']||'', d['구매자전화']||'', d['상품명']||'', d['수량']||'', d['옵션']||'', d['배송메시지']||'', d['택배사']||'', d['송장번호']||'', d['주소확인']?'확인':'', (_hasInsert(d)?(_insOf(d)||'있음'):''), d['주문번호']||'' ]);
+    var no=String(d['주문번호']||'');
+    var fn=(String(d['플랫폼']||'')==='와꾸')?no.replace(/-\d+$/,''):'';   // 와꾸는 주문번호에서 파일명 추출
+    aoa.push([ fn, no, d['등록일시']||'', _shipDateOf(d)||'', d['플랫폼']||'', d['수취인명']||'', d['수취인전화']||'', d['주소']||'', d['변경주소']||'', d['구매자명']||'', d['구매자전화']||'', d['상품명']||'', d['수량']||'', d['옵션']||'', d['배송메시지']||'', d['택배사']||'', d['송장번호']||'', d['주소확인']?'확인':'', (_hasInsert(d)?(_insOf(d)||'있음'):'') ]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:16},{wch:11},{wch:10},{wch:10},{wch:14},{wch:34},{wch:34},{wch:10},{wch:14},{wch:22},{wch:6},{wch:12},{wch:16},{wch:9},{wch:14},{wch:8},{wch:16},{wch:20}];
+  ws['!cols']=[{wch:40},{wch:20},{wch:16},{wch:11},{wch:10},{wch:10},{wch:14},{wch:34},{wch:34},{wch:10},{wch:14},{wch:22},{wch:6},{wch:12},{wch:16},{wch:9},{wch:14},{wch:8},{wch:16}];
   var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'주문내역');
   var fn='주문내역_'+todayKST()+'_'+(selKeys.length?('선택'+list.length+'건'):(list.length+'건')) +'.xlsx';
   XLSX.writeFile(wb, fn);
@@ -23145,14 +23150,15 @@ function shipExportData(k){
   if(!rows.length){ alert('내보낼 행이 없어요.'); return; }
   var sel=Object.keys(SHIP_ROWSEL).map(Number).filter(function(x){return !isNaN(x);}).sort(function(a,b){return a-b;});
   var idxs = sel.length ? sel : rows.map(function(_,i){return i;});
-  var chg=SHIP_ROWCHG[k]||[], trkA=SHIP_ROWTRK[k]||[], sdA=SHIP_ROWSD[k]||[], insA=SHIP_ROWINS[k]||[], memo=d.memo||{}, rowok=d.rowok||{};
-  var aoa=[heads.concat(['발송일자','택배사','송장번호','주소확인','명함·인사말','비고','변경주소'])];
+  var chg=SHIP_ROWCHG[k]||[], trkA=SHIP_ROWTRK[k]||[], sdA=SHIP_ROWSD[k]||[], insA=SHIP_ROWINS[k]||[], noA=SHIP_ROWNO[k]||[], memo=d.memo||{}, rowok=d.rowok||{};
+  var fname=String(d.file||'');
+  var aoa=[['파일명','주문번호'].concat(heads).concat(['발송일자','택배사','송장번호','주소확인','명함·인사말','비고','변경주소'])];
   idxs.forEach(function(i){
     var r=(rows[i]||[]).slice(); while(r.length<heads.length) r.push('');
     var mm=(memo[i]!=null?memo[i]:memo[String(i)])||'';
     var tm=trkA[i]||{}, insv=insA[i]||'', okv=(rowok[i]||rowok[String(i)])?'확인':'';
     var insShow=(String(insv).replace(/\s/g,'').indexOf('명함')>=0||String(insv).replace(/\s/g,'').indexOf('인사말')>=0)?insv:'';
-    aoa.push(r.concat([ sdA[i]||'', tm.car||'', tm.trk||'', okv, insShow, mm, chg[i]||'' ]));
+    aoa.push([fname, noA[i]||''].concat(r).concat([ sdA[i]||'', tm.car||'', tm.trk||'', okv, insShow, mm, chg[i]||'' ]));
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'접수데이터');
