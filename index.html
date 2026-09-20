@@ -22858,12 +22858,19 @@ function _calRecentHtml(min){
   var lbl=(min>=60?(min/60)+'시간':min+'분');
   var m=_calRecentAgg(min);
   var h='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><h4 style="margin:0">🆕 최근 '+lbl+' 등록된 주문 <span style="font-size:12px;color:#94a3b8;font-weight:600">(추가로 들어온 것 · 등록시각 기준)</span></h4>';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:700;padding:4px 10px" onclick="renderShipCal()" title="새로고침">🔄</button></div>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:700;padding:4px 10px" onclick="renderShipCal()" title="새로고침">🔄</button>';
+  h+='<button class="btn" style="background:#64748b;color:#fff;font-weight:700;padding:4px 12px" onclick="calRecent('+min+')" title="최근등록 보기 닫고 달력으로">✕ 닫기 (달력으로)</button></div>';
   if(!m.cnt){ return h+'<div class="muted" style="padding:10px 2px">최근 '+lbl+' 안에 새로 등록된 주문이 없습니다.</div>'; }
   return h+_calMBody(m, '');
 }
-// 🆕 최근 등록 보기 전환
-function calRecent(min){ CAL_STATE.view='recent'; CAL_STATE.recentMin=min; renderShipCal(); }
+// 🆕 최근 등록 보기 전환 (같은 버튼 다시 누르면 취소 → 이전 보기로)
+function calRecent(min){
+  if(CAL_STATE.view==='recent' && (CAL_STATE.recentMin||30)===min){
+    CAL_STATE.view=CAL_STATE._prevView||'month'; renderShipCal(); return;
+  }
+  if(CAL_STATE.view!=='recent') CAL_STATE._prevView=CAL_STATE.view;
+  CAL_STATE.view='recent'; CAL_STATE.recentMin=min; renderShipCal();
+}
 // 세부 주문내역 검색 (받는분·연락처·상품·구매자·송장)
 function _calDetFilter(q){
   q=String(q||'').trim().toLowerCase();
