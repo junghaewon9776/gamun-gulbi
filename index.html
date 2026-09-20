@@ -21708,7 +21708,7 @@ async function shipOpen(k){
   h+='<span style="font-size:12px;font-weight:700;color:#475569">비고</span><select id="shiprow_fmemo" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">있음</option><option value="0">없음</option></select>';
   h+='<span style="font-size:12px;font-weight:700;color:#475569">색상</span><select id="shiprow_fcolor" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">색칠됨</option><option value="0">없음</option></select>';
   h+='<span id="shiprow_cnt" class="muted" style="font-size:12px"></span></div>';
-  h+='<div style="overflow:auto;max-height:60vh"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th><input type="checkbox" id="shiprow_all" onclick="shipRowSelAll(this.checked)" title="전체선택(보이는 행)"></th><th>#</th>';
+  h+='<div style="overflow:auto;max-height:60vh"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th><input type="checkbox" id="shiprow_all" onclick="shipRowSelAll(this.checked)" title="전체선택(보이는 행)"></th><th>#</th><th>주문번호</th>';
   heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
   if(ni>=0) h+='<th>택배사</th><th>송장번호</th>';
   h+='<th>📅발송일자</th><th>주소확인</th><th>🎴명함·인사말</th><th>📍주소변경</th><th>비고</th><th>색상</th><th>수정</th><th>삭제</th></tr></thead><tbody>';
@@ -21722,6 +21722,10 @@ async function shipOpen(k){
     h+='<tr data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'" style="'+(rowDel?'opacity:.5;':'')+(bg?('background:'+bg+';'):'')+'">';
     h+='<td><input type="checkbox" class="shiprow_ck" value="'+i+'"'+(SHIP_ROWSEL[i]?' checked':'')+' onclick="shipRowCkClick(this,event)"></td>';
     h+='<td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
+    var _noA=rowNo[i]||'';
+    h+= _noA
+      ? '<td onclick="shipShowNo(\''+k+'\','+i+')" style="cursor:pointer;max-width:150px;overflow:hidden;text-overflow:ellipsis;color:#2563eb;font-size:11px" title="주문번호 전체보기·복사">'+esc(_noA)+' 📄</td>'
+      : '<td style="color:#cbd5e1">-</td>';
     var _chgA=rowChg[i];
     (r||[]).forEach(function(v,ci){
       if(ci===ti){ h+='<td>'+_telLink(v)+'</td>'; }
@@ -23226,6 +23230,15 @@ function ordhShowNo(k){
   var no=String(d['주문번호']||'(주문번호 없음)');
   var h='<div style="max-width:560px"><h3 style="margin:0 0 6px">📄 주문번호 / 파일명</h3>';
   h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px">'+esc(d['수취인명']||'')+' · '+esc(d['플랫폼']||'')+' · '+esc(d['상품명']||'')+'</div>';
+  h+='<textarea id="_onoTa" readonly onclick="this.focus();this.select()" style="width:100%;box-sizing:border-box;height:74px;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:13px">'+esc(no)+'</textarea>';
+  h+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="var t=document.getElementById(\'_onoTa\');t.focus();t.select();try{document.execCommand(\'copy\');toast(\'📋 복사됨\')}catch(e){}">📋 복사</button><button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="closePopup()">닫기</button></div></div>';
+  openPopup(h,580);
+}
+// 📄 접수 상세 행 주문번호 보기·복사
+function shipShowNo(k,i){
+  var no=String((SHIP_ROWNO[k]||[])[i]||'(주문번호 없음)'), d=SHIP_DATA[k]||{};
+  var h='<div style="max-width:560px"><h3 style="margin:0 0 6px">📄 주문번호 / 파일명</h3>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px">'+esc(d.file||'')+'</div>';
   h+='<textarea id="_onoTa" readonly onclick="this.focus();this.select()" style="width:100%;box-sizing:border-box;height:74px;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:13px">'+esc(no)+'</textarea>';
   h+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="var t=document.getElementById(\'_onoTa\');t.focus();t.select();try{document.execCommand(\'copy\');toast(\'📋 복사됨\')}catch(e){}">📋 복사</button><button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="closePopup()">닫기</button></div></div>';
   openPopup(h,580);
