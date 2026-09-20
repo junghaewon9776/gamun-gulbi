@@ -22761,13 +22761,14 @@ function _calProdOrders(pi){
   h+='</div>';
   if(!list.length){ h+='<div class="muted">해당 품목의 주문을 찾지 못했어요.</div>'; }
   else{
-    h+='<div class="calxscroll"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>보낸분(구매자)</th><th>받는분 연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
+    h+='<div class="calxscroll"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>받는분</th><th>수량</th><th>플랫폼</th><th>주문번호</th><th>보낸분(구매자)</th><th>받는분 연락처</th><th>🎴 명함·인사말</th></tr></thead><tbody>';
     list.forEach(function(d,ix){
-      var ins=_insOf(d), isIns=_hasInsert(d);
+      var ins=_insOf(d), isIns=_hasInsert(d), no=String(d['주문번호']||'');
       h+='<tr'+(isIns?' style="background:#fffbeb"':'')+'><td>'+(ix+1)+'</td>'
         +'<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#7c3aed">'+esc(d['수량']||'')+'</td>'
         +'<td>'+esc(d['플랫폼']||'')+'</td>'
+        +(no?('<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:11px" title="'+esc(no)+'">'+esc(no)+'</td>'):('<td style="color:#cbd5e1">-</td>'))
         +'<td>'+esc(d['구매자명']||'')+(d['구매자전화']?('<br><span style="font-size:11px">'+_telLink(d['구매자전화'])+'</span>'):'')+'</td>'
         +'<td>'+_telLink(d['수취인전화'])+'</td>'
         +(isIns?('<td style="color:#b45309;font-weight:700;white-space:normal;max-width:240px">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>'))
@@ -22814,11 +22815,12 @@ function _calMBody(m, ds){
   h+='<button onclick="var e=document.getElementById(\'calDetWrap\');var o=e.style.display===\'none\';e.style.display=o?\'\':\'none\';this.innerHTML=(o?\'▼\':\'▶\')+\' 세부 주문내역 ('+os.length+'건)\'" style="background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px">▶ 세부 주문내역 ('+os.length+'건)</button>';
   h+='<div id="calDetWrap" style="display:none;margin-top:8px">';
   h+='<input id="calDetSearch" type="text" placeholder="🔍 받는분·연락처·상품·구매자·송장 검색" oninput="_calDetFilter(this.value)" style="width:100%;max-width:360px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;margin-bottom:8px">';
-  h+='<div class="calxscroll"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>받는분 연락처</th><th>상품명</th><th>수량</th><th>🎴 명함·인사말</th><th>플랫폼</th><th>구매자</th><th>보내는분 연락처</th><th>송장번호</th></tr></thead><tbody id="calDetBody">';
+  h+='<div class="calxscroll"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr><th>#</th><th>수취인</th><th>받는분 연락처</th><th>상품명</th><th>수량</th><th>🎴 명함·인사말</th><th>플랫폼</th><th>주문번호</th><th>구매자</th><th>보내는분 연락처</th><th>송장번호</th></tr></thead><tbody id="calDetBody">';
   os.forEach(function(d,i){
     var trk=d['송장번호']||'';
+    var no=String(d['주문번호']||'');
     var ins=_insOf(d), isIns=_hasInsert(d);
-    var s=((d['수취인명']||'')+' '+(d['수취인전화']||'')+' '+(d['상품명']||'')+' '+(d['플랫폼']||'')+' '+(d['구매자명']||'')+' '+(d['구매자전화']||'')+' '+trk+' '+ins).toLowerCase();
+    var s=((d['수취인명']||'')+' '+(d['수취인전화']||'')+' '+(d['상품명']||'')+' '+(d['플랫폼']||'')+' '+(d['구매자명']||'')+' '+(d['구매자전화']||'')+' '+trk+' '+no+' '+ins).toLowerCase();
     h+='<tr data-s="'+esc(s)+'"'+(isIns?' style="background:#fffbeb"':'')+'><td>'+(i+1)+'</td>';
     h+='<td style="font-weight:600">'+esc(d['수취인명']||'')+'</td>';
     h+='<td>'+_telLink(d['수취인전화'])+'</td>';
@@ -22826,6 +22828,7 @@ function _calMBody(m, ds){
     h+='<td>'+esc(d['수량']||'')+'</td>';
     h+=isIns?('<td style="color:#b45309;font-weight:700;max-width:200px;white-space:normal">🎴 '+esc(ins)+'</td>'):('<td style="color:#cbd5e1">-</td>');
     h+='<td>'+esc(d['플랫폼']||'')+'</td>';
+    h+=no?('<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:11px" title="'+esc(no)+'">'+esc(no)+'</td>'):('<td style="color:#cbd5e1">-</td>');
     h+='<td>'+esc(d['구매자명']||'')+'</td>';
     h+='<td>'+_telLink(d['구매자전화'])+'</td>';
     h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+esc(trk)+'</td>'):('<td style="color:#d97706">미발송</td>');
