@@ -21934,12 +21934,12 @@ function _trackUrl(trk, car){
   var c=String(car||'');
   // ① 사용자 설정 택배사 조회주소 우선 ({송장} 치환)
   if(c){ for(var i=0;i<CARRIER_CFG.length;i++){ var cc=CARRIER_CFG[i]; if(cc.url && cc.name && (c.indexOf(cc.name)>=0||cc.name.indexOf(c)>=0)) return cc.url.replace(/\{\s*송장\s*\}|\{\s*trk\s*\}|\{\s*invno\s*\}/gi, t); } }
-  if(/롯데/.test(c)) return 'https://search.naver.com/search.naver?query='+encodeURIComponent('롯데택배 '+t);
+  if(/롯데/.test(c)) return 'https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo='+t;
   if(/한진/.test(c)) return 'https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2='+t;
   if(/(CJ|대한통운)/i.test(c)) return 'https://trace.cjlogistics.com/next/tracking.html?wblNo='+t;
   if(/(우체국|우편|epost)/i.test(c)) return 'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1='+t;
   if(/로젠/.test(c)) return 'https://www.ilogen.com/web/personal/trace/'+t;
-  // 택배사 미지정 = 우리는 전부 롯데택배 → 네이버에서 "롯데택배 송장번호"로 조회
+  // 택배사 미지정 = 우리는 대부분 롯데택배 → 네이버에서 "롯데택배 송장번호"로 조회
   return 'https://search.naver.com/search.naver?query='+encodeURIComponent('롯데택배 '+t);
 }
 // 🚚 택배사 자동감지 — 파일명 키워드 + 송장 자릿수(우체국 등기=13자리)
