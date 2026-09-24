@@ -23629,9 +23629,17 @@ function renderOrderHist(){
     if(cnt) cnt.textContent='['+_bl+' · '+_pl+'] '+rows.length+'건 표시 (전체 '+keys.length+'건)';
   }
   var show=rows.slice(0,ORDH_LIMIT);
-  var _labels=['<input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)">','등록일시','📅발송일자','플랫폼','수취인','수취인전화','주소','구매자','구매자전화','상품명','수량','택배사','송장번호','문자','주소확인','🎴명함·인사말','📍주소변경','수정/삭제'];
-  var _thead='<thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:2">'+_labels.map(function(lb,ci){ return '<th style="position:relative">'+lb+'<span class="ordhrz" onpointerdown="_ordhRzStart(event,'+ci+')" title="드래그로 열너비 조절"></span></th>'; }).join('')+'</tr></thead>';
-  var h='<table class="tbl ordhtbl" style="width:'+_ordhTblWidth()+'px;white-space:nowrap">'+_ordhColgroup()+_thead+'<tbody id="ordh_body"></tbody></table>';
+  var _mob=_calNarrow();
+  var h;
+  if(_mob){
+    // 📱 폰: 넓은 표 대신 카드형(한 건씩 세로) — 가로스크롤 없이 보기 편하게
+    h='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#334155;margin-bottom:8px"><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)" style="width:18px;height:18px"> 전체선택</label>';
+    h+='<div id="ordh_body"></div>';
+  } else {
+    var _labels=['<input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)">','등록일시','📅발송일자','플랫폼','수취인','수취인전화','주소','구매자','구매자전화','상품명','수량','택배사','송장번호','문자','주소확인','🎴명함·인사말','📍주소변경','수정/삭제'];
+    var _thead='<thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:2">'+_labels.map(function(lb,ci){ return '<th style="position:relative">'+lb+'<span class="ordhrz" onpointerdown="_ordhRzStart(event,'+ci+')" title="드래그로 열너비 조절"></span></th>'; }).join('')+'</tr></thead>';
+    h='<table class="tbl ordhtbl" style="width:'+_ordhTblWidth()+'px;white-space:nowrap">'+_ordhColgroup()+_thead+'<tbody id="ordh_body"></tbody></table>';
+  }
   h+='<div id="ordh_loading" style="text-align:center;padding:10px;color:#2563eb;font-weight:800;font-size:14px;display:none">⏳ 불러오는 중...</div>';
   if(rows.length>show.length){
     var _rest=rows.length-show.length;
@@ -23679,12 +23687,50 @@ function _ordhRowHtml(row){
   h+='</tr>';
   return h;
 }
+// 📱 폰 카드형 한 건 (표 대신 세로 카드)
+function _ordhCardHtml(row){
+  var d=row.d, isDel=!!d['del'], trk=d['송장번호']||'', sent=ORDH_SENT[row.k]||{}, _chg=d['변경주소']||'';
+  var addrOk=!!d['주소확인'], insOk=_hasInsert(d), ins=_insOf(d);
+  var h='<div style="border:1px solid '+(isDel?'#fecaca':'#e2e8f0')+';border-radius:12px;padding:10px 12px;margin-bottom:8px;background:'+(isDel?'#fef2f2':'#fff')+';box-shadow:0 1px 2px rgba(0,0,0,.05)'+(isDel?';opacity:.7':'')+'">';
+  h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">';
+  h+='<input type="checkbox" class="ordh_ck" value="'+row.k+'"'+(ORDH_SEL[row.k]?' checked':'')+' onclick="ordhCkClick(this,event)" style="width:18px;height:18px">';
+  h+='<b style="font-size:16px">'+esc(d['수취인명']||'')+'</b>';
+  h+='<span onclick="ordhShowNo(\''+row.k+'\')" style="cursor:pointer;background:#f1f5f9;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;color:#475569">'+esc(d['플랫폼']||'')+' 📄</span>';
+  if(isDel) h+='<span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 6px;font-size:10px;font-weight:800">삭제됨</span>';
+  h+='<span style="margin-left:auto;font-size:11px;color:#94a3b8">'+esc(d['등록일시']||'')+'</span>';
+  h+='</div>';
+  h+='<div style="font-size:14px;margin-bottom:4px"><b style="color:#7c3aed">'+esc(d['상품명']||'')+'</b>'+(d['수량']?(' <span style="background:#faf5ff;border-radius:6px;padding:1px 7px;font-weight:800;color:#7c3aed">'+esc(d['수량'])+'개</span>'):'')+'</div>';
+  h+='<div style="font-size:13px;color:'+(_chg?'#94a3b8':'#334155')+';margin-bottom:3px'+(_chg?';text-decoration:line-through':'')+'">📍'+esc(d['주소']||'')+'</div>';
+  if(_chg) h+='<div style="font-size:13px;color:#ea580c;font-weight:700;margin-bottom:3px">📍변경: '+esc(_chg)+'</div>';
+  h+='<div style="font-size:13px;margin-bottom:4px">받는분 '+_telLink(d['수취인전화'])+'</div>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:5px">보낸분 '+esc(d['구매자명']||'')+' '+_telLink(d['구매자전화'])+'</div>';
+  if(insOk) h+='<div style="font-size:13px;color:#b45309;font-weight:700;margin-bottom:5px">🎴 '+esc(ins||'명함·인사말')+'</div>';
+  h+='<div style="font-size:12px;margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  h+= trk?('<span style="color:#16a34a;font-weight:700;font-family:monospace">🚚'+esc(trk)+(d['택배사']?(' '+esc(d['택배사'])):'')+'</span>'):'<span style="color:#d97706;font-weight:700">미발송</span>';
+  h+='<span style="color:#64748b;display:inline-flex;align-items:center;gap:3px">발송일 <input type="date" value="'+esc(_shipDateOf(d))+'" onchange="ordhSetShipDate(\''+row.k+'\',this.value)" style="font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4':'')+'"></span>';
+  var smsB=(sent['접수']?'접수✓ ':'')+(sent['송장']?'송장✓ ':'')+(sent['받는분']?'받는분✓':''); if(smsB) h+='<span style="color:#0ea5e9;font-weight:700">'+smsB+'</span>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
+  h+='<label style="font-size:12px;font-weight:700;color:'+(addrOk?'#16a34a':'#64748b')+';background:'+(addrOk?'#f0fdf4':'#f1f5f9')+';border-radius:8px;padding:4px 9px;cursor:pointer"><input type="checkbox" '+(addrOk?'checked':'')+' onclick="ordhAddrOk(\''+row.k+'\',this.checked)"> '+(addrOk?'✅주소확인':'주소확인')+'</label>';
+  h+='<label style="font-size:12px;font-weight:700;color:'+(insOk?'#b45309':'#64748b')+';background:'+(insOk?'#fffbeb':'#f1f5f9')+';border-radius:8px;padding:4px 9px;cursor:pointer"><input type="checkbox" '+(insOk?'checked':'')+' onclick="ordhInsertOk(\''+row.k+'\',this.checked)"> '+(insOk?'🎴명함·인사말':'명함·인사말')+'</label>';
+  h+='<button class="btn" style="background:'+(_chg?'#ea580c':'#e2e8f0')+';color:'+(_chg?'#fff':'#334155')+';font-weight:700;padding:4px 10px;font-size:12px" onclick="ordhAddrChange(\''+row.k+'\')">📍주소변경</button>';
+  if(isDel){
+    h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:700;padding:4px 10px;font-size:12px" onclick="ordhRestore(\''+row.k+'\')">↩되살리기</button>';
+    if(isGlobalAdmin()) h+='<button class="btn" style="background:#7f1d1d;color:#fff;font-weight:700;padding:4px 10px;font-size:12px" onclick="ordhPurge(\''+row.k+'\')">❌완전삭제</button>';
+  } else {
+    h+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:700;padding:4px 10px;font-size:12px" onclick="ordhEdit(\''+row.k+'\')">✏️수정</button>';
+    h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:4px 10px;font-size:12px" onclick="ordhDel(\''+row.k+'\')">🗑삭제</button>';
+  }
+  h+='</div></div>';
+  return h;
+}
 // 청크 렌더 — 큰 목록도 안 멈추게 300건씩 나눠 붙이고 진행표시
 function _ordhFill(show, i, tok){
   if(tok!==ORDH_RENDER_TOKEN) return;   // 그 사이 다시 렌더됐으면 중단
   var body=document.getElementById('ordh_body'); if(!body) return;
+  var mob=_calNarrow();
   var BATCH=300, end=Math.min(i+BATCH, show.length), frag='';
-  for(var j=i;j<end;j++) frag+=_ordhRowHtml(show[j]);
+  for(var j=i;j<end;j++) frag+= mob ? _ordhCardHtml(show[j]) : _ordhRowHtml(show[j]);
   body.insertAdjacentHTML('beforeend', frag);
   var ld=document.getElementById('ordh_loading');
   if(end<show.length){
