@@ -21298,29 +21298,23 @@ function dShipData(){
   var h='';
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">📦 접수 데이터</h3>';
   h+='<div class="muted" style="font-size:12px">엑셀/와꾸에서 저장하면 자동으로 쌓입니다. 파일 클릭 = 그 파일 데이터 · 요약 = 통합 수량</div>';
-  h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  h+='<b style="color:#c026d3">업체</b> <select id="ship_company" onchange="renderShip()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
-  if(isA()) h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 8px" onclick="shipDelCompany()" title="선택한 업체 데이터 통째 삭제 (깨진/잘못된 업체 정리용)">🗑 업체삭제</button> ';
-  h+='<b style="color:#7c3aed">지점</b> <select id="ship_jijeom" onchange="renderShip()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
-  h+='<input id="ship_q" placeholder="🔍 검색 (파일명·보내는분·받는분·전화·주소·상품)" style="width:340px;max-width:70vw;padding:11px 14px;font-size:15px;border:2px solid #94a3b8;border-radius:10px" oninput="renderShip()"> ';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadShipData();renderShip();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="자동으로 실시간 반영됩니다. 이 버튼은 강제 새로고침">🔄 새로고침</button> ';
-  h+='<button class="btn" style="background:#d97706;color:#fff;font-weight:600" onclick="shipRecalc()">📨 재계산 텔레그램</button> ';
-  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipSmsHistory()">📋 문자 발송내역</button>';
-  h+='<span id="ship_cnt" class="muted" style="font-size:12px;margin-left:auto"></span>';
+  var _sbb=function(b,label){ var on=(SHIP_DATE.basis||'reg')===b; return '<button class="btn" id="ship_basis_'+b+'" style="background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="shipSetBasis(\''+b+'\')">'+label+'</button>'; };
+  var _spb=function(mode,label){ var on=SHIP_DATE.mode===mode; return '<button class="btn" id="ship_pb_'+mode+'" style="background:'+(on?'#2563eb':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="shipDateSet(\''+mode+'\')">'+label+'</button>'; };
+  // 🛠 관리 + 업체/지점/검색
+  h+='<div class="tbgrp"><b style="color:#c026d3;font-size:13px">업체</b> <select id="ship_company" onchange="renderShip()" style="font-weight:700;color:#c026d3"></select>';
+  if(isA()) h+='<button class="btn" style="background:#dc2626;color:#fff;padding:4px 8px" onclick="shipDelCompany()" title="선택 업체 데이터 통째 삭제(정리용)">🗑</button>';
+  h+='<b style="color:#7c3aed;font-size:13px">지점</b> <select id="ship_jijeom" onchange="renderShip()" style="font-weight:700;color:#7c3aed"></select>';
+  h+='<input id="ship_q" type="text" placeholder="🔍 파일명·받는분·보내는분·전화·주소·상품" style="flex:1;min-width:180px;max-width:360px;border:2px solid #94a3b8" oninput="renderShip()">';
+  h+='<span id="ship_cnt" class="muted" style="font-size:12px"></span>';
   h+='</div>';
-  // 📅 기준(등록일/발송일) + 기간(오늘/7일/이번달/전체) + 직접 날짜 — 주문히스토리와 동일 방식
-  h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
-  h+='<span style="font-weight:700;font-size:12px;color:#475569">📅 기준</span>';
-  var _sbb=function(b,label){ var on=(SHIP_DATE.basis||'reg')===b; return '<button class="btn" id="ship_basis_'+b+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="shipSetBasis(\''+b+'\')">'+label+'</button>'; };
-  h+=_sbb('reg','등록일')+_sbb('ship','발송일');
-  h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
-  h+='<span style="font-weight:700;font-size:12px;color:#475569">기간</span>';
-  var _spb=function(mode,label){ var on=SHIP_DATE.mode===mode; return '<button class="btn" id="ship_pb_'+mode+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#2563eb':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="shipDateSet(\''+mode+'\')">'+label+'</button>'; };
-  h+=_spb('today','오늘')+_spb('7','최근 7일')+_spb('month','이번달')+_spb('all','전체');
-  h+='<span style="color:#94a3b8;font-size:12px;margin-left:4px">직접:</span>';
-  h+='<input type="date" id="ship_dfrom" value="'+SHIP_DATE.from+'" onchange="shipDateManual(\'from\')" style="width:auto;font-size:12px"> ~ ';
-  h+='<input type="date" id="ship_dto" value="'+SHIP_DATE.to+'" onchange="shipDateManual(\'to\')" style="width:auto;font-size:12px">';
-  h+='</div></div>';
+  h+='<div class="tbgrp"><span class="tblbl">🛠 관리</span>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff" onclick="loadShipData();renderShip();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="강제 새로고침">🔄 새로고침</button>';
+  h+='<button class="btn" style="background:#d97706;color:#fff" onclick="shipRecalc()">📨 재계산 텔레그램</button>';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="shipSmsHistory()">📋 문자내역</button>';
+  h+='</div>';
+  h+='<div class="tbgrp" style="border-top:1px dashed #e2e8f0;padding-top:8px"><span class="tblbl">📅 기준</span>'+_sbb('reg','등록일')+_sbb('ship','발송일')+'</div>';
+  h+='<div class="tbgrp"><span class="tblbl">기간</span>'+_spb('today','오늘')+_spb('7','최근7일')+_spb('month','이번달')+_spb('all','전체')+'<span style="color:#94a3b8;font-size:12px;margin-left:6px">직접</span><input type="date" id="ship_dfrom" value="'+SHIP_DATE.from+'" onchange="shipDateManual(\'from\')"><span style="color:#94a3b8">~</span><input type="date" id="ship_dto" value="'+SHIP_DATE.to+'" onchange="shipDateManual(\'to\')"></div>';
+  h+='</div>';
   h+='<div class="grid2" style="gap:12px;align-items:start">';
   h+='<div class="card"><h4 style="margin:0 0 6px">📄 파일 목록 (플랫폼별)</h4><div id="ship_files" class="muted">불러오는 중...</div></div>';
   h+='<div class="card"><h4 style="margin:0 0 6px">📊 통합 요약 (선택 기간)</h4><div id="ship_summary" class="muted"></div></div>';
@@ -21631,31 +21625,30 @@ async function shipOpen(k){
   var aci=heads.findIndex(function(x){return /주소/.test(x);});   // 주소 열 — 변경주소 주황 표시용
   var bar='';
   if(ni>=0){
-    bar='<div style="margin-bottom:8px;padding:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
-    bar+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ship_trkfile\').setAttribute(\'data-k\',\''+k+'\');document.getElementById(\'ship_trkfile\').click()">📤 송장 업로드</button>';
+    bar='<div style="margin-bottom:8px;padding:8px 10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px">';
+    bar+='<div class="tbgrp" style="margin-top:0"><span class="tblbl">🛠 관리</span>';
+    bar+='<button class="btn" style="background:#059669;color:#fff" onclick="document.getElementById(\'ship_trkfile\').setAttribute(\'data-k\',\''+k+'\');document.getElementById(\'ship_trkfile\').click()">📤 송장업로드</button>';
     bar+='<input type="file" id="ship_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="shipTrackUpload(this.getAttribute(\'data-k\'),this.files[0])">';
-    bar+='<button class="btn" style="background:#15803d;color:#fff;font-weight:700" onclick="shipExportData(\''+k+'\')" title="이 파일 데이터를 엑셀로 저장. 체크한 행이 있으면 체크된 것만 저장">📥 엑셀 다운로드</button>';
+    bar+='<button class="btn" style="background:#15803d;color:#fff" onclick="shipExportData(\''+k+'\')" title="이 파일 엑셀 저장(체크시 선택만)">📥 엑셀다운</button>';
+    bar+='<span style="margin-left:auto">'+shipSmsBadges(k)+'</span></div>';
     if(ti>=0){
-      bar+='<span style="width:1px;height:20px;background:#bae6fd"></span>';
-      bar+='<span style="font-weight:700;font-size:12px">📨 문자:</span>';
-      bar+='<span style="font-weight:700;font-size:11px;color:#334155">전체:</span>';
-      bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="shipSmsChoose(\''+k+'\')">🚚 송장 발송</button>';
-      bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'접수\')">📩 접수 안내</button>';
-      bar+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'주문자\')" title="주문자(구매자)에게 송장 안내 문자 — 구매자 전화는 주문히스토리에서 매칭해 가져옴">🧑‍💼 주문자에게</button>';
-      bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="shipFileSms(\''+k+'\',\'직접\')">✏️ 직접</button>';
-      bar+='<span style="width:1px;height:20px;background:#bae6fd"></span>';
-      bar+='<span style="font-weight:700;font-size:11px;color:#b45309">☑ 선택한 것만 <span style="font-weight:600;color:#94a3b8">(Shift+클릭 범위선택)</span>:</span>';
-      bar+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'접수\',true)">📩 접수</button>';
-      bar+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'발송\',true)">🚚 송장</button>';
-      bar+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'주문자\',true)">🧑‍💼 주문자</button>';
-      bar+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600;opacity:.92" onclick="shipFileSms(\''+k+'\',\'직접\',true)">✏️ 직접</button>';
-      bar+='<span style="width:1px;height:20px;background:#fde68a"></span>';
-      bar+='<button class="btn" style="background:#b45309;color:#fff;font-weight:700;opacity:.95" onclick="shipBulkInsert(\''+k+'\',true)" title="선택한 행을 명함·인사말 있음으로 일괄 체크">🎴 일괄 체크</button>';
-      bar+='<button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="shipBulkInsert(\''+k+'\',false)" title="선택한 행 명함·인사말 일괄 해제">🎴 일괄 해제</button>';
+      bar+='<div class="tbgrp"><span class="tblbl">📨 전체문자</span>';
+      bar+='<button class="btn" style="background:#16a34a;color:#fff" onclick="shipSmsChoose(\''+k+'\')">🚚 송장</button>';
+      bar+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="shipFileSms(\''+k+'\',\'접수\')">📩 접수</button>';
+      bar+='<button class="btn" style="background:#2563eb;color:#fff" onclick="shipFileSms(\''+k+'\',\'주문자\')" title="주문자(구매자)에게 — 구매자 전화는 주문히스토리에서 매칭">🧑‍💼 주문자</button>';
+      bar+='<button class="btn" style="background:#64748b;color:#fff" onclick="shipFileSms(\''+k+'\',\'직접\')">✏️ 직접</button>';
+      bar+='</div>';
+      bar+='<div class="tbgrp"><span class="tblbl" style="background:#fef3c7;color:#b45309">☑ 선택만</span>';
+      bar+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="shipFileSms(\''+k+'\',\'접수\',true)">📩 접수</button>';
+      bar+='<button class="btn" style="background:#16a34a;color:#fff" onclick="shipFileSms(\''+k+'\',\'발송\',true)">🚚 송장</button>';
+      bar+='<button class="btn" style="background:#2563eb;color:#fff" onclick="shipFileSms(\''+k+'\',\'주문자\',true)">🧑‍💼 주문자</button>';
+      bar+='<button class="btn" style="background:#64748b;color:#fff" onclick="shipFileSms(\''+k+'\',\'직접\',true)">✏️ 직접</button>';
+      bar+='<button class="btn" style="background:#b45309;color:#fff" onclick="shipBulkInsert(\''+k+'\',true)" title="선택한 행 명함·인사말 일괄 체크">🎴 체크</button>';
+      bar+='<button class="btn" style="background:#e2e8f0;color:#334155" onclick="shipBulkInsert(\''+k+'\',false)">🎴 해제</button>';
       bar+='<span id="shiprow_seln" style="font-size:11px;font-weight:700;color:#b45309"></span>';
+      bar+='<span class="muted" style="font-size:11px">Shift+클릭 범위선택</span></div>';
     }
-    bar+='<span style="margin-left:auto">'+shipSmsBadges(k)+'</span>';
-    bar+='<div class="muted" style="font-size:11px;width:100%;margin-top:2px">📤 송장 업로드 = 이 파일 받는분과 매칭해 송장 저장(주문히스토리도 갱신) · 송장 발송 = 받는분/담당자에게 문자 (미리보기 확인)</div></div>';
+    bar+='<div class="muted" style="font-size:11px;margin-top:6px">📤 송장업로드=받는분 매칭 송장 저장 · 송장발송=받는분/담당자 문자(미리보기 확인)</div></div>';
   }
   // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) 우선 ② 없으면 주문히스토리(excel_orders)에서 이름+전화로 조회
   var trkMap=[], delFlag=[], rowSd=[], rowPath=[], rowIns=[], rowChg=[], rowBtel=[], rowNo=[];
@@ -21747,7 +21740,7 @@ async function shipOpen(k){
       cc+='<div style="font-size:13px;margin-bottom:4px">받는분 '+_telLink(_phone)+(_sender?(' <span style="color:#64748b">· 보낸분 '+esc(_sender)+'</span>'):'')+'</div>';
       if(_hasIC) cc+='<div style="font-size:13px;color:#b45309;font-weight:700;margin-bottom:5px">🎴 '+esc(_insC)+'</div>';
       cc+='<div style="font-size:12px;margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-      if(ni>=0) cc+= _tm?('<span style="color:#16a34a;font-weight:700;font-family:monospace">🚚'+esc(_tm.trk)+(_tm.car?(' '+esc(_tm.car)):'')+'</span>'):'<span style="color:#dc2626;font-weight:700">송장 미등록</span>';
+      if(ni>=0) cc+= _tm?_trkLink(_tm.trk,_tm.car):'<span style="color:#dc2626;font-weight:700">송장 미등록</span>';
       cc+='<span style="color:#64748b;display:inline-flex;align-items:center;gap:3px">발송일 <input type="date" value="'+esc(rowSd[i]||'')+'" onchange="shipRowDate(\''+k+'\','+i+',this.value)" style="font-size:12px;padding:2px 4px;border:1px solid '+(rowSd[i]?'#16a34a':'#cbd5e1')+';border-radius:6px'+(rowSd[i]?';background:#f0fdf4':'')+'"></span></div>';
       cc+='<div style="margin-bottom:6px"><input value="'+esc(memo)+'" placeholder="비고" onchange="shipRowMemo(\''+k+'\','+i+',this.value,this)" style="width:100%;box-sizing:border-box;font-size:13px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px"></div>';
       cc+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
@@ -21775,7 +21768,7 @@ async function shipOpen(k){
       else if(ci===aci){ h+='<td style="white-space:normal;max-width:280px">'+((_chgA)?('<div style="color:#94a3b8;text-decoration:line-through">'+esc(v||'')+'</div><div style="color:#ea580c;font-weight:800;margin-top:2px">📍'+esc(_chgA)+'</div>'):(v||''))+'</td>'; }
       else { h+='<td>'+(v||'')+'</td>'; }
     });
-    if(ni>=0){ var tm=trkMap[i]; h+='<td>'+(tm?(tm.car||''):'')+'</td><td style="font-family:monospace'+(tm?'':';color:#dc2626')+'">'+(tm?tm.trk:'미등록')+'</td>'; }
+    if(ni>=0){ var tm=trkMap[i]; h+='<td>'+(tm?(tm.car||''):'')+'</td><td'+(tm?'':' style="color:#dc2626"')+'>'+(tm?_trkLink(tm.trk,tm.car):'미등록')+'</td>'; }
     h+='<td><input type="date" value="'+esc(rowSd[i]||'')+'" onchange="shipRowDate(\''+k+'\','+i+',this.value)" style="width:128px;font-size:12px;padding:2px 4px;border:1px solid '+(rowSd[i]?'#16a34a':'#cbd5e1')+';border-radius:6px'+(rowSd[i]?';background:#f0fdf4;font-weight:700':'')+'"></td>';
     h+='<td style="text-align:center"><label style="cursor:pointer;font-size:11px;font-weight:700;color:'+(rok?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(rok?'checked':'')+' onclick="shipRowOk(\''+k+'\','+i+',this.checked,this)"> <span class="_oklbl">'+(rok?'✅':'미확인')+'</span></label></td>';
     var _ins=rowIns[i], _hasI=(_ins!=null)&&_hasInsert({'인사말':_ins});
@@ -21933,6 +21926,22 @@ function _telLink(v){
   if(!s) return '<b style="color:#dc2626">없음</b>';
   if(dg.length<9) return '<span style="color:#dc2626">'+esc(s)+'</span>';
   return '<a href="tel:'+dg+'" style="color:#2563eb;font-weight:700;text-decoration:underline;white-space:nowrap" title="탭하면 전화 걸림">📞'+esc(s)+'</a>';
+}
+// 🚚 송장번호 배송조회 URL — 택배사 알면 해당 택배사 조회, 모르면 네이버 통합조회(자동인식)
+function _trackUrl(trk, car){
+  var t=String(trk||'').replace(/[^0-9A-Za-z]/g,''); if(!t) return '';
+  var c=String(car||'');
+  if(/롯데/.test(c)) return 'https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo='+t;
+  if(/한진/.test(c)) return 'https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2='+t;
+  if(/(CJ|대한통운)/i.test(c)) return 'https://trace.cjlogistics.com/next/tracking.html?wblNo='+t;
+  if(/(우체국|우편|epost)/i.test(c)) return 'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1='+t;
+  if(/로젠/.test(c)) return 'https://www.ilogen.com/web/personal/trace/'+t;
+  return 'https://search.naver.com/search.naver?query='+encodeURIComponent(t+' 택배조회');
+}
+// 송장번호 → 배송조회 링크 (새 창). car=택배사
+function _trkLink(trk, car){
+  var t=String(trk==null?'':trk).trim(); if(!t) return '';
+  return '<a href="'+esc(_trackUrl(t,car))+'" target="_blank" rel="noopener" style="color:#16a34a;font-weight:700;font-family:monospace;text-decoration:underline;white-space:nowrap" title="눌러서 배송조회 (새 창)">🚚'+esc(t)+(car?(' <span style="font-family:inherit;color:#64748b;font-weight:600">'+esc(car)+'</span>'):'')+'</a>';
 }
 // 택배사 결과 엑셀 → 헤더 자동감지 후 [{nmRaw,tel,trk,car}] 배열. 못 찾으면 null
 function _parseCourierRows(rows){
@@ -22874,7 +22883,7 @@ function _calMBody(m, ds){
     h+=no?('<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:11px" title="'+esc(no)+'">'+esc(no)+'</td>'):('<td style="color:#cbd5e1">-</td>');
     h+='<td>'+esc(d['구매자명']||'')+'</td>';
     h+='<td>'+_telLink(d['구매자전화'])+'</td>';
-    h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+esc(trk)+'</td>'):('<td style="color:#d97706">미발송</td>');
+    h+=trk?('<td>'+_trkLink(trk,d['택배사'])+'</td>'):('<td style="color:#d97706">미발송</td>');
     h+='</tr>';
   });
   h+='</tbody></table></div>';
@@ -23712,7 +23721,7 @@ function _ordhRowHtml(row){
   h+='<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">'+(d['상품명']||'')+'</td>';
   h+='<td>'+(d['수량']||'')+'</td>';
   h+='<td>'+(d['택배사']||'')+'</td>';
-  h+=trk?('<td style="color:#16a34a;font-weight:700;font-family:monospace">'+trk+'</td>'):('<td style="color:#d97706;font-weight:600">미발송</td>');
+  h+=trk?('<td>'+_trkLink(trk,d['택배사'])+'</td>'):('<td style="color:#d97706;font-weight:600">미발송</td>');
   h+='<td style="font-size:11px">'+(sent['접수']?'<span style="color:#7c3aed;font-weight:700">접수✓</span> ':'')+(sent['송장']?'<span style="color:#16a34a;font-weight:700">송장✓</span> ':'')+(sent['받는분']?'<span style="color:#0ea5e9;font-weight:700">받는분✓</span>':'')+'</td>';
   var addrOk=!!d['주소확인'];
   h+='<td style="text-align:center;white-space:nowrap"><label style="cursor:pointer;font-size:12px;font-weight:700;color:'+(addrOk?'#16a34a':'#94a3b8')+'"><input type="checkbox" '+(addrOk?'checked':'')+' onclick="ordhAddrOk(\''+row.k+'\',this.checked)"> '+(addrOk?'✅확인':'미확인')+'</label></td>';
@@ -23744,7 +23753,7 @@ function _ordhCardHtml(row){
   h+='<div style="font-size:12px;color:#64748b;margin-bottom:5px">보낸분 '+esc(d['구매자명']||'')+' '+_telLink(d['구매자전화'])+'</div>';
   if(insOk) h+='<div style="font-size:13px;color:#b45309;font-weight:700;margin-bottom:5px">🎴 '+esc(ins||'명함·인사말')+'</div>';
   h+='<div style="font-size:12px;margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  h+= trk?('<span style="color:#16a34a;font-weight:700;font-family:monospace">🚚'+esc(trk)+(d['택배사']?(' '+esc(d['택배사'])):'')+'</span>'):'<span style="color:#d97706;font-weight:700">미발송</span>';
+  h+= trk?_trkLink(trk,d['택배사']):'<span style="color:#d97706;font-weight:700">미발송</span>';
   h+='<span style="color:#64748b;display:inline-flex;align-items:center;gap:3px">발송일 <input type="date" value="'+esc(_shipDateOf(d))+'" onchange="ordhSetShipDate(\''+row.k+'\',this.value)" style="font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4':'')+'"></span>';
   var smsB=(sent['접수']?'접수✓ ':'')+(sent['송장']?'송장✓ ':'')+(sent['받는분']?'받는분✓':''); if(smsB) h+='<span style="color:#0ea5e9;font-weight:700">'+smsB+'</span>';
   h+='</div>';
