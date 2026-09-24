@@ -21311,6 +21311,7 @@ function dShipData(){
   h+='<button class="btn" style="background:#0ea5e9;color:#fff" onclick="loadShipData();renderShip();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="강제 새로고침">🔄 새로고침</button>';
   h+='<button class="btn" style="background:#d97706;color:#fff" onclick="shipRecalc()">📨 재계산 텔레그램</button>';
   h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="shipSmsHistory()">📋 문자내역</button>';
+  h+='<button class="btn" style="background:#334155;color:#fff" onclick="carrierModal()" title="택배사별 파일명 키워드·조회주소 설정">⚙ 택배사설정</button>';
   h+='</div>';
   h+='<div class="tbgrp" style="border-top:1px dashed #e2e8f0;padding-top:8px"><span class="tblbl">📅 기준</span>'+_sbb('reg','등록일')+_sbb('ship','발송일')+'</div>';
   h+='<div class="tbgrp"><span class="tblbl">기간</span>'+_spb('today','오늘')+_spb('7','최근7일')+_spb('month','이번달')+_spb('all','전체')+'<span style="color:#94a3b8;font-size:12px;margin-left:6px">직접</span><input type="date" id="ship_dfrom" value="'+SHIP_DATE.from+'" onchange="shipDateManual(\'from\')"><span style="color:#94a3b8">~</span><input type="date" id="ship_dto" value="'+SHIP_DATE.to+'" onchange="shipDateManual(\'to\')"></div>';
@@ -21425,7 +21426,7 @@ function _sndDel(id){
 
 var SHIP_LISTENER=null, SHIP_RAW={}, SHIP_PATH={}, CUR_CO='', CUR_JI='';
 function loadShipData(){
-  _loadTbSmsTpl();
+  _loadTbSmsTpl(); loadCarriers();
   if(!SHIP_LISTENER){
     SHIP_LISTENER=true;
     fbDb.ref('/excel_ship').on('value', function(s){ SHIP_RAW=s.val()||{}; if(CTAB==='shipData') renderShip(); },
@@ -21931,6 +21932,8 @@ function _telLink(v){
 function _trackUrl(trk, car){
   var t=String(trk||'').replace(/[^0-9A-Za-z]/g,''); if(!t) return '';
   var c=String(car||'');
+  // ① 사용자 설정 택배사 조회주소 우선 ({송장} 치환)
+  if(c){ for(var i=0;i<CARRIER_CFG.length;i++){ var cc=CARRIER_CFG[i]; if(cc.url && cc.name && (c.indexOf(cc.name)>=0||cc.name.indexOf(c)>=0)) return cc.url.replace(/\{\s*송장\s*\}|\{\s*trk\s*\}|\{\s*invno\s*\}/gi, t); } }
   if(/롯데/.test(c)) return 'https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo='+t;
   if(/한진/.test(c)) return 'https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2='+t;
   if(/(CJ|대한통운)/i.test(c)) return 'https://trace.cjlogistics.com/next/tracking.html?wblNo='+t;
@@ -21939,6 +21942,75 @@ function _trackUrl(trk, car){
   if(/(CU|GS|편의점|반품)/i.test(c)) return 'https://search.naver.com/search.naver?query='+encodeURIComponent(t+' 택배조회');
   // 택배사 미지정 = 우리는 전부 롯데택배 → 롯데 조회로 (다른 택배사 쓰게 되면 그 택배사명을 넣으면 자동 분기)
   return 'https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo='+t;
+}
+// 🚚 택배사 자동감지 — 파일명 키워드 + 송장 자릿수(우체국 등기=13자리)
+function _detectCarrier(fname, sampleTrk){
+  var f=String(fname||'');
+  // ① 사용자 설정 택배사(파일명 키워드) 우선
+  var fl=f.toLowerCase();
+  for(var i=0;i<CARRIER_CFG.length;i++){ var c=CARRIER_CFG[i]; var kws=String(c.kw||'').split(/[,\s]+/).filter(Boolean);
+    for(var j=0;j<kws.length;j++){ if(fl.indexOf(String(kws[j]).toLowerCase())>=0) return c.name; } }
+  // ② 내장 기본
+  if(/우체국|등기|소포|우편|epost|post/i.test(f)) return '우체국';
+  if(/PIDPIC|롯데|현대|lotte/i.test(f)) return '롯데택배';
+  if(/(CJ|대한통운|cjlogistics)/i.test(f)) return 'CJ대한통운';
+  if(/한진|hanjin/i.test(f)) return '한진택배';
+  if(/로젠|logen|ilogen/i.test(f)) return '로젠택배';
+  var t=String(sampleTrk||'').replace(/[^0-9]/g,'');
+  if(t.length===13) return '우체국';   // 국내등기·소포=13자리
+  return '';
+}
+// ===== 택배사 설정 (파일명 키워드·조회주소) =====
+var CARRIER_CFG=[], CARRIER_LISTENER=false;
+function loadCarriers(){
+  if(CARRIER_LISTENER) return; CARRIER_LISTENER=true;
+  fbDb.ref('/excel_config/carriers').on('value', function(s){
+    var v=s.val()||{}; CARRIER_CFG=Object.keys(v).map(function(id){ var c=v[id]||{}; return {id:id, name:c.name||'', kw:c.kw||'', url:c.url||''}; });
+    if(document.getElementById('_carBody')) _carRender();
+  });
+}
+function carrierModal(){
+  loadCarriers();
+  var h='<div style="max-width:640px"><h3 style="margin:0 0 4px">🚚 택배사 설정</h3>';
+  h+='<div style="font-size:12px;color:#64748b;margin-bottom:10px">택배사별 <b>파일명 키워드</b>를 등록하면 송장 업로드 시 파일명으로 <b>자동 택배사 인식</b>돼요. <b>조회주소</b>에 <code>{송장}</code>을 넣으면 송장번호 눌렀을 때 그 주소로 열립니다.</div>';
+  h+='<div id="_carBody"></div>';
+  h+='<div style="border-top:1px dashed #cbd5e1;padding-top:10px;margin-top:10px;font-weight:700;color:#334155;margin-bottom:6px">➕ 택배사 추가/수정</div>';
+  h+='<div style="display:grid;gap:6px">';
+  h+='<input id="_carName" placeholder="택배사명 (예: 우체국)" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px">';
+  h+='<input id="_carKw" placeholder="파일명 키워드 (쉼표로 여러개, 예: 우체국,등기,epost)" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px">';
+  h+='<input id="_carUrl" placeholder="조회주소 (예: https://service.epost.go.kr/trace...?sid1={송장})" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-family:monospace;font-size:12px">';
+  h+='<div style="text-align:right"><button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="_carClear()">새로</button> <button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="carrierSave()">💾 저장</button></div>';
+  h+='</div>';
+  h+='<div style="font-size:11px;color:#94a3b8;margin-top:8px">💡 롯데·우체국·CJ·한진·로젠은 기본 내장돼 있어요. 여기 등록하면 그 설정이 우선 적용됩니다. 조회주소 예시: 우체국 <code>https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1={송장}</code></div>';
+  h+='<div style="text-align:right;margin-top:12px"><button class="btn" style="background:#2563eb;color:#fff;font-weight:800" onclick="closePopup()">닫기</button></div></div>';
+  openPopup(h,660); _carEditId=''; _carRender();
+}
+var _carEditId='';
+function _carRender(){
+  var b=document.getElementById('_carBody'); if(!b) return;
+  if(!CARRIER_CFG.length){ b.innerHTML='<div class="muted" style="font-size:12px">등록된 택배사 없음 (기본 내장만 사용 중)</div>'; return; }
+  var h='<div style="overflow-x:auto"><table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>택배사</th><th>파일명 키워드</th><th>조회주소</th><th></th></tr></thead><tbody>';
+  CARRIER_CFG.forEach(function(c){ h+='<tr><td style="font-weight:700">'+esc(c.name)+'</td><td style="color:#64748b">'+esc(c.kw)+'</td><td style="color:#64748b;max-width:220px;overflow:hidden;text-overflow:ellipsis;font-family:monospace" title="'+esc(c.url)+'">'+esc(c.url||'-')+'</td><td style="white-space:nowrap"><button class="btn" style="background:#2563eb;color:#fff;padding:2px 8px" onclick="_carEdit(\''+c.id+'\')">수정</button> <button class="btn" style="background:#dc2626;color:#fff;padding:2px 8px" onclick="carrierDel(\''+c.id+'\')">삭제</button></td></tr>'; });
+  h+='</tbody></table></div>'; b.innerHTML=h;
+}
+function _carEdit(id){ var c=CARRIER_CFG.filter(function(x){return x.id===id;})[0]; if(!c)return; _carEditId=id; document.getElementById('_carName').value=c.name; document.getElementById('_carKw').value=c.kw; document.getElementById('_carUrl').value=c.url; document.getElementById('_carName').focus(); }
+function _carClear(){ _carEditId=''; ['_carName','_carKw','_carUrl'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); }
+function carrierSave(){
+  var name=(document.getElementById('_carName').value||'').trim();
+  var kw=(document.getElementById('_carKw').value||'').trim();
+  var url=(document.getElementById('_carUrl').value||'').trim();
+  if(!name){ alert('택배사명을 입력하세요.'); return; }
+  var data={name:name, kw:kw, url:url};
+  var ref = _carEditId ? fbDb.ref('/excel_config/carriers/'+_carEditId) : fbDb.ref('/excel_config/carriers').push();
+  ref.set(data).then(function(){ toast('🚚 택배사 저장'); _carClear(); }).catch(function(e){ alert('실패: '+e.message); });
+}
+function carrierDel(id){ if(!confirm('이 택배사 설정을 삭제할까요?')) return; fbDb.ref('/excel_config/carriers/'+id).remove().catch(function(e){ alert('실패: '+e.message); }); }
+// 택배사 못 잡으면 한 번 물어봄 (업로드 배치 전체 적용)
+function _askCarrier(fname){
+  var pk=prompt('이 파일은 어느 택배사인가요? (자동감지 안 됨)\n파일명: '+(fname||'')+'\n\n1 = 롯데택배\n2 = 우체국\n3 = CJ대한통운\n4 = 한진택배\n5 = 로젠택배\n\n(번호 입력 · 또는 택배사명 직접 입력 · 취소=미지정)', '1');
+  if(pk===null) return '';
+  pk=pk.trim(); var mp={'1':'롯데택배','2':'우체국','3':'CJ대한통운','4':'한진택배','5':'로젠택배'};
+  return mp[pk]||pk;
 }
 // 송장번호 → 배송조회 링크 (새 창). car=택배사
 function _trkLink(trk, car){
@@ -21986,7 +22058,9 @@ function shipTrackUpload(k, file){
       var crows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
       var pairs=_parseCourierRows(crows);
       if(!pairs){ alert('송장 파일에서 받는분 이름과 송장번호 열을 못 찾았어요.\n헤더에 받는분/수취인/수하인 + 송장/운송장 이 있어야 합니다.'); return; }
-      var carDefault=/PIDPIC|롯데|현대/i.test(String(file.name||''))?'롯데택배':'';
+      var _hasCarCol=pairs.some(function(p){return p.car;});
+      var carDefault=_detectCarrier(file.name, (pairs[0]&&pairs[0].trk));
+      if(!carDefault && !_hasCarCol){ carDefault=_askCarrier(file.name); }
       // 이 파일 받는분 인덱스 (행번호)
       var fidx={};
       rows.forEach(function(r,i){ var nm=_trkNrm(String(r[ni]||'')); if(!nm) return; var key=nm+'|'+(ti>=0?_trkTail(r[ti]):''); (fidx[key]=fidx[key]||[]).push(i); });
@@ -23051,6 +23125,7 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="shipSmsHistory()" title="문자 발송내역 · 실패분 재발송">📋 문자내역</button>';
   h+='<button class="btn" style="background:#059669;color:#fff" onclick="document.getElementById(\'ordh_trkfile\').click()" title="택배사 결과 엑셀로 송장 채우기">📤 송장업로드</button>';
   h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
+  h+='<button class="btn" style="background:#334155;color:#fff" onclick="carrierModal()" title="택배사별 파일명 키워드·조회주소 설정 (자동인식용)">⚙ 택배사설정</button>';
   h+='<button class="btn" style="background:#ea580c;color:#fff" onclick="document.getElementById(\'ordh_addrlog\').click()" title="택배 출력 로그(.log)로 바뀐 주소 자동 감지">📍 주소로그</button>';
   h+='<input type="file" id="ordh_addrlog" accept=".log,.txt,.csv" multiple style="display:none" onchange="ordhAddrLogUpload(this.files);this.value=\'\'">';
   h+='<button class="btn" style="background:#15803d;color:#fff" onclick="ordhExportData()" title="지금 보이는(필터된) 주문 엑셀 저장(체크시 선택만)">📥 엑셀다운</button>';
@@ -23122,7 +23197,7 @@ function _loadTbSmsTpl(){
   fbDb.ref('/excel_config/smsTpl').on('value', function(s){ TB_SMS_TPL=s.val()||{}; }, function(){});
 }
 function loadOrderHist(){
-  _loadTbSmsTpl();
+  _loadTbSmsTpl(); loadCarriers();
   if(!ORDH_LISTENER){
     ORDH_LISTENER=true;
     // 실시간 리스너 2개 (엑셀에서 쌓이면 자동 반영)
@@ -23902,8 +23977,9 @@ function ordhTrackUpload(file){
         if(nc>=0 && kc>=0){ hr=r; nameCol=nc; telCol=tc; trkCol=kc; carCol=cc; break; }
       }
       if(hr<0){ alert('송장 파일에서 받는분 이름과 송장번호 열을 못 찾았어요.\n헤더에 받는분/수취인/수하인 + 송장/운송장 이 있어야 합니다.'); return; }
-      // 🚚 파일명으로 택배사 인식 (파일에 택배사 열이 없을 때 기본값)
-      var carDefault=/PIDPIC|롯데|현대/i.test(String(file.name||''))?'롯데택배':'';
+      // 🚚 택배사 자동감지(파일명·번호). 파일에 택배사 열 없고 감지 실패면 한 번 물어봄
+      var carDefault=_detectCarrier(file.name, (rows[hr+1]&&rows[hr+1][trkCol]));
+      if(!carDefault && carCol<0){ carDefault=_askCarrier(file.name); }
 
       // 매칭용 인덱스: 수취인명(호칭·공백 제거)+전화 뒷4자리 -> 주문키들
       function tail(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
