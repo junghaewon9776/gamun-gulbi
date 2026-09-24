@@ -70,6 +70,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Goth
 .ordhtbl th,.ordhtbl td{overflow:hidden;text-overflow:ellipsis}
 .ordhrz{position:absolute;top:0;right:-1px;width:10px;height:100%;cursor:col-resize;user-select:none;touch-action:none;z-index:3}
 .ordhrz:hover{background:rgba(37,99,235,.4)}
+/* 툴바 그룹 정렬 (기간·문자발송 등 줄별로 깔끔하게) */
+.tbgrp{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.tblbl{font-weight:800;font-size:11px;color:#64748b;background:#f1f5f9;border-radius:6px;padding:4px 9px;white-space:nowrap}
+.tbgrp .btn{padding:6px 11px;font-size:13px;font-weight:600;border-radius:8px}
+.tbgrp select,.tbgrp input[type=date],.tbgrp input[type=text]{padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px}
 .card h3{font-size:14px;margin-bottom:12px;color:#333}
 table{width:100%;border-collapse:collapse}
 th{padding:8px;text-align:left;border-bottom:2px solid #e5e5e5;font-size:11px;color:#999;font-weight:600}
@@ -23029,59 +23034,54 @@ function dOrderHist(){
   var h='';
   h+='<div class="card" style="margin-bottom:10px"><h3 style="margin:0 0 4px">🧾 주문히스토리</h3>';
   h+='<div class="muted" style="font-size:12px">엑셀에서 [주문 가져오기]/[송장 등록] 하면 자동 반영됩니다. (엑셀이 원본, 여긴 조회용)</div>';
-  h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="loadOrderHist();renderOrderHist();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="자동으로 실시간 반영됩니다. 이 버튼은 강제 새로고침">🔄 새로고침</button> ';
-  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="shipSmsHistory()" title="문자 발송내역 · 실패분 재발송">📋 문자 발송내역</button> ';
-  h+='<span style="font-weight:700;font-size:12px;color:#334155">📢 전체(지금 화면):</span>';
-  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\')">📩 전체 접수문자</button>';
-  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(false)">🚚 전체 송장문자</button>';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\')">🎁 전체 받는분문자</button>';
-  h+='<button class="btn" style="background:#059669;color:#fff;font-weight:600" onclick="document.getElementById(\'ordh_trkfile\').click()">📤 송장 업로드</button>';
+  // 🛠 관리
+  h+='<div class="tbgrp"><span class="tblbl">🛠 관리</span>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff" onclick="loadOrderHist();renderOrderHist();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="강제 새로고침">🔄 새로고침</button>';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="shipSmsHistory()" title="문자 발송내역 · 실패분 재발송">📋 문자내역</button>';
+  h+='<button class="btn" style="background:#059669;color:#fff" onclick="document.getElementById(\'ordh_trkfile\').click()" title="택배사 결과 엑셀로 송장 채우기">📤 송장업로드</button>';
   h+='<input type="file" id="ordh_trkfile" accept=".xlsx,.xls,.csv" style="display:none" onchange="ordhTrackUpload(this.files[0])">';
-  h+='<button class="btn" style="background:#15803d;color:#fff;font-weight:700" onclick="ordhExportData()" title="지금 보이는(필터된) 주문을 엑셀로 저장. 체크한 게 있으면 체크된 것만 저장">📥 엑셀 다운로드</button>';
-  h+='<button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="ordhColReset()" title="표 열너비를 기본값으로 되돌림 (열 경계선을 마우스로 끌면 너비 조절돼요)">↔ 열너비 초기화</button>';
-  h+='<button class="btn" style="background:#ea580c;color:#fff;font-weight:700" onclick="document.getElementById(\'ordh_addrlog\').click()" title="택배 출력 로그(.log) 올리면 원래 주소와 달라진 건을 찾아 주소변경으로 표시 (미리보기 후 적용)">📍 주소로그 업로드</button>';
+  h+='<button class="btn" style="background:#ea580c;color:#fff" onclick="document.getElementById(\'ordh_addrlog\').click()" title="택배 출력 로그(.log)로 바뀐 주소 자동 감지">📍 주소로그</button>';
   h+='<input type="file" id="ordh_addrlog" accept=".log,.txt,.csv" multiple style="display:none" onchange="ordhAddrLogUpload(this.files);this.value=\'\'">';
+  h+='<button class="btn" style="background:#15803d;color:#fff" onclick="ordhExportData()" title="지금 보이는(필터된) 주문 엑셀 저장(체크시 선택만)">📥 엑셀다운</button>';
+  h+='<button class="btn" style="background:#e2e8f0;color:#334155" onclick="ordhColReset()" title="표 열너비 기본값 복구(PC)">↔ 열너비</button>';
   h+='</div>';
-  h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
-  h+='<span style="font-weight:700;font-size:12px">☑ 선택한 것만:</span>';
-  h+='<button class="btn" style="background:#7c3aed;color:#fff;font-weight:600" onclick="ordhSms(\'접수\',true)">📩 접수문자</button>';
-  h+='<button class="btn" style="background:#16a34a;color:#fff;font-weight:600" onclick="ordhSmsChoose(true)">🚚 송장문자</button>';
-  h+='<button class="btn" style="background:#0ea5e9;color:#fff;font-weight:600" onclick="ordhSms(\'받는분\',true)">🎁 받는분문자</button>';
-  h+='<button class="btn" style="background:#0d9488;color:#fff;font-weight:600" onclick="ordhBulkShipDate()" title="체크한 주문들의 택배 발송일자를 한번에 지정">📅 발송일자 지정</button>';
-  h+='<button class="btn" style="background:#b45309;color:#fff;font-weight:700" onclick="ordhBulkInsert(true)" title="체크한 주문을 명함·인사말 있음으로 일괄 체크">🎴 명함·인사말 체크</button>';
-  h+='<button class="btn" style="background:#e2e8f0;color:#334155;font-weight:700" onclick="ordhBulkInsert(false)" title="체크한 주문 명함·인사말 일괄 해제">🎴 해제</button>';
-  h+='<button class="btn" style="background:#15803d;color:#fff;font-weight:600" onclick="ordhExportSelected()" title="선택한 주문을 엑셀 파일로 — 택배변환에 넣어 송장 재발행">📥 선택 파일변환(엑셀)</button>';
-  h+='<button class="btn" style="background:#dc2626;color:#fff;font-weight:600" onclick="ordhDelSelected()">🗑 선택 삭제</button>';
-  h+='<button class="btn" style="background:#64748b;color:#fff;font-weight:600" onclick="ordhSelClear()">선택 해제</button>';
+  // 📢 전체 문자
+  h+='<div class="tbgrp"><span class="tblbl">📢 전체문자</span>';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="ordhSms(\'접수\')">📩 접수</button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff" onclick="ordhSmsChoose(false)">🚚 송장</button>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff" onclick="ordhSms(\'받는분\')">🎁 받는분</button>';
+  h+='<span class="muted" style="font-size:11px">지금 화면 전체 대상 · 건당 요금</span>';
+  h+='</div>';
+  // ☑ 선택한 것만
+  h+='<div class="tbgrp" style="border-top:1px dashed #e2e8f0;padding-top:8px"><span class="tblbl" style="background:#fef3c7;color:#b45309">☑ 선택만</span>';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="ordhSms(\'접수\',true)">📩 접수</button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff" onclick="ordhSmsChoose(true)">🚚 송장</button>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff" onclick="ordhSms(\'받는분\',true)">🎁 받는분</button>';
+  h+='<button class="btn" style="background:#0d9488;color:#fff" onclick="ordhBulkShipDate()" title="체크한 주문 발송일자 일괄 지정">📅 발송일자</button>';
+  h+='<button class="btn" style="background:#b45309;color:#fff" onclick="ordhBulkInsert(true)" title="체크한 주문 명함·인사말 일괄 체크">🎴 체크</button>';
+  h+='<button class="btn" style="background:#e2e8f0;color:#334155" onclick="ordhBulkInsert(false)">🎴 해제</button>';
+  h+='<button class="btn" style="background:#15803d;color:#fff" onclick="ordhExportSelected()" title="선택 주문 엑셀(송장 재발행용)">📥 파일변환</button>';
+  h+='<button class="btn" style="background:#dc2626;color:#fff" onclick="ordhDelSelected()">🗑 삭제</button>';
+  h+='<button class="btn" style="background:#64748b;color:#fff" onclick="ordhSelClear()">선택해제</button>';
   h+='<span id="ordh_seln" class="muted" style="font-size:11px;font-weight:700;color:#15803d"></span>';
-  h+='<span class="muted" style="font-size:11px;margin-left:auto">접수/송장=구매자 · 받는분=수취인 · 건당 요금</span>';
-  h+='</div></div>';
-  h+='<div class="card" style="margin-bottom:10px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  h+='<b style="color:#c026d3">업체</b> <select id="ordh_company" onchange="renderOrderHist()" style="width:auto;font-weight:700;color:#c026d3"></select> ';
-  h+='<b style="color:#7c3aed">지점</b> <select id="ordh_jijeom" onchange="renderOrderHist()" style="width:auto;font-weight:700;color:#7c3aed"></select> ';
-  h+='<input id="ordh_q" placeholder="🔍 검색 (수취인·주문번호·상품명·송장·전화)" style="width:340px;max-width:70vw;padding:11px 14px;font-size:15px;border:2px solid #94a3b8;border-radius:10px" oninput="renderOrderHist()">';
-  h+='<select id="ordh_f" onchange="ordhShowReset();renderOrderHist()" style="width:auto;padding:10px 12px;font-size:14px;border:2px solid #cbd5e1;border-radius:10px"><option value="">전체</option><option value="no">송장 없음 (미발송)</option><option value="yes">송장 있음 (발송)</option><option value="chg">📍 주소변경건만</option><option value="ins">🎴 명함·인사말건만</option></select>';
+  h+='</div>';
+  h+='</div>';
+  // ── 카드2: 검색/필터 + 기간 ──
+  var _bb=function(b,label){ var on=(ORDH_DATE.basis||'reg')===b; return '<button class="btn" id="ordh_basis_'+b+'" style="background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhSetBasis(\''+b+'\')">'+label+'</button>'; };
+  var _pb=function(mode,label){ var on=ORDH_DATE.mode===mode; return '<button class="btn" id="ordh_pb_'+mode+'" style="background:'+(on?'#2563eb':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhDateSet(\''+mode+'\')">'+label+'</button>'; };
+  var _rb=function(min,label){ var on=(ORDH_DATE.mode==='recent'&&ORDH_DATE.recentMin===min); return '<button class="btn" id="ordh_rb_'+min+'" style="background:'+(on?'#d97706':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhRecent('+min+')">'+label+'</button>'; };
+  h+='<div class="card" style="margin-bottom:10px">';
+  h+='<div class="tbgrp" style="margin-top:0">';
+  h+='<b style="color:#c026d3;font-size:13px">업체</b> <select id="ordh_company" onchange="renderOrderHist()" style="font-weight:700;color:#c026d3"></select>';
+  h+='<b style="color:#7c3aed;font-size:13px">지점</b> <select id="ordh_jijeom" onchange="renderOrderHist()" style="font-weight:700;color:#7c3aed"></select>';
+  h+='<input id="ordh_q" type="text" placeholder="🔍 수취인·주문번호·상품·송장·전화" style="flex:1;min-width:180px;max-width:360px;border:2px solid #94a3b8" oninput="renderOrderHist()">';
+  h+='<select id="ordh_f" onchange="ordhShowReset();renderOrderHist()"><option value="">전체</option><option value="no">송장없음(미발송)</option><option value="yes">송장있음(발송)</option><option value="chg">📍 주소변경건만</option><option value="ins">🎴 명함·인사말건만</option></select>';
   h+='<span id="ordh_cnt" class="muted" style="font-size:12px"></span>';
   h+='</div>';
-  // 📅 기간 필터 (오늘/최근7일/이번달/전체 + 직접 날짜)
-  h+='<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed #ccc;padding-top:8px">';
-  h+='<span style="font-weight:700;font-size:12px;color:#475569">📅 기준</span>';
-  var _bb=function(b,label){ var on=(ORDH_DATE.basis||'reg')===b; return '<button class="btn" id="ordh_basis_'+b+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#0d9488':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhSetBasis(\''+b+'\')">'+label+'</button>'; };
-  h+=_bb('reg','등록일')+_bb('ship','발송일');
-  h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
-  h+='<span style="font-weight:700;font-size:12px;color:#475569">기간</span>';
-  var _pb=function(mode,label){ var on=ORDH_DATE.mode===mode; return '<button class="btn" id="ordh_pb_'+mode+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#2563eb':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhDateSet(\''+mode+'\')">'+label+'</button>'; };
-  h+=_pb('today','오늘')+_pb('7','최근 7일')+_pb('month','이번달')+_pb('all','전체');
-  h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
-  h+='<span style="font-weight:700;font-size:12px;color:#b45309">⏱ 방금 들어온것</span>';
-  var _rb=function(min,label){ var on=(ORDH_DATE.mode==='recent'&&ORDH_DATE.recentMin===min); return '<button class="btn" id="ordh_rb_'+min+'" style="font-weight:700;padding:5px 12px;background:'+(on?'#d97706':'#e2e8f0')+';color:'+(on?'#fff':'#475569')+'" onclick="ordhRecent('+min+')">'+label+'</button>'; };
-  h+=_rb(30,'30분')+_rb(60,'1시간')+_rb(180,'3시간')+_rb(360,'6시간');
-  h+='<span style="width:1px;height:18px;background:#cbd5e1;margin:0 2px"></span>';
-  h+='<span style="color:#94a3b8;font-size:12px;margin-left:4px">직접:</span>';
-  h+='<input type="date" id="ordh_dfrom" value="'+ORDH_DATE.from+'" onchange="ordhDateManual(\'from\')" style="width:auto;font-size:12px"> ~ ';
-  h+='<input type="date" id="ordh_dto" value="'+ORDH_DATE.to+'" onchange="ordhDateManual(\'to\')" style="width:auto;font-size:12px">';
-  h+='</div></div>';
+  h+='<div class="tbgrp" style="border-top:1px dashed #e2e8f0;padding-top:8px"><span class="tblbl">📅 기준</span>'+_bb('reg','등록일')+_bb('ship','발송일')+'</div>';
+  h+='<div class="tbgrp"><span class="tblbl">기간</span>'+_pb('today','오늘')+_pb('7','최근7일')+_pb('month','이번달')+_pb('all','전체')+'<span style="color:#94a3b8;font-size:12px;margin-left:6px">직접</span><input type="date" id="ordh_dfrom" value="'+ORDH_DATE.from+'" onchange="ordhDateManual(\'from\')"><span style="color:#94a3b8">~</span><input type="date" id="ordh_dto" value="'+ORDH_DATE.to+'" onchange="ordhDateManual(\'to\')"></div>';
+  h+='<div class="tbgrp"><span class="tblbl" style="background:#fef3c7;color:#b45309">⏱ 방금</span>'+_rb(30,'30분')+_rb(60,'1시간')+_rb(180,'3시간')+_rb(360,'6시간')+'</div>';
+  h+='</div>';
   h+='<div class="card"><div id="ordh_list" class="muted" style="overflow:auto;max-height:66vh">불러오는 중...</div></div>';
   return h;
 }
