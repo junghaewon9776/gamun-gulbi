@@ -21598,7 +21598,7 @@ var SHIP_ROWSEL={}, SHIP_ROWSEL_KEY=null, _shipLastVal=null;   // 파일 상세 
 function shipRowSel(i,on){ if(on) SHIP_ROWSEL[i]=1; else delete SHIP_ROWSEL[i]; _shipLastVal=String(i); _shipSelCount(); }
 // Shift+클릭 = 직전 클릭 행부터 지금 행까지 범위 전체 선택/해제 (보이는 행만)
 function shipRowCkClick(cb, ev){
-  var boxes=Array.prototype.slice.call(document.querySelectorAll('#ship_rows .shiprow_ck')).filter(function(c){ var tr=c.closest('tr'); return !tr || tr.style.display!=='none'; });
+  var boxes=Array.prototype.slice.call(document.querySelectorAll('#ship_rows .shiprow_ck')).filter(function(c){ var tr=c.closest('.shiprow_item'); return !tr || tr.style.display!=='none'; });
   var idx=boxes.indexOf(cb), aIdx=-1, j;
   if(_shipLastVal!=null){ for(j=0;j<boxes.length;j++){ if(boxes[j].value===_shipLastVal){ aIdx=j; break; } } }
   if(ev && ev.shiftKey && aIdx>=0 && aIdx!==idx){
@@ -21610,7 +21610,7 @@ function shipRowCkClick(cb, ev){
   _shipLastVal=cb.value;
   _shipSelCount();
 }
-function shipRowSelAll(on){ document.querySelectorAll('#ship_rows tbody tr').forEach(function(tr){ if(tr.style.display==='none') return; var cb=tr.querySelector('.shiprow_ck'); if(!cb) return; cb.checked=on; if(on) SHIP_ROWSEL[cb.value]=1; else delete SHIP_ROWSEL[cb.value]; }); _shipSelCount(); }
+function shipRowSelAll(on){ document.querySelectorAll('#ship_rows .shiprow_item').forEach(function(tr){ if(tr.style.display==='none') return; var cb=tr.querySelector('.shiprow_ck'); if(!cb) return; cb.checked=on; if(on) SHIP_ROWSEL[cb.value]=1; else delete SHIP_ROWSEL[cb.value]; }); _shipSelCount(); }
 function _shipSelCount(){ var n=Object.keys(SHIP_ROWSEL).length; var el=document.getElementById('shiprow_seln'); if(el) el.textContent=n?('✓ '+n+'명 선택'):''; }
 async function shipOpen(k){
   var card=document.getElementById('ship_rows_card');
@@ -21708,10 +21708,19 @@ async function shipOpen(k){
   h+='<span style="font-size:12px;font-weight:700;color:#475569">비고</span><select id="shiprow_fmemo" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">있음</option><option value="0">없음</option></select>';
   h+='<span style="font-size:12px;font-weight:700;color:#475569">색상</span><select id="shiprow_fcolor" onchange="_shipRowFilter()" style="padding:6px;border-radius:6px"><option value="">전체</option><option value="1">색칠됨</option><option value="0">없음</option></select>';
   h+='<span id="shiprow_cnt" class="muted" style="font-size:12px"></span></div>';
-  h+='<div style="overflow:auto;max-height:60vh"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th><input type="checkbox" id="shiprow_all" onclick="shipRowSelAll(this.checked)" title="전체선택(보이는 행)"></th><th>#</th><th>주문번호</th>';
-  heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
-  if(ni>=0) h+='<th>택배사</th><th>송장번호</th>';
-  h+='<th>📅발송일자</th><th>주소확인</th><th>🎴명함·인사말</th><th>📍주소변경</th><th>비고</th><th>색상</th><th>수정</th><th>삭제</th></tr></thead><tbody>';
+  var _mob=_calNarrow();
+  var si=heads.findIndex(function(x){return /상품|품목|내용품/.test(x);});
+  var qi=heads.findIndex(function(x){return /수량|개수/.test(x);});
+  var sei=heads.findIndex(function(x){return /보내는분|보내신분|송하인|주문자|구매자/.test(x);});
+  if(_mob){
+    h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;margin-bottom:8px"><input type="checkbox" id="shiprow_all" onclick="shipRowSelAll(this.checked)" style="width:18px;height:18px"> 전체선택</label>';
+    h+='<div style="max-height:74vh;overflow:auto">';
+  } else {
+    h+='<div style="overflow:auto;max-height:60vh"><table class="tbl" style="width:100%;white-space:nowrap"><thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:1"><th><input type="checkbox" id="shiprow_all" onclick="shipRowSelAll(this.checked)" title="전체선택(보이는 행)"></th><th>#</th><th>주문번호</th>';
+    heads.forEach(function(hd){ h+='<th>'+hd+'</th>'; });
+    if(ni>=0) h+='<th>택배사</th><th>송장번호</th>';
+    h+='<th>📅발송일자</th><th>주소확인</th><th>🎴명함·인사말</th><th>📍주소변경</th><th>비고</th><th>색상</th><th>수정</th><th>삭제</th></tr></thead><tbody>';
+  }
   rows.forEach(function(r,i){
     var rowDel=!!d['del'] || !!delFlag[i];
     var memo=(d.memo&&(d.memo[i]!=null?d.memo[i]:d.memo[String(i)]))||'';
@@ -21719,7 +21728,36 @@ async function shipOpen(k){
     var rok=(d.rowok&&(d.rowok[i]||d.rowok[String(i)]))?1:0;
     var bg = rowDel ? '#fef2f2' : (COLORS[col]||'');
     var _rs=esc(((r||[]).join(' ')+' '+String(memo)).toLowerCase());
-    h+='<tr data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'" style="'+(rowDel?'opacity:.5;':'')+(bg?('background:'+bg+';'):'')+'">';
+    if(_mob){
+      var _no=rowNo[i]||'', _chgC=rowChg[i], _tm=trkMap[i], _insC=rowIns[i], _hasIC=(_insC!=null)&&_hasInsert({'인사말':_insC});
+      var _recip=(ni>=0?(r[ni]||''):(r[0]||'')), _prod=(si>=0?(r[si]||''):''), _qty=(qi>=0?(r[qi]||''):''), _sender=(sei>=0?(r[sei]||''):''), _addr=(aci>=0?(r[aci]||''):''), _phone=(ti>=0?(r[ti]||''):'');
+      var cc='<div style="border:1px solid '+(rowDel?'#fecaca':'#e2e8f0')+';border-radius:12px;padding:10px 12px;margin-bottom:8px;background:'+(bg||(rowDel?'#fef2f2':'#fff'))+';'+(rowDel?'opacity:.7;':'')+'box-shadow:0 1px 2px rgba(0,0,0,.05)">';
+      cc+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px"><input type="checkbox" class="shiprow_ck" value="'+i+'"'+(SHIP_ROWSEL[i]?' checked':'')+' onclick="shipRowCkClick(this,event)" style="width:18px;height:18px"><span style="font-size:12px;color:#94a3b8">#'+(i+1)+'</span><b style="font-size:16px">'+esc(_recip)+'</b>';
+      if(_no) cc+='<span onclick="shipShowNo(\''+k+'\','+i+')" style="cursor:pointer;background:#f1f5f9;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;color:#475569">주문번호 📄</span>';
+      if(rowDel) cc+='<span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 6px;font-size:10px;font-weight:800">삭제</span>';
+      cc+='</div>';
+      if(_prod||_qty) cc+='<div style="font-size:14px;margin-bottom:4px"><b style="color:#7c3aed">'+esc(_prod)+'</b>'+(_qty?(' <span style="background:#faf5ff;border-radius:6px;padding:1px 7px;font-weight:800;color:#7c3aed">'+esc(_qty)+'개</span>'):'')+'</div>';
+      cc+='<div style="font-size:13px;color:'+(_chgC?'#94a3b8':'#334155')+';margin-bottom:3px'+(_chgC?';text-decoration:line-through':'')+'">📍'+esc(_addr)+'</div>';
+      if(_chgC) cc+='<div style="font-size:13px;color:#ea580c;font-weight:700;margin-bottom:3px">📍변경: '+esc(_chgC)+'</div>';
+      cc+='<div style="font-size:13px;margin-bottom:4px">받는분 '+_telLink(_phone)+(_sender?(' <span style="color:#64748b">· 보낸분 '+esc(_sender)+'</span>'):'')+'</div>';
+      if(_hasIC) cc+='<div style="font-size:13px;color:#b45309;font-weight:700;margin-bottom:5px">🎴 '+esc(_insC)+'</div>';
+      cc+='<div style="font-size:12px;margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+      if(ni>=0) cc+= _tm?('<span style="color:#16a34a;font-weight:700;font-family:monospace">🚚'+esc(_tm.trk)+(_tm.car?(' '+esc(_tm.car)):'')+'</span>'):'<span style="color:#dc2626;font-weight:700">송장 미등록</span>';
+      cc+='<span style="color:#64748b;display:inline-flex;align-items:center;gap:3px">발송일 <input type="date" value="'+esc(rowSd[i]||'')+'" onchange="shipRowDate(\''+k+'\','+i+',this.value)" style="font-size:12px;padding:2px 4px;border:1px solid '+(rowSd[i]?'#16a34a':'#cbd5e1')+';border-radius:6px'+(rowSd[i]?';background:#f0fdf4':'')+'"></span></div>';
+      cc+='<div style="margin-bottom:6px"><input value="'+esc(memo)+'" placeholder="비고" onchange="shipRowMemo(\''+k+'\','+i+',this.value,this)" style="width:100%;box-sizing:border-box;font-size:13px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px"></div>';
+      cc+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
+      cc+='<label style="font-size:12px;font-weight:700;color:'+(rok?'#16a34a':'#64748b')+';background:'+(rok?'#f0fdf4':'#f1f5f9')+';border-radius:8px;padding:4px 9px;cursor:pointer"><input type="checkbox" '+(rok?'checked':'')+' onclick="shipRowOk(\''+k+'\','+i+',this.checked,this)"> <span class="_oklbl">'+(rok?'✅주소확인':'주소확인')+'</span></label>';
+      if(_insC!=null) cc+='<label style="font-size:12px;font-weight:700;color:'+(_hasIC?'#b45309':'#64748b')+';background:'+(_hasIC?'#fffbeb':'#f1f5f9')+';border-radius:8px;padding:4px 9px;cursor:pointer"><input type="checkbox" '+(_hasIC?'checked':'')+' onclick="shipRowInsert(\''+k+'\','+i+',this.checked,this)"> <span class="_inslbl">'+(_hasIC?'🎴명함·인사말':'명함·인사말')+'</span></label>';
+      if(_chgC!=null) cc+='<button class="btn" style="background:'+(_chgC?'#ea580c':'#e2e8f0')+';color:'+(_chgC?'#fff':'#334155')+';font-weight:700;padding:4px 10px;font-size:12px" onclick="shipRowAddrChange(\''+k+'\','+i+')">📍주소변경</button>';
+      cc+='<button class="btn" style="background:#2563eb;color:#fff;font-weight:700;padding:4px 10px;font-size:12px" onclick="shipRowEdit(\''+k+'\','+i+')">✏️수정</button>';
+      cc+= rowDel?('<button class="btn" style="background:#16a34a;color:#fff;font-weight:700;padding:4px 10px;font-size:12px" onclick="shipRowSoftDel(\''+k+'\','+i+',false)">↩되살리기</button>'):('<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:4px 10px;font-size:12px" onclick="shipRowSoftDel(\''+k+'\','+i+',true)">🗑삭제</button>');
+      cc+='<span style="display:inline-flex;gap:3px;align-items:center;margin-left:2px">';
+      ['','y','g','b','r'].forEach(function(c){ var on=(col===c); cc+='<span onclick="shipRowColor(\''+k+'\','+i+',\''+c+'\')" style="display:inline-block;width:20px;height:20px;border-radius:5px;cursor:pointer;border:'+(on?'2px solid #111':'1px solid #cbd5e1')+';background:'+(c===''?'#fff':COLORS[c])+';text-align:center;line-height:18px;font-size:10px;color:#94a3b8">'+(c===''?'x':'')+'</span>'; });
+      cc+='</span></div></div>';
+      h+='<div class="shiprow_item" data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'">'+cc+'</div>';
+      return;
+    }
+    h+='<tr class="shiprow_item" data-s="'+_rs+'" data-ok="'+rok+'" data-memo="'+(memo?1:0)+'" data-color="'+(col?1:0)+'" style="'+(rowDel?'opacity:.5;':'')+(bg?('background:'+bg+';'):'')+'">';
     h+='<td><input type="checkbox" class="shiprow_ck" value="'+i+'"'+(SHIP_ROWSEL[i]?' checked':'')+' onclick="shipRowCkClick(this,event)"></td>';
     h+='<td>'+(i+1)+(rowDel?' <span style="background:#dc2626;color:#fff;border-radius:6px;padding:0 4px;font-size:9px;font-weight:800">삭제</span>':'')+'</td>';
     var _noA=rowNo[i]||'';
@@ -21752,7 +21790,7 @@ async function shipOpen(k){
         : '<button class="btn" style="background:#dc2626;color:#fff;font-weight:700;padding:2px 7px" onclick="shipRowSoftDel(\''+k+'\','+i+',true)" title="이 행 삭제 표시(수량합계 제외·되돌리기 가능)">🗑</button>')+'</td>';
     h+='</tr>';
   });
-  h+='</tbody></table></div>';
+  h+= _mob ? '</div>' : '</tbody></table></div>';
   document.getElementById('ship_rows').innerHTML=h;
   // 재렌더(색상/삭제 등) 시 같은 파일이면 필터 복원, 다른 파일 열면 초기화
   if(SHIP_ROWFILTER && SHIP_ROWFILTER_KEY===k){
@@ -21773,7 +21811,7 @@ function _shipRowFilter(){
   var fm=(document.getElementById('shiprow_fmemo')||{}).value||'';
   var fc=(document.getElementById('shiprow_fcolor')||{}).value||'';
   SHIP_ROWFILTER={q:(document.getElementById('shiprow_q')||{}).value||'', fok:fok, fm:fm, fc:fc}; SHIP_ROWFILTER_KEY=SHIP_OPEN_KEY;   // 재렌더 후 복원용
-  var trs=document.querySelectorAll('#ship_rows tbody tr'); var shown=0;
+  var trs=document.querySelectorAll('#ship_rows .shiprow_item'); var shown=0;
   trs.forEach(function(tr){
     var s=tr.getAttribute('data-s')||'';
     var ok=tr.getAttribute('data-ok'), me=tr.getAttribute('data-memo'), co=tr.getAttribute('data-color');
