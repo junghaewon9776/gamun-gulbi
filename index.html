@@ -21936,7 +21936,9 @@ function _trackUrl(trk, car){
   if(/(CJ|대한통운)/i.test(c)) return 'https://trace.cjlogistics.com/next/tracking.html?wblNo='+t;
   if(/(우체국|우편|epost)/i.test(c)) return 'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1='+t;
   if(/로젠/.test(c)) return 'https://www.ilogen.com/web/personal/trace/'+t;
-  return 'https://search.naver.com/search.naver?query='+encodeURIComponent(t+' 택배조회');
+  if(/(CU|GS|편의점|반품)/i.test(c)) return 'https://search.naver.com/search.naver?query='+encodeURIComponent(t+' 택배조회');
+  // 택배사 미지정 = 우리는 전부 롯데택배 → 롯데 조회로 (다른 택배사 쓰게 되면 그 택배사명을 넣으면 자동 분기)
+  return 'https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo='+t;
 }
 // 송장번호 → 배송조회 링크 (새 창). car=택배사
 function _trkLink(trk, car){
