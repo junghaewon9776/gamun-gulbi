@@ -20772,7 +20772,7 @@ function _verAutoRefresh(){
   if(document.activeElement && el.contains(document.activeElement)) return;                // 입력칸 포커스 중 → skip
   // 타이핑해둔 버전/메모 값 보존
   var vals={};
-  el.querySelectorAll('input[id^="pclv_ver_"],input[id^="pclv_note_"],input[id^="pclv_url_"]').forEach(function(inp){ vals[inp.id]=inp.value; });
+  el.querySelectorAll('input[id^="pclv_ver_"],input[id^="pclv_note_"],input[id^="pclv_url_"],input[id^="pclv_sig_"]').forEach(function(inp){ vals[inp.id]=inp.value; });
   renderPcVer();
   Object.keys(vals).forEach(function(id){ var inp=document.getElementById(id); if(inp && vals[id]!=='') inp.value=vals[id]; });
 }
@@ -21060,7 +21060,7 @@ function renderPcVer(){
     h+='<tr>';
     h+='<td style="font-weight:700">'+app+'</td>';
     h+='<td><input id="pclv_ver_'+sid+'" value="'+(v.ver||'')+'" placeholder="1.1" style="width:70px"></td>';
-    h+='<td><input type="file" id="pclv_file_'+sid+'" accept=".xlsm,.xls,.xlsx,.exe,.zip" style="width:210px;font-size:12px"><br><input id="pclv_url_'+sid+'" value="'+(v.url||'').replace(/"/g,'&quot;')+'" placeholder="또는 다운로드 주소 붙여넣기 (드라이브 공유 링크)" style="width:210px;font-size:12px;margin-top:3px"></td>';
+    h+='<td><input type="file" id="pclv_file_'+sid+'" accept=".xlsm,.xls,.xlsx,.exe,.zip" style="width:210px;font-size:12px"><br><input id="pclv_url_'+sid+'" value="'+(v.url||'').replace(/"/g,'&quot;')+'" placeholder="또는 다운로드 주소 붙여넣기 (드라이브 공유 링크)" style="width:210px;font-size:12px;margin-top:3px"><br><input id="pclv_sig_'+sid+'" value="'+(v.sig||'').replace(/"/g,'&quot;')+'" placeholder="서명 (EXE만 — 빌드하면 자동 복사됨)" title="EXE는 서명이 맞아야 업데이트 설치됨. 빌드.bat 끝나면 클립보드에 복사돼 있어요" style="width:210px;font-size:12px;margin-top:3px"></td>';
     h+='<td><input id="pclv_note_'+sid+'" value="'+(v.note||'')+'" placeholder="예: 자동매핑 개선" style="width:150px"></td>';
     h+='<td style="white-space:nowrap"><button class="btn" style="background:#16a34a;color:#fff;font-weight:700" onclick="pcVerSaveOnly(\''+app+'\')" title="파일 없이 버전/메모만 저장">💾 저장</button> ';
     h+='<button class="btn" id="pclv_btn_'+sid+'" style="background:#2563eb;color:#fff;font-weight:600" onclick="pcVerUpload(\''+app+'\')" title="파일도 같이 올리고 저장">⬆ 파일+저장</button> ';
@@ -21101,8 +21101,8 @@ function _pcVerPushHist(app,obj){
     var hist=PCLIC_VER[app+'_history']||{};
     var keys=Object.keys(hist);
     var last=keys.length?hist[keys[keys.length-1]]:null;
-    if(last && last.ver===(obj.ver||'') && last.url===(obj.url||'') && last.note===(obj.note||'')) return;   // 같은 내용 반복 저장은 스킵
-    var entry={ver:obj.ver||'', url:obj.url||'', note:obj.note||'', fileName:obj.fileName||'', updated:obj.updated||nowKST(true), by:(ME&&ME.id)||''};
+    if(last && last.ver===(obj.ver||'') && last.url===(obj.url||'') && last.note===(obj.note||'') && (last.sig||'')===(obj.sig||'')) return;   // 같은 내용 반복 저장은 스킵
+    var entry={ver:obj.ver||'', url:obj.url||'', note:obj.note||'', fileName:obj.fileName||'', sig:obj.sig||'', updated:obj.updated||nowKST(true), by:(ME&&ME.id)||''};
     fbDb.ref('/excel_version/'+app+'_history').push(entry).catch(function(){});
     var lk='h'+Date.now().toString(36);
     PCLIC_VER[app+'_history']=PCLIC_VER[app+'_history']||{}; PCLIC_VER[app+'_history'][lk]=entry;
@@ -21112,6 +21112,10 @@ function _pcVerPushHist(app,obj){
 function _pcVerUrlInput(sid){
   var u=((document.getElementById('pclv_url_'+sid)||{}).value||'').trim();
   return /^https?:\/\//.test(u)?u:'';
+}
+// 서명칸 값 (EXE 업데이트는 서명 맞아야 설치 — 빌드.bat 이 클립보드에 복사해 줌)
+function _pcVerSigInput(sid){
+  return ((document.getElementById('pclv_sig_'+sid)||{}).value||'').replace(/\s+/g,'');
 }
 // 저장 시 기존 칸(link 등)은 남기고 덮어쓸 칸만 바꿈 (숨김표시는 해제)
 function _pcVerObj(prev, obj){
@@ -21126,7 +21130,7 @@ function pcVerSaveOnly(app){
   if(!ver){ alert('버전을 적어주세요 (예: 1.1)'); return; }
   var prev=PCLIC_VER[app]||{};
   var url=_pcVerUrlInput(sid);
-  var obj=_pcVerObj(prev, {ver:ver, url:url||prev.url||'', note:note, fileName:(url&&url!==prev.url)?'':(prev.fileName||''), updated:nowKST(true)});
+  var obj=_pcVerObj(prev, {ver:ver, url:url||prev.url||'', note:note, fileName:(url&&url!==prev.url)?'':(prev.fileName||''), sig:_pcVerSigInput(sid), updated:nowKST(true)});
   fbDb.ref('/excel_version/'+app).set(obj)
     .then(function(){ PCLIC_VER[app]=obj; _pcVerPushHist(app,obj); alert(app+' v'+ver+' 저장 완료!'); renderPcVer(); })
     .catch(function(e){ alert('저장 실패: '+e.message); });
@@ -21142,7 +21146,7 @@ function pcVerUpload(app){
   var prev=PCLIC_VER[app]||{};
 
   function saveMeta(url, fileName){
-    var obj=_pcVerObj(prev, {ver:ver, url:url||'', note:note, fileName:fileName||'', updated:nowKST(true)});
+    var obj=_pcVerObj(prev, {ver:ver, url:url||'', note:note, fileName:fileName||'', sig:_pcVerSigInput(sid), updated:nowKST(true)});
     fbDb.ref('/excel_version/'+app).set(obj)
       .then(function(){ _pcVerPushHist(app,obj); alert(app+' v'+ver+' 등록 완료!\n낮은 버전 파일이 열리면 업데이트 알림 + 이 파일 다운로드로 연결됩니다.'); loadPcLic(); })
       .catch(function(e){ alert('저장 실패: '+e.message); if(btn){btn.disabled=false;btn.textContent='⬆ 업로드+등록';} });
@@ -21208,7 +21212,7 @@ function pcVerHist(app){
 function pcVerRestore(app,hk){
   var e2=(PCLIC_VER[app+'_history']||{})[hk]; if(!e2) return;
   if(!confirm('['+app+'] v'+(e2.ver||'')+' 을(를) 다시 최신 버전으로 되돌릴까요?\n(엑셀 업데이트 알림이 이 버전 기준으로 나갑니다)')) return;
-  var obj={ver:e2.ver||'', url:e2.url||'', note:e2.note||'', fileName:e2.fileName||'', updated:nowKST(true)};
+  var obj=_pcVerObj(PCLIC_VER[app]||{}, {ver:e2.ver||'', url:e2.url||'', note:e2.note||'', fileName:e2.fileName||'', sig:e2.sig||'', updated:nowKST(true)});
   fbDb.ref('/excel_version/'+app).set(obj).then(function(){
     PCLIC_VER[app]=obj;
     alert('v'+(e2.ver||'')+' 로 되돌렸습니다.');
