@@ -1,0 +1,137 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "main": {
+      ".read": "auth != null && auth.token.sys === 'gamun'",
+      "Users": {
+        ".write": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin' || auth.token.r === 'subAdm')",
+        "$i": {
+          ".write": "auth != null && auth.token.sys === 'gamun' && data.child('id').val() === auth.uid && newData.child('id').val() === data.child('id').val() && newData.child('r').val() === data.child('r').val() && newData.child('ar').val() === data.child('ar').val()"
+        }
+      },
+      "ModDefs": {
+        ".read": true,
+        ".write": "auth != null && auth.token.sys === 'gamun'"
+      },
+      "Assets": {
+        ".read": true,
+        ".write": "auth != null && auth.token.sys === 'gamun'"
+      },
+      "DriveProxyUrl": {
+        ".read": true,
+        ".write": "auth != null && auth.token.sys === 'gamun'"
+      },
+      "PubCfg": {
+        ".read": true,
+        ".write": "auth != null && auth.token.sys === 'gamun'"
+      },
+      "PubFee": {
+        "$h": {
+          ".read": true
+        },
+        ".write": "auth != null && auth.token.sys === 'gamun'"
+      },
+      "ModStock": {
+        ".read": true,
+        ".write": "auth != null && auth.token.sys === 'gamun'",
+        "$sk": {
+          "$col": {
+            "$opt": {
+              ".write": "newData.isNumber() && newData.val() >= (data.exists() ? data.val() : 0) && newData.val() <= (data.exists() ? data.val() : 0) + 1000"
+            }
+          }
+        }
+      },
+      "Rentals": {
+        ".write": "auth != null && auth.token.sys === 'gamun'",
+        "$row": {
+          ".write": "!data.exists() && newData.hasChildren()"
+        }
+      },
+      "$node": {
+        ".read": "$node.beginsWith('Mod_') && query.orderByChild === '_id' && query.equalTo != null && query.limitToFirst <= 1",
+        ".write": "auth != null && auth.token.sys === 'gamun'",
+        ".indexOn": [
+          "_id"
+        ],
+        "$row": {
+          ".write": "$node.beginsWith('Mod_') && !data.exists() && newData.hasChildren()"
+        }
+      }
+    },
+    "evtData": {
+      ".read": "auth != null && auth.token.sys === 'gamun'",
+      "$evt": {
+        ".write": "auth != null && auth.token.sys === 'gamun'",
+        "PubCfg": {
+          ".read": true
+        },
+        "PubSeq": {
+          ".read": true,
+          "$k": {
+            ".write": "newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1"
+          }
+        },
+        "Apply": {
+          "$row": {
+            ".write": "!data.exists() && newData.hasChildren()"
+          }
+        },
+        "$node": {
+          ".read": "$node.beginsWith('Mod_') && query.orderByChild === '_id' && query.equalTo != null && query.limitToFirst <= 1",
+          ".indexOn": [
+            "_id"
+          ],
+          "$row": {
+            ".write": "$node.beginsWith('Mod_') && !data.exists() && newData.hasChildren()"
+          }
+        }
+      }
+    },
+    "secure": {
+      ".read": false,
+      ".write": false
+    },
+    "excel_license": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_license_requests": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_version": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_login_log": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_ship": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_orders": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_sms_sent": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_daily": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_sms_log": {
+      ".read": true,
+      ".write": true
+    },
+    "excel_config": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
