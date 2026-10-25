@@ -43,6 +43,10 @@
           }
         }
       },
+      "Config": {
+        ".read": true,
+        ".write": "auth != null && auth.token.sys === 'gamun'"
+      },
       "Rentals": {
         ".write": "auth != null && auth.token.sys === 'gamun'",
         "$row": {
