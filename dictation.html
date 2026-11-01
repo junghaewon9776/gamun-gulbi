@@ -73,6 +73,9 @@
   th { background:#334155; color:#fff; }
   td.p { background:#dcfce7; color:#166534; font-weight:800; } td.f { background:#fef2f2; color:#991b1b; font-weight:700; } td.n { color:#cbd5e1; }
   .hidden { display:none !important; }
+  .pad { position:relative; margin-top:8px; }
+  .pad canvas { width:100%; display:block; background:#fffef5; border:3px solid #fbbf24; border-radius:12px; touch-action:none; -webkit-user-select:none; user-select:none; }
+  .pad .guide { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:rgba(100,116,139,.28); font-weight:800; pointer-events:none; padding:8px; line-height:1.25; word-break:keep-all; }
   .scrollx { overflow-x:auto; }
   .hist { font-size:14px; color:#475569; line-height:1.7; }
   /* 계급 */
@@ -153,9 +156,12 @@
       <div class="row" style="margin-bottom:8px"><button class="back" onclick="stopAll();go('vMode')">◀ 단계</button><div class="who"><b id="typeTitle"></b></div></div>
       <div class="num"><b id="kNum">1</b>번 / <span id="kTotal">0</span>문장</div>
       <div class="bar"><i id="kBar"></i></div>
-      <div class="hint" style="text-align:center">보이는 문장을 <b>똑같이</b> 쳐요. 띄어쓰기·점(.)·물음표(?)까지! 초록 = 맞음, 빨강 = 틀림</div>
+      <div class="seg" id="segTypeHow" style="margin:8px 0"><button data-v="key">⌨️ 타자로 치기</button><button data-v="hand">✍️ 손으로 따라 쓰기</button></div>
+      <div class="hint" style="text-align:center" id="kHint">보이는 문장을 <b>똑같이</b> 쳐요. 띄어쓰기·점(.)·물음표(?)까지! 초록 = 맞음, 빨강 = 틀림</div>
       <div class="model" id="kModel" style="margin-top:10px"></div>
       <input class="ans" id="kAns" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="여기에 따라 쳐요">
+      <div id="kPadBox" class="hidden"></div>
+      <button class="big b-ok hidden" style="margin-top:8px" id="kHandDone" onclick="typeHandDone()">✔ 다 썼어요 ▶</button>
       <div class="feedback" id="kFb"></div>
       <div class="row" style="margin-top:10px">
         <button class="b-dark" onclick="speak(KT.qs[KT.idx].s,0.8)">🔊 듣기</button>
@@ -173,8 +179,9 @@
       <div class="bar"><i id="pBar"></i></div>
       <div class="status" id="pStatus"></div>
       <button class="big" onclick="pracSay()">🔊 듣기 (몇 번이든)</button>
-      <div class="seg" id="segPracWhere" style="margin-top:10px"><button data-v="screen">📱 화면에 쓰기</button><button data-v="paper">📄 종이에 쓰기</button></div>
+      <div class="seg" id="segPracWhere" style="margin-top:10px"><button data-v="hand">✍️ 손글씨</button><button data-v="screen">⌨️ 타자</button><button data-v="paper">📄 종이</button></div>
       <input class="ans" id="pAns" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="듣고 여기에 써요">
+      <div id="pPadBox" class="hidden"></div>
       <button class="big b-ok" style="margin-top:10px" id="pCheck" onclick="pracCheck()">✔ 확인하기</button>
       <div class="feedback" id="pFb"></div>
       <div class="mine" id="pDiff" style="text-align:center"></div>
@@ -201,7 +208,7 @@
         <div class="seg" id="segRate"><button data-v="0.6">아주 천천히</button><button data-v="0.8">천천히</button><button data-v="1">보통</button><button data-v="1.2">빠르게</button></div>
       </div>
       <label>✍️ 어디에 쓸까요?</label>
-      <div class="seg" id="segWhere"><button data-v="paper">📄 종이에 쓰기</button><button data-v="screen">📱 화면에 쓰기</button></div>
+      <div class="seg" id="segWhere"><button data-v="paper">📄 종이</button><button data-v="hand">✍️ 손글씨</button><button data-v="screen">⌨️ 타자</button></div>
       <div class="hint" id="whereHint"></div>
       <div id="allBox" class="hidden">
         <label>🔢 전체 시험 문제 수</label>
@@ -222,6 +229,7 @@
       <button class="big" id="againBtn" onclick="play(false)">🔊 다시 듣기</button>
       <div class="left" id="tLeft"></div>
       <input class="ans hidden" id="tAns" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="여기에 써요">
+      <div id="tPadBox" class="hidden"></div>
       <button class="big b-ok" style="margin-top:12px" id="nextBtn" onclick="nextQ()">다 썼어요 · 다음 ▶</button>
       <div class="row" style="margin-top:12px">
         <button class="b-dark" id="prevBtn" onclick="prevQ()">◀ 이전 문제</button>
@@ -435,7 +443,7 @@ DB.rec = DB.rec || {};     // rec[이름][급] = [{d, score, n, ok, diff, where,
 DB.xp = DB.xp || {};       // xp[이름] = 숫자
 DB.st = DB.st || {};       // st[이름][급] = {s1:true, s2:true, s3:true}  단계 완료
 DB.day = DB.day || {};     // day[이름] = {d:"2026-11-01", got:{"3|type":30}, streak:n, last:"..."}
-DB.opt = DB.opt || { diff:"normal", max:2, rate:0.9, where:"paper", count:"20", pass:"90", voice:"", pracWhere:"screen" };
+DB.opt = DB.opt || { diff:"normal", max:2, rate:0.9, where:"paper", count:"20", pass:"90", voice:"", pracWhere:"hand", typeHow:"key" };
 
 var $ = function(id){ return document.getElementById(id); };
 var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); };
@@ -660,15 +668,28 @@ var KT = null;
 function startType(){
   var qs = levelSentences(LV);
   KT = { qs:qs, idx:0, done:qs.map(function(){ return false; }) };
-  $("typeTitle").textContent = ME+" · "+lvName()+" · 2단계 따라 치기";
   go("vType"); typeShow();
 }
+function typeHowPick(v){ DB.opt.typeHow = v; save(); typeShow(); }
 function typeShow(){
-  var q = KT.qs[KT.idx];
+  var q = KT.qs[KT.idx], hand = DB.opt.typeHow==="hand";
+  seg("segTypeHow", hand ? "hand" : "key", typeHowPick);
+  $("typeTitle").textContent = ME+" · "+lvName()+" · 2단계 "+(hand ? "손으로 따라 쓰기" : "따라 치기");
   $("kNum").textContent = KT.idx+1; $("kTotal").textContent = KT.qs.length;
   $("kBar").style.width = (KT.done.filter(Boolean).length/KT.qs.length*100)+"%";
-  $("kAns").value = ""; $("kFb").textContent = KT.done[KT.idx] ? "✅ 이미 맞혔어요" : "";
-  typePaint(); $("kAns").focus();
+  $("kAns").value = ""; $("kFb").textContent = KT.done[KT.idx] ? "✅ 이미 했어요" : "";
+  ["kAns","kModel"].forEach(function(id){ $(id).classList.toggle("hidden", hand); });
+  ["kPadBox","kHandDone"].forEach(function(id){ $(id).classList.toggle("hidden", !hand); });
+  $("kHint").innerHTML = hand ? "연한 글씨 위에 <b>손가락으로 따라</b> 써요. 띄어쓰기·점(.)도 똑같이!" : "보이는 문장을 <b>똑같이</b> 쳐요. 띄어쓰기·점(.)·물음표(?)까지! 초록 = 맞음, 빨강 = 틀림";
+  if(hand){ PADK.size(); PADK.clear(); PADK.guide(q.s); } else { typePaint(); $("kAns").focus(); }
+}
+function typeHandDone(){
+  if(PADK.empty()){ alert("손가락으로 따라 써 봐요!"); return; }
+  var first = !KT.done[KT.idx]; KT.done[KT.idx] = true;
+  $("kFb").innerHTML = '<span style="color:#15803d">👍 잘 썼어요!</span>';
+  if(first) gainXp(XP.typeOne, "따라 쓰기", lvKey()+"|type");
+  if(KT.done.every(Boolean)){ stepDone(2); setTimeout(function(){ alert("2단계 따라 쓰기 끝! 이제 3단계 「듣고 써 보기」를 해 봐요."); go("vMode"); }, 500); return; }
+  setTimeout(function(){ typeMove(1); }, 600);
 }
 // 쳐 나가는 대로 글자마다 초록/빨강
 function typePaint(){
@@ -697,6 +718,42 @@ function typeMove(d){
   KT.idx = n; typeShow();
 }
 
+// ───────── ✍️ 손글씨 판 (손가락으로 쓰기) ─────────
+function makePad(box, h){
+  box.innerHTML = '<div class="pad"><canvas></canvas><div class="guide"></div></div>'
+    + '<div class="row" style="margin-top:6px;gap:6px"><button class="b-warn" style="flex:0 0 auto;font-size:15px;padding:8px 12px">🧽 지우기</button><button class="b-dark" style="flex:0 0 auto;font-size:15px;padding:8px 12px">↩ 한 획 취소</button><span class="hint" style="flex:1;margin:0">손가락으로 또박또박 써요</span></div>';
+  var cv = box.querySelector("canvas"), gd = box.querySelector(".guide"), btn = box.querySelectorAll("button");
+  var dpr = window.devicePixelRatio || 1, ctx = null, strokes = [], cur = null, img = null, W = 300;
+  function size(){ W = cv.clientWidth || 300; cv.style.height = h+"px"; cv.width = W*dpr; cv.height = h*dpr; ctx = cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); redraw(); }
+  function pen(){ ctx.strokeStyle = "#111827"; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round"; }
+  function redraw(){
+    if(!ctx) return;
+    ctx.clearRect(0,0,W,h);
+    ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 1;
+    [h/3, h*2/3].forEach(function(y){ ctx.beginPath(); ctx.moveTo(8,y); ctx.lineTo(W-8,y); ctx.stroke(); });
+    if(img && img.complete) ctx.drawImage(img, 0, 0, W, h);
+    pen();
+    strokes.forEach(function(sk){ ctx.beginPath(); sk.forEach(function(pt,i){ i ? ctx.lineTo(pt[0],pt[1]) : ctx.moveTo(pt[0],pt[1]); }); if(sk.length===1) ctx.lineTo(sk[0][0]+0.1, sk[0][1]); ctx.stroke(); });
+  }
+  function pos(e){ var r = cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+  cv.addEventListener("pointerdown", function(e){ e.preventDefault(); if(!ctx) size(); try{ cv.setPointerCapture(e.pointerId); }catch(x){} cur = [pos(e)]; strokes.push(cur); pen(); ctx.beginPath(); ctx.moveTo(cur[0][0], cur[0][1]); ctx.lineTo(cur[0][0]+0.1, cur[0][1]); ctx.stroke(); });
+  cv.addEventListener("pointermove", function(e){ if(!cur) return; e.preventDefault(); var a = cur[cur.length-1], b = pos(e); cur.push(b); pen(); ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); });
+  ["pointerup","pointercancel","pointerleave"].forEach(function(ev){ cv.addEventListener(ev, function(){ cur = null; }); });
+  var api = {
+    size: size,
+    clear: function(){ strokes = []; img = null; redraw(); },
+    empty: function(){ return !strokes.length && !img; },
+    url: function(){ return cv.toDataURL("image/png"); },
+    load: function(u){ strokes = []; img = new Image(); img.onload = redraw; img.src = u; },
+    guide: function(t){ t = t || ""; var L = t.length; gd.style.fontSize = (L<=3?72:L<=6?54:L<=10?40:L<=14?32:26)+"px"; gd.textContent = t; }
+  };
+  btn[0].onclick = function(){ api.clear(); };
+  btn[1].onclick = function(){ strokes.pop(); redraw(); };
+  window.addEventListener("resize", function(){ if(box.offsetParent) size(); });
+  return api;
+}
+var PADK = makePad($("kPadBox"), 230), PADP = makePad($("pPadBox"), 230), PADT = makePad($("tPadBox"), 250);
+
 // ───────── 3단계: 듣고 써 보기 (연습) ─────────
 var PT = null;
 function startPrac(){
@@ -708,7 +765,9 @@ function startPrac(){
 }
 function pracWherePick(v){ DB.opt.pracWhere=v; save(); seg("segPracWhere", v, pracWherePick); pracShow(false); }
 function pracShow(auto){
-  var screen = DB.opt.pracWhere!=="paper";
+  var screen = DB.opt.pracWhere==="screen", hand = DB.opt.pracWhere==="hand";
+  $("pPadBox").classList.toggle("hidden", !hand);
+  if(hand){ PADP.size(); PADP.clear(); }
   $("pNum").textContent = PT.idx+1; $("pTotal").textContent = PT.qs.length;
   $("pBar").style.width = (PT.ok.filter(function(x){ return x===true; }).length/PT.qs.length*100)+"%";
   $("pAns").value = ""; $("pAns").classList.toggle("hidden", !screen);
@@ -720,7 +779,8 @@ function pracShow(auto){
 }
 function pracSay(){ stopAll(); speak(PT.qs[PT.idx].s, 0.85); }
 function pracCheck(){
-  var q = PT.qs[PT.idx], screen = DB.opt.pracWhere!=="paper";
+  var q = PT.qs[PT.idx], screen = DB.opt.pracWhere==="screen";
+  if(DB.opt.pracWhere==="hand" && PADP.empty()){ alert("손가락으로 먼저 써 봐요!"); return; }
   $("pCheck").classList.add("hidden");
   if(!screen){
     $("pFb").innerHTML = '정답: <span style="color:#1d4ed8">'+esc(q.s)+'</span>';
@@ -760,7 +820,7 @@ function renderOpt(){
   seg("segCount", o.count, function(v){ o.count=v; save(); renderOpt(); });
   $("customBox").classList.toggle("hidden", o.diff!=="custom");
   $("diffHint").textContent = DIFF[o.diff] ? DIFF[o.diff].label : "듣는 횟수와 빠르기를 직접 골라요";
-  $("whereHint").textContent = o.where==="paper" ? "종이에 쓰고, 끝나면 정답을 보면서 ⭕❌를 눌러 채점해요." : "화면 칸에 글자를 쳐요. 끝나면 띄어쓰기·문장부호까지 자동으로 채점해요.";
+  $("whereHint").textContent = o.where==="paper" ? "종이에 쓰고, 끝나면 정답을 보면서 ⭕❌를 눌러 채점해요." : o.where==="hand" ? "폰 화면에 손가락으로 써요. 끝나면 부모님이 쓴 글씨와 정답을 나란히 보고 ⭕❌로 채점해요." : "타자로 쳐요. 끝나면 띄어쓰기·문장부호까지 자동으로 채점해요.";
   $("allBox").classList.toggle("hidden", LV!==0);
   if(LV===0) $("optShuffle").checked = true;
 }
@@ -771,8 +831,9 @@ function startTest(){
   var o = DB.opt, qs = levelSentences(LV);
   if($("optShuffle").checked) qs = shuffle(qs);
   if(LV===0) qs = qs.slice(0, Number(o.count)||60);
-  T = { qs:qs, idx:0, heard:qs.map(function(){return 0;}), ans:qs.map(function(){return "";}), max:Number(o.max)||2, rate:Number(o.rate)||0.9, where:o.where, key:lvKey(), sayNum:$("optNum").checked, diff:o.diff };
+  T = { qs:qs, idx:0, heard:qs.map(function(){return 0;}), ans:qs.map(function(){return "";}), draw:[], max:Number(o.max)||2, rate:Number(o.rate)||0.9, where:o.where, key:lvKey(), sayNum:$("optNum").checked, diff:o.diff };
   $("tAns").classList.toggle("hidden", T.where!=="screen");
+  $("tPadBox").classList.toggle("hidden", T.where!=="hand");
   go("vTest"); showQ(true);
 }
 function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
@@ -798,17 +859,19 @@ function showQ(auto){
   $("tNum").textContent = T.idx+1; $("tTotal").textContent = T.qs.length;
   $("tBar").style.width = (T.idx/T.qs.length*100)+"%";
   $("tAns").value = T.ans[T.idx] || "";
+  if(T.where==="hand"){ PADT.size(); PADT.clear(); if(T.draw[T.idx]) PADT.load(T.draw[T.idx]); }
   $("prevBtn").disabled = T.idx===0;
   $("nextBtn").textContent = T.idx===T.qs.length-1 ? "다 썼어요 · 끝내기 ✔" : "다 썼어요 · 다음 ▶";
   updLeft();
   if(auto && T.heard[T.idx]===0) play(true); else $("tStatus").textContent = "✍️ 다 쓰면 「다음 ▶」을 눌러요";
 }
+function keepDraw(){ if(T && T.where==="hand") T.draw[T.idx] = PADT.empty() ? "" : PADT.url(); }
 function nextQ(){
-  T.ans[T.idx] = $("tAns").value;
+  T.ans[T.idx] = $("tAns").value; keepDraw();
   if(T.idx < T.qs.length-1){ T.idx++; showQ(true); }
   else { stopAll(); showResult(); }
 }
-function prevQ(){ T.ans[T.idx]=$("tAns").value; if(T.idx>0){ T.idx--; stopAll(); showQ(false); } }
+function prevQ(){ T.ans[T.idx]=$("tAns").value; keepDraw(); if(T.idx>0){ T.idx--; stopAll(); showQ(false); } }
 function quitTest(){ if(confirm("시험을 그만할까요? (점수는 안 남아요)")){ stopAll(); go("vMode"); } }
 $("tAns").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); nextQ(); } });
 
@@ -845,12 +908,13 @@ function showResult(){
   if(screen) recordScore();
   go("vResult");
   speak(screen ? "끝! 잘했어요!" : "끝! 잘했어요! 이제 부모님께 채점 받아요.", 0.9);
+  $("tPadBox").classList.add("hidden");
 }
 function unlockResult(){
   if(!parentCheck()) return;
   LOCKED = false;
   $("saveMarkBtn").classList.remove("hidden");
-  $("rHint").textContent = "정답을 보면서 종이에 쓴 것과 비교해요. 맞으면 ⭕, 틀리면 ❌ 를 눌러요.";
+  $("rHint").textContent = T.where==="hand" ? "아이가 쓴 글씨와 정답을 비교해요. 맞으면 ⭕, 틀리면 ❌ 를 눌러요." : "정답을 보면서 종이에 쓴 것과 비교해요. 맞으면 ⭕, 틀리면 ❌ 를 눌러요.";
   renderResultList();
 }
 function renderResultList(){
@@ -859,7 +923,7 @@ function renderResultList(){
     $("rList").innerHTML = "";
     $("rScore").innerHTML = '<div style="background:#fef9c3;border:3px dashed #eab308;border-radius:14px;padding:22px 14px;margin-top:6px">'
       + '<div style="font-size:44px">🔒</div><div style="font-size:24px;font-weight:900;margin:6px 0">부모님께 채점 받아요</div>'
-      + '<div style="font-size:16px;color:#475569;margin-bottom:14px">'+T.qs.length+'문제 다 썼어요! 종이를 들고 부모님께 가요.<br>정답은 부모님이 열 수 있어요.</div>'
+      + '<div style="font-size:16px;color:#475569;margin-bottom:14px">'+T.qs.length+'문제 다 썼어요! '+(T.where==="hand"?"폰을":"종이를")+' 들고 부모님께 가요.<br>정답은 부모님이 열 수 있어요.</div>'
       + '<button class="b-warn big" onclick="unlockResult()">🔓 정답 보고 채점하기 (부모님)</button></div>';
     $("retryWrongBtn").disabled = true;
     return;
@@ -869,7 +933,8 @@ function renderResultList(){
     var mk = screen ? '<span class="mark"><b style="font-size:26px;color:'+(MARK[k]?"#15803d":"#b91c1c")+'">'+(MARK[k]?"⭕":"❌")+'</b></span>'
       : '<span class="mark"><button class="b-ok '+(MARK[k]===true?"":"off")+'" onclick="setMark('+k+',true)">⭕</button><button class="b-bad '+(MARK[k]===false?"":"off")+'" onclick="setMark('+k+',false)">❌</button></span>';
     return '<li>'+mk+'<span style="color:#64748b;font-size:15px">'+lb+'</span> <span class="q">'+esc(q.s)+'</span> <button style="font-size:14px;padding:4px 9px" class="b-dark" onclick="speak(T.qs['+k+'].s,0.8)">🔊</button>'
-      + (screen && !MARK[k] ? '<div class="mine">내가 쓴 것: '+diffHtml(q.s, T.ans[k])+'</div>' : '') + '</li>';
+      + (screen && !MARK[k] ? '<div class="mine">내가 쓴 것: '+diffHtml(q.s, T.ans[k])+'</div>' : '')
+      + (T.where==="hand" ? '<div style="margin-top:6px">'+(T.draw[k] ? '<img src="'+T.draw[k]+'" alt="쓴 글씨" style="width:100%;max-width:520px;border:2px solid #fbbf24;border-radius:10px;background:#fffef5">' : '<span class="miss">(안 썼어요)</span>')+'</div>' : '') + '</li>';
   }).join("");
   var ok = MARK.filter(function(x){ return x===true; }).length, done = MARK.every(function(x){ return x!==null; });
   var sc = Math.round(ok/T.qs.length*100);
@@ -954,7 +1019,7 @@ function renderMine(){
       + '<b style="background:#334155;color:#fff;border-radius:8px;padding:2px 8px">'+e.no+'회차</b><b>'+lvName(e.k)+'</b>'
       + '<span style="color:#15803d;font-weight:900">⭕'+x.ok+'</span><span style="color:#b91c1c;font-weight:900">❌'+bad+'</span>'
       + '<span style="font-weight:900;color:'+(x.score>=passScore()?'#15803d':'#b91c1c')+'">'+x.score+'점</span>'
-      + '<span style="color:#64748b;font-size:13px;margin-left:auto">'+esc(x.d)+' · '+({easy:"쉬움",normal:"보통",hard:"어려움",custom:"직접"}[x.diff]||"")+' · '+(x.where==="screen"?"화면":"종이")+'</span></summary>'
+      + '<span style="color:#64748b;font-size:13px;margin-left:auto">'+esc(x.d)+' · '+({easy:"쉬움",normal:"보통",hard:"어려움",custom:"직접"}[x.diff]||"")+' · '+(x.where==="screen"?"타자":x.where==="hand"?"손글씨":"종이")+'</span></summary>'
       + '<div style="padding:4px 10px 10px">'+chips+'</div></details>';
   });
   $("mineBody").innerHTML = h;
