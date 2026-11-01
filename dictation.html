@@ -758,21 +758,45 @@ function diffHtml(ans, mine){
   }
   return out || '<span class="miss">(안 씀)</span>';
 }
-var MARK = [], SAVED = false;
+var MARK = [], SAVED = false, LOCKED = false;
+// 부모님 확인 (곱셈) — 설정 열기·종이 시험 정답 열기
+function parentCheck(){
+  var a = 11 + Math.floor(Math.random()*8), b = 3 + Math.floor(Math.random()*6);
+  var v = prompt("부모님 확인\n\n"+a+" × "+b+" = ?"); if(v===null) return false;
+  if(parseInt(v,10)!==a*b){ alert("틀렸어요!"); return false; }
+  return true;
+}
 function showResult(){
   var screen = T.where==="screen";
   $("rTitle").textContent = "🎉 끝! 잘했어요!";
   MARK = T.qs.map(function(q,k){ return screen ? norm(T.ans[k])===norm(q.s) : null; });
   SAVED = false;
-  $("saveMarkBtn").classList.toggle("hidden", screen);
-  $("rHint").textContent = screen ? "빨간 글자 = 틀리게 쓴 것, 노란 글자 = 빠진 것 (␣ = 띄어쓰기)" : "정답을 보면서 종이에 쓴 것과 비교해요. 맞으면 ⭕, 틀리면 ❌ 를 눌러요.";
+  LOCKED = !screen;   // 종이 시험: 부모님이 열기 전엔 정답 안 보임 (아이가 보고 고치지 않게)
+  $("saveMarkBtn").classList.toggle("hidden", screen || LOCKED);
+  $("rHint").textContent = screen ? "빨간 글자 = 틀리게 쓴 것, 노란 글자 = 빠진 것 (␣ = 띄어쓰기)" : "";
   renderResultList();
   if(screen) recordScore();
   go("vResult");
-  speak("끝! 잘했어요!", 0.9);
+  speak(screen ? "끝! 잘했어요!" : "끝! 잘했어요! 이제 부모님께 채점 받아요.", 0.9);
+}
+function unlockResult(){
+  if(!parentCheck()) return;
+  LOCKED = false;
+  $("saveMarkBtn").classList.remove("hidden");
+  $("rHint").textContent = "정답을 보면서 종이에 쓴 것과 비교해요. 맞으면 ⭕, 틀리면 ❌ 를 눌러요.";
+  renderResultList();
 }
 function renderResultList(){
   var screen = T.where==="screen";
+  if(LOCKED){
+    $("rList").innerHTML = "";
+    $("rScore").innerHTML = '<div style="background:#fef9c3;border:3px dashed #eab308;border-radius:14px;padding:22px 14px;margin-top:6px">'
+      + '<div style="font-size:44px">🔒</div><div style="font-size:24px;font-weight:900;margin:6px 0">부모님께 채점 받아요</div>'
+      + '<div style="font-size:16px;color:#475569;margin-bottom:14px">'+T.qs.length+'문제 다 썼어요! 종이를 들고 부모님께 가요.<br>정답은 부모님이 열 수 있어요.</div>'
+      + '<button class="b-warn big" onclick="unlockResult()">🔓 정답 보고 채점하기 (부모님)</button></div>';
+    $("retryWrongBtn").disabled = true;
+    return;
+  }
   $("rList").innerHTML = T.qs.map(function(q,k){
     var lb = (LV&&T.key!=="wrong" ? "" : q.g+"급 ")+q.i+"번";
     var mk = screen ? '<span class="mark"><b style="font-size:26px;color:'+(MARK[k]?"#15803d":"#b91c1c")+'">'+(MARK[k]?"⭕":"❌")+'</b></span>'
@@ -885,9 +909,7 @@ function renderBoard(){
 
 // ───────── 설정 ─────────
 function openSettings(){
-  var a = 11 + Math.floor(Math.random()*8), b = 3 + Math.floor(Math.random()*6);
-  var v = prompt("부모님 확인\n\n"+a+" × "+b+" = ?"); if(v===null) return;
-  if(parseInt(v,10)!==a*b){ alert("틀렸어요!"); return; }
+  if(!parentCheck()) return;
   $("setNames").value = DB.names.join("\n"); $("setPass").value = DB.opt.pass; loadVoices(); $("qrBox").innerHTML="";
   $("edKid").innerHTML = DB.names.map(function(n){ return '<option>'+esc(n)+'</option>'; }).join("");
   edFillG(); edLoad();
