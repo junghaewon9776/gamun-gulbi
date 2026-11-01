@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>받아쓰기 급수 시험</title>
+<title>받아쓰기·수학 연습</title>
 <style>
   :root { --bg:#fff8ec; --card:#fff; --ink:#1f2937; --main:#1d4ed8; --ok:#15803d; --bad:#b91c1c; --warn:#b45309; --mute:#64748b; --dark:#334155; --army:#3f6212; }
   * { box-sizing:border-box; }
@@ -92,7 +92,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>✏️ 받아쓰기 급수 시험</h1>
+  <h1>✏️ 받아쓰기 · 🔢 수학</h1>
   <div class="sub" id="subTitle">아이마다 자기 급수표로 공부해요</div>
 
   <!-- ① 이름 -->
@@ -112,6 +112,7 @@
     <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vName')">◀ 이름</button><div class="who"><b id="whoName"></b> 어린이</div></div>
     <div id="rankBox"></div>
     <div class="card">
+      <div class="row" style="margin-bottom:12px"><button class="b-ok" style="font-size:19px" disabled>✏️ 받아쓰기</button><button class="b-purple" style="font-size:19px" onclick="go('vMath')">🔢 수학</button></div>
       <h2>📚 몇 급을 할까요?</h2>
       <div class="grid g2" id="levelList"></div>
       <button class="big b-purple" style="margin-top:12px" id="allBtn" onclick="pickLevel(0)">🏆 전체</button>
@@ -269,6 +270,71 @@
     </div>
   </section>
 
+
+  <!-- 🔢 수학: 급 고르기 -->
+  <section id="vMath" class="hidden">
+    <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vName')">◀ 이름</button><div class="who"><b id="mWho"></b> 어린이</div></div>
+    <div id="mRankBox"></div>
+    <div class="card">
+      <div class="row" style="margin-bottom:12px"><button class="b-ok" style="font-size:19px" onclick="go('vLevel')">✏️ 받아쓰기</button><button class="b-purple" style="font-size:19px" disabled>🔢 수학</button></div>
+      <h2>🔢 몇 급을 할까요? <span style="font-size:13px;color:#64748b;font-weight:600">👍 = 추천</span></h2>
+      <div id="mLevels"></div>
+      <h2 style="margin-top:16px">✖️ 구구단 단별 연습</h2>
+      <div class="grid g3" id="mDans"></div>
+    </div>
+    <div class="row">
+      <button class="b-dark" onclick="go('vMine')">📈 내 기록</button>
+      <button class="b-army" onclick="go('vRanks')">🎖 계급표</button>
+    </div>
+  </section>
+
+  <!-- 🔢 수학: 단계 -->
+  <section id="vMMode" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:12px"><button class="back" onclick="go('vMath')">◀ 급</button><div class="who"><b id="mModeTitle"></b></div></div>
+      <div id="mSteps"></div>
+      <div class="hint" id="mModeHint"></div>
+    </div>
+  </section>
+
+  <!-- 🔢 구구단 외우기 -->
+  <section id="vMStudy" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><button class="back" onclick="stopAll();go('vMMode')">◀ 단계</button><div class="who"><b id="mStudyTitle"></b></div></div>
+      <div class="row" style="margin-bottom:6px"><button class="b-ok" onclick="mReadAll()">🔊 다 읽어주기</button><button class="b-dark" id="mCoverBtn" onclick="mToggleCover()">🙈 답 가리기</button></div>
+      <div class="hint">답을 가리고 소리 내어 외워 봐요. 가린 답을 누르면 보여요. 「다 읽어주기」를 끝까지 들으면 ① 완료!</div>
+      <div id="mTable" style="margin-top:10px"></div>
+      <button class="big" style="margin-top:12px" onclick="stopAll();mStart('prac')">✏️ ② 연습하러 가기 ▶</button>
+    </div>
+  </section>
+
+  <!-- 🔢 문제 풀기 (연습·1분 도전·시험 같이) -->
+  <section id="vMQuiz" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:6px"><button class="back" onclick="mQuit()">■ 그만</button><div class="who"><b id="mqTitle"></b></div></div>
+      <div class="num" style="margin-top:4px"><span id="mqInfo"></span></div>
+      <div class="bar"><i id="mqBar"></i></div>
+      <div id="mqQ" style="text-align:center;font-size:52px;font-weight:900;margin:18px 0 8px;letter-spacing:2px"></div>
+      <div id="mqAns" style="min-height:70px;text-align:center;font-size:48px;font-weight:900;border:4px solid #93c5fd;border-radius:14px;background:#f8fafc;color:#1d4ed8;padding:4px"></div>
+      <div class="feedback" id="mqFb"></div>
+      <div class="grid g3" id="mqPad" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- 🔢 결과 -->
+  <section id="vMResult" class="hidden">
+    <div class="card">
+      <h2 id="mrTitle" style="text-align:center"></h2>
+      <div class="score" id="mrScore"></div>
+      <ol class="res" id="mrList" style="padding:0"></ol>
+      <div class="row" style="margin-top:12px">
+        <button onclick="mRetryWrong()" id="mrRetry">🔁 틀린 것만 다시</button>
+        <button class="b-dark" onclick="go('vMMode')">🪜 단계로</button>
+        <button class="b-dark" onclick="go('vMath')">🔢 다른 급</button>
+      </div>
+    </div>
+  </section>
+
   <!-- 설정 -->
   <section id="vSet" class="hidden">
     <div class="card opt">
@@ -374,7 +440,7 @@ DB.opt = DB.opt || { diff:"normal", max:2, rate:0.9, where:"paper", count:"20", 
 var $ = function(id){ return document.getElementById(id); };
 var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); };
 var ME = "", LV = 0, SHEET = "";   // SHEET = 지금 보는 급수표 주인 (형·누나 문제 도전이면 다른 아이)
-var VIEWS = ["vName","vLevel","vMode","vStudy","vType","vPrac","vOpt","vTest","vResult","vMine","vRanks","vBoard","vSet"];
+var VIEWS = ["vName","vLevel","vMode","vStudy","vType","vPrac","vOpt","vTest","vResult","vMine","vRanks","vBoard","vSet","vMath","vMMode","vMStudy","vMQuiz","vMResult"];
 function go(id){
   VIEWS.forEach(function(v){ $(v).classList.toggle("hidden", v!==id); });
   $("subTitle").textContent = (ME && id!=="vName" && id!=="vBoard" && id!=="vSet") ? (sheetOf(SHEET||ME).title || (SHEET||ME)+" 급수표") : "아이마다 자기 급수표로 공부해요";
@@ -386,10 +452,12 @@ function go(id){
   if(id==="vBoard") renderBoard();
   if(id==="vRanks") renderRanks();
   if(id==="vOpt") renderOpt();
+  if(id==="vMath") mRenderLevels();
+  if(id==="vMMode") mRenderSteps();
 }
 function today(){ var d=new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
 function lvKey(){ return (SHEET && SHEET!==ME ? SHEET+"·" : "")+(LV ? String(LV) : "all"); }
-function lvName(k){ k = k==null ? lvKey() : String(k); var m = k.split("·"); if(m.length>1) return m[0]+" "+lvName(m[1]); return k==="all" ? "전체" : k==="wrong" ? "틀린 것" : k+"급"; }
+function lvName(k){ k = k==null ? lvKey() : String(k); if(k.indexOf("수·")===0) return "🔢 "+mName(k.slice(2)); var m = k.split("·"); if(m.length>1) return m[0]+" "+lvName(m[1]); return k==="all" ? "전체" : k==="wrong" ? "틀린 것" : k+"급"; }
 
 // ───────── 🎖 계급 / 경험치 ─────────
 function xpOf(n){ return DB.xp[n] || 0; }
@@ -870,15 +938,17 @@ function renderMine(){
   var mk = Object.keys(miss).sort(function(a,b){ return miss[b]-miss[a]; }).slice(0,5);
   if(mk.length){
     h += '<div style="font-weight:900;margin:14px 0 6px">😵 자주 틀리는 문제</div>';
-    mk.forEach(function(kk){ var p = kk.split("|"), gi = p[1].split("-"), t = sentOf(p[0], gi[0], +gi[1]);
+    mk.forEach(function(kk){ var p = kk.split("|");
+      if(p[1].indexOf("q:")===0){ h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f1f5f9;font-size:17px"><b style="color:#b91c1c;min-width:44px">❌'+miss[kk]+'번</b><span style="flex:1">🔢 <b>'+esc(p[1].slice(2))+'</b></span></div>'; return; }
+      var gi = p[1].split("-"), t = sentOf(p[0], gi[0], +gi[1]);
       h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f1f5f9;font-size:17px"><b style="color:#b91c1c;min-width:44px">❌'+miss[kk]+'번</b><span style="flex:1">'+(p[0]!==ME?'<small style="color:#64748b">'+esc(p[0])+'</small> ':'')+gi[0]+'급 '+gi[1]+'번 <b>'+esc(t)+'</b></span>'+(t?'<button class="b-dark" style="font-size:14px;padding:5px 9px" onclick="speak(\''+esc(t).replace(/'/g,"\\'")+'\',0.8)">🔊</button>':'')+'</div>'; });
   }
   // 회차별 (최근 순) — 누르면 문제마다 ⭕❌
   h += '<div style="font-weight:900;margin:14px 0 6px">🗂 회차별 기록 <span style="font-size:13px;color:#64748b;font-weight:600">누르면 문제마다 ⭕❌</span></div>';
   all.slice().reverse().slice(0,40).forEach(function(e){
     var x = e.x, sh = x.sheet || ME, bad = x.n - x.ok;
-    var chips = (x.res || []).map(function(q){ var t = sentOf(sh, q[0], q[1]);
-      return '<div style="display:flex;gap:6px;padding:4px 2px;font-size:15px;border-bottom:1px dashed #e2e8f0"><b style="color:'+(q[2]?'#15803d':'#b91c1c')+'">'+(q[2]?'⭕':'❌')+'</b><span style="color:#64748b;min-width:52px">'+q[0]+'급 '+q[1]+'번</span><span>'+esc(t)+'</span></div>'; }).join("")
+    var chips = (x.res || []).map(function(q){ var t = q[3]!=null ? q[3] : sentOf(sh, q[0], q[1]);
+      return '<div style="display:flex;gap:6px;padding:4px 2px;font-size:15px;border-bottom:1px dashed #e2e8f0"><b style="color:'+(q[2]?'#15803d':'#b91c1c')+'">'+(q[2]?'⭕':'❌')+'</b><span style="color:#64748b;min-width:52px">'+(q[3]!=null?q[1]+'번':q[0]+'급 '+q[1]+'번')+'</span><span>'+esc(t)+'</span></div>'; }).join("")
       || (x.wrong&&x.wrong.length ? '<div class="hint">틀린 문제: '+x.wrong.join(", ")+'</div>' : '<div class="hint">다 맞았어요!</div>');
     h += '<details style="border:1px solid #e2e8f0;border-radius:10px;margin-bottom:6px;background:#fff"><summary style="padding:9px 10px;cursor:pointer;font-size:16px;list-style:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       + '<b style="background:#334155;color:#fff;border-radius:8px;padding:2px 8px">'+e.no+'회차</b><b>'+lvName(e.k)+'</b>'
@@ -960,6 +1030,223 @@ function showQR(){
     var d = document.createElement("div"); d.innerHTML = '<div id="qrn'+i+'"></div><b>'+esc(n)+'</b>'; $("qrNames").appendChild(d);
     new QRCode($("qrn"+i), { text: base+"?n="+encodeURIComponent(n), width: 110, height: 110 });
   });
+}
+
+
+// ═════════ 🔢 수학 ═════════
+function RN(a,b){ return a+Math.floor(Math.random()*(b-a+1)); }
+function MP(q,a){ return { q:q, a:a }; }
+function genAdd10(){ var a=RN(1,9), b=RN(1,10-a); return MP(a+" + "+b, a+b); }
+function genSub10(){ var a=RN(2,10), b=RN(1,a-1); return MP(a+" − "+b, a-b); }
+function genAdd20(){ var a=RN(2,9), b=RN(11-a,9); return MP(a+" + "+b, a+b); }            // 받아올림
+function genSub20(){ var a=RN(11,18), b=RN(a-9,9); return MP(a+" − "+b, a-b); }          // 받아내림
+function genAdd21(){ var a=RN(10,89), b=RN(1,9); return MP(a+" + "+b, a+b); }
+function genSub21(){ var a=RN(11,99), b=RN(1,9); return MP(a+" − "+b, a-b); }
+function genAdd22(){ var a=RN(10,89), b=RN(10,99-a<10?10:99-a); return MP(a+" + "+b, a+b); }
+function genSub22(){ var a=RN(20,99), b=RN(10,a-1); return MP(a+" − "+b, a-b); }
+function genAdd33(){ var a=RN(100,799), b=RN(100,999-a<100?100:999-a); return MP(a+" + "+b, a+b); }
+function genSub33(){ var a=RN(200,999), b=RN(100,a-1); return MP(a+" − "+b, a-b); }
+function genDan(ds){ return function(){ var d=ds[RN(0,ds.length-1)], n=RN(1,9); return MP(d+" × "+n, d*n); }; }
+function genMul21(){ var a=RN(11,99), b=RN(2,9); return MP(a+" × "+b, a*b); }
+function genMul31(){ var a=RN(101,999), b=RN(2,9); return MP(a+" × "+b, a*b); }
+function genMul22(){ var a=RN(11,99), b=RN(11,99); return MP(a+" × "+b, a*b); }
+function genMix20(){ return [genAdd10,genSub10,genAdd20,genSub20][RN(0,3)](); }
+var MATH = [
+  { id:"a10", t:"10까지 덧셈", d:"3 + 4", gen:genAdd10 },
+  { id:"s10", t:"10까지 뺄셈", d:"9 − 5", gen:genSub10 },
+  { id:"a20", t:"20까지 덧셈 (받아올림)", d:"8 + 7", gen:genAdd20 },
+  { id:"s20", t:"20까지 뺄셈 (받아내림)", d:"15 − 8", gen:genSub20 },
+  { id:"m20", t:"덧셈·뺄셈 섞기 (20까지)", d:"섞어서", gen:genMix20 },
+  { id:"a21", t:"두 자리 + 한 자리", d:"37 + 6", gen:genAdd21 },
+  { id:"s21", t:"두 자리 − 한 자리", d:"52 − 7", gen:genSub21 },
+  { id:"a22", t:"두 자리 + 두 자리", d:"45 + 38", gen:genAdd22 },
+  { id:"s22", t:"두 자리 − 두 자리", d:"83 − 46", gen:genSub22 },
+  { id:"a33", t:"세 자리 덧셈", d:"356 + 287", gen:genAdd33 },
+  { id:"s33", t:"세 자리 뺄셈", d:"702 − 358", gen:genSub33 },
+  { id:"g25", t:"구구단 2단·5단", d:"2 × 7", gen:genDan([2,5]), dans:[2,5] },
+  { id:"g34", t:"구구단 3단·4단", d:"4 × 6", gen:genDan([3,4]), dans:[3,4] },
+  { id:"g67", t:"구구단 6단·7단", d:"7 × 8", gen:genDan([6,7]), dans:[6,7] },
+  { id:"g89", t:"구구단 8단·9단", d:"9 × 6", gen:genDan([8,9]), dans:[8,9] },
+  { id:"gall", t:"구구단 전체 (2~9단)", d:"섞어서", gen:genDan([2,3,4,5,6,7,8,9]), dans:[2,3,4,5,6,7,8,9] },
+  { id:"x21", t:"곱셈 두 자리 × 한 자리", d:"24 × 3", gen:genMul21 },
+  { id:"x31", t:"곱셈 세 자리 × 한 자리", d:"312 × 4", gen:genMul31 },
+  { id:"x22", t:"곱셈 두 자리 × 두 자리", d:"23 × 14", gen:genMul22 }
+];
+for(var _d=2; _d<=9; _d++) MATH.push({ id:"d"+_d, t:"구구단 "+_d+"단", d:_d+" × 3", gen:genDan([_d]), dans:[_d], dan:true });
+// 아이별 추천 급 (17년생 3학년 / 19년생 1학년 / 20년생 예비 1학년 / 동생들)
+var MREC = { "다원":["a33","s33","g25","g34","g67","g89","gall","x21","x31","x22"], "라온":["a20","s20","m20","a21","s21","a22","s22","g25"], "은우":["a10","s10","a20","s20","m20"], "도겸":["a10"], "은교":["a10"], "다윤":["a10"] };
+function mLv(id){ return MATH.filter(function(x){ return x.id===id; })[0]; }
+function mName(id){ var x = mLv(id); return x ? x.t : id; }
+var MLV = "";
+function mKey(){ return "수·"+MLV; }
+function mRenderLevels(){
+  $("mWho").textContent = ME; $("mRankBox").innerHTML = rankCard(ME);
+  var rec = MREC[ME] || [], cols = { a:"#15803d", s:"#b45309", m:"#0e7490", g:"#6d28d9", x:"#be123c", d:"#6d28d9" };
+  var tile = function(x){
+    var k = "수·"+x.id, b = best(ME,k), sp = ((DB.speed||{})[ME]||{})[x.id], st = stepsOf(ME,k);
+    var badge = b==null ? "" : (b>=passScore() ? '<span class="badge">✅ '+b+'점</span>' : '<span class="badge no">'+b+'점</span>');
+    var dots = (x.dans?(st.s1?"●":"○"):"")+(st.s2?"●":"○")+(st.s3?"●":"○")+(b!=null&&b>=passScore()?"●":"○");
+    return '<button class="lv" style="background:'+(cols[x.id[0]]||"#1d4ed8")+(rec.indexOf(x.id)>=0?';outline:4px solid #facc15;outline-offset:1px':'')+'" onclick="mPick(\''+x.id+'\')">'+badge+(rec.indexOf(x.id)>=0?'👍 ':'')+esc(x.t)+'<small>예) '+esc(x.d)+(sp?' · ⚡'+sp+'개':'')+'</small><span class="dots">'+dots+'</span></button>';
+  };
+  var groups = [["➕➖ 덧셈·뺄셈", MATH.filter(function(x){ return "asm".indexOf(x.id[0])>=0; })], ["✖️ 구구단", MATH.filter(function(x){ return x.id[0]==="g"; })], ["✖️ 곱셈", MATH.filter(function(x){ return x.id[0]==="x"; })]];
+  $("mLevels").innerHTML = groups.map(function(gp){ return '<div style="font-weight:800;margin:10px 0 6px">'+gp[0]+'</div><div class="grid g2">'+gp[1].map(tile).join("")+'</div>'; }).join("");
+  $("mDans").innerHTML = MATH.filter(function(x){ return x.dan; }).map(function(x){ var b = best(ME,"수·"+x.id);
+    return '<button style="background:#6d28d9;font-size:20px;padding:14px 4px" onclick="mPick(\''+x.id+'\')">'+x.dans[0]+'단'+(b!=null&&b>=passScore()?' ✅':'')+'</button>'; }).join("");
+}
+function mPick(id){ MLV = id; go("vMMode"); }
+function mRenderSteps(){
+  var x = mLv(MLV), k = mKey(), st = stepsOf(ME,k), b = best(ME,k), passed = b!=null && b>=passScore(), sp = ((DB.speed||{})[ME]||{})[MLV];
+  $("mModeTitle").textContent = ME+" · 🔢 "+x.t;
+  var steps = [];
+  if(x.dans) steps.push({ done:st.s1, n:"1", t:"📖 외우기", d:"구구단 표 보면서 듣고, 답 가리고 외우기", c:"#15803d", f:"mStudy()" });
+  steps.push({ done:st.s2, n:x.dans?"2":"1", t:"✏️ 연습", d:"한 문제씩 바로 ⭕❌ — 10개 맞히면 완료", c:"#0891b2", f:"mStart('prac')" });
+  steps.push({ done:st.s3, n:x.dans?"3":"2", t:"⚡ 1분 도전", d:sp?"최고 기록 "+sp+"개 — 깨 볼까?":"1분 동안 몇 개 맞히나!", c:"#b45309", f:"mStart('speed')" });
+  steps.push({ done:passed, n:x.dans?"4":"3", t:"📝 시험", d:b==null?"10문제 · 걸린 시간도 재요":"최고 "+b+"점"+(passed?" ✅ 통과":""), c:"#1d4ed8", f:"mStart('test')" });
+  var nextI = steps.findIndex(function(s){ return !s.done; });
+  $("mSteps").innerHTML = steps.map(function(s,i){
+    return '<button class="step'+(i===nextI?' next':'')+'" style="background:'+s.c+'" onclick="'+s.f+'"><span class="n">'+s.n+'</span><span class="t">'+s.t+'<small>'+esc(s.d)+'</small></span><span class="ck">'+(s.done?'✅':(i===nextI?'👈':''))+'</span></button>';
+  }).join("");
+  $("mModeHint").textContent = nextI<0 ? "🎉 이 급은 다 했어요! 1분 도전 기록을 깨 보거나 다음 급에 도전해요." : "노란 테두리가 지금 할 차례예요.";
+}
+
+// 구구단 외우기
+var MCOVER = false;
+function mStudy(){
+  var x = mLv(MLV); MCOVER = false; $("mCoverBtn").textContent = "🙈 답 가리기";
+  $("mStudyTitle").textContent = ME+" · "+x.t+" 외우기";
+  $("mTable").innerHTML = x.dans.map(function(d){
+    var h = '<div style="font-weight:900;font-size:20px;margin:10px 0 4px;color:#6d28d9">'+d+'단</div><div class="grid g3">';
+    for(var n=1;n<=9;n++) h += '<div class="mrow" data-t="'+d+' 곱하기 '+n+'은 '+(d*n)+'" style="background:#f5f3ff;border-radius:10px;padding:8px;text-align:center;font-size:20px;font-weight:800">'+d+' × '+n+' = <span class="mans" onclick="this.classList.toggle(\'peek\')" style="color:#6d28d9">'+(d*n)+'</span></div>';
+    return h + '</div>';
+  }).join("");
+  go("vMStudy");
+}
+function mToggleCover(){ MCOVER = !MCOVER; $("mCoverBtn").textContent = MCOVER ? "👀 답 보이기" : "🙈 답 가리기";
+  [].forEach.call(document.querySelectorAll(".mans"), function(e){ e.classList.remove("peek"); e.style.color = MCOVER ? "transparent" : "#6d28d9"; e.style.background = MCOVER ? "#ddd6fe" : "none"; e.style.borderRadius = "6px"; e.style.padding = "0 8px"; });
+  if(!MCOVER) return;
+  [].forEach.call(document.querySelectorAll(".mans"), function(e){ e.onclick = function(){ e.style.color = e.style.color==="transparent" ? "#6d28d9" : "transparent"; }; });
+}
+async function mReadAll(){
+  stopAll(); var my = runId, rows = document.querySelectorAll(".mrow");
+  for(var i=0;i<rows.length;i++){
+    if(my!==runId) return;
+    [].forEach.call(rows, function(r,j){ r.style.outline = j===i ? "3px solid #facc15" : "none"; });
+    await speak(rows[i].getAttribute("data-t"), 0.9); await wait(300);
+  }
+  if(my!==runId) return;
+  [].forEach.call(rows, function(r){ r.style.outline = "none"; });
+  var st = stepsOf(ME, mKey()); if(!st.s1){ st.s1 = true; save(); }
+  gainXp(XP.listenAll, "구구단 끝까지 들었어요!", mKey()+"|listen");
+}
+
+// 문제 풀기 — prac(연습: 바로 채점, 10개 맞히면 완료) / speed(1분 도전) / test(10문제 시험)
+var MQ = null, _mqT = null;
+function mStart(mode){
+  var x = mLv(MLV), n = mode==="test" ? (x.id==="gall" ? 20 : 10) : 0;
+  var qs = [];
+  if(mode==="test"){ var seen = {}, tries = 0; while(qs.length<n && tries<500){ tries++; var q = x.gen(); if(seen[q.q] && tries<400) continue; seen[q.q]=1; qs.push(q); } }
+  MQ = { mode:mode, x:x, qs:qs, idx:0, ans:[], ok:[], cur:mode==="test"?qs[0]:x.gen(), input:"", right:0, wrong:0, miss:0, t0:Date.now(), end:mode==="speed"?Date.now()+60000:0 };
+  $("mqTitle").textContent = ME+" · "+x.t+" · "+({prac:"✏️ 연습", speed:"⚡ 1분 도전", test:"📝 시험"}[mode]);
+  $("mqPad").innerHTML = ["7","8","9","4","5","6","1","2","3","⌫","0","✔"].map(function(k){
+    var bg = k==="✔" ? "#15803d" : k==="⌫" ? "#b45309" : "#334155";
+    return '<button style="background:'+bg+';font-size:30px;padding:16px 0" onclick="mKey_(\''+k+'\')">'+k+'</button>'; }).join("");
+  go("vMQuiz"); mShow();
+  clearInterval(_mqT);
+  _mqT = setInterval(function(){ if(!MQ || $("vMQuiz").classList.contains("hidden")){ clearInterval(_mqT); return; } mInfo(); if(MQ.mode==="speed" && Date.now()>=MQ.end){ clearInterval(_mqT); mFinish(); } }, 250);
+}
+function mInfo(){
+  var m = MQ, sec = Math.floor((Date.now()-m.t0)/1000);
+  if(m.mode==="test"){ $("mqInfo").innerHTML = '<b style="font-size:30px;color:#1d4ed8">'+(m.idx+1)+'</b> / '+m.qs.length+'문제 · ⏱ '+sec+'초'; $("mqBar").style.width = (m.idx/m.qs.length*100)+"%"; }
+  else if(m.mode==="speed"){ var left = Math.max(0, Math.ceil((m.end-Date.now())/1000)); $("mqInfo").innerHTML = '⏳ <b style="font-size:30px;color:'+(left<=10?'#b91c1c':'#1d4ed8')+'">'+left+'</b>초 · ⭕ '+m.right+' ❌ '+m.wrong; $("mqBar").style.width = ((60-left)/60*100)+"%"; }
+  else { $("mqInfo").innerHTML = '⭕ <b style="font-size:26px;color:#15803d">'+m.right+'</b> / 10 맞히기 · ❌ '+m.wrong; $("mqBar").style.width = Math.min(100, m.right*10)+"%"; }
+}
+function mShow(){ $("mqQ").textContent = MQ.cur.q+" ="; $("mqAns").textContent = MQ.input || " "; $("mqFb").textContent = ""; mInfo(); }
+function mKey_(k){
+  if(!MQ || MQ.busy) return;
+  if(k==="⌫"){ MQ.input = MQ.input.slice(0,-1); $("mqAns").textContent = MQ.input || " "; return; }
+  if(k==="✔"){ mCheck(); return; }
+  if(MQ.input.length < 6){ MQ.input += k; $("mqAns").textContent = MQ.input; }
+}
+document.addEventListener("keydown", function(e){
+  if(!MQ || $("vMQuiz").classList.contains("hidden")) return;
+  if(/^[0-9]$/.test(e.key)) mKey_(e.key); else if(e.key==="Backspace") mKey_("⌫"); else if(e.key==="Enter"){ e.preventDefault(); mKey_("✔"); }
+});
+function mCheck(){
+  var m = MQ; if(m.input==="") return;
+  var ok = Number(m.input)===m.cur.a;
+  if(m.mode==="test"){
+    m.ans[m.idx] = m.input; m.ok[m.idx] = ok; m.input = "";
+    if(m.idx < m.qs.length-1){ m.idx++; m.cur = m.qs[m.idx]; mShow(); } else mFinish();
+    return;
+  }
+  if(m.mode==="speed"){
+    if(ok){ m.right++; } else { m.wrong++; m.qs.push({ q:m.cur.q, a:m.cur.a, mine:m.input }); }
+    m.input = ""; m.cur = m.x.gen(); mShow(); $("mqFb").innerHTML = ok ? '<span style="color:#15803d">⭕</span>' : '<span style="color:#b91c1c">❌ '+esc(m.qs[m.qs.length-1].q)+' = '+m.qs[m.qs.length-1].a+'</span>';
+    return;
+  }
+  // 연습
+  if(ok){
+    m.right++; m.miss = 0; m.busy = true;
+    $("mqFb").innerHTML = '<span style="color:#15803d">⭕ 딩동댕!</span>';
+    gainXp(2, "연습", mKey()+"|prac");
+    setTimeout(function(){
+      m.busy = false;
+      if(m.right>=10 && !m.doneShown){ m.doneShown = true; var st = stepsOf(ME, mKey()); if(!st.s2){ st.s2 = true; save(); } alert("✏️ 연습 10개 성공! ⚡ 1분 도전도 해 봐요. (계속 연습해도 돼요)"); }
+      m.input = ""; m.cur = m.x.gen(); mShow();
+    }, 650);
+  } else {
+    m.wrong++; m.miss++; m.input = ""; $("mqAns").textContent = " ";
+    $("mqFb").innerHTML = m.miss>=2 ? '<span style="color:#b91c1c">❌ 정답은 <b>'+m.cur.a+'</b> — 따라 써 봐요</span>' : '<span style="color:#b91c1c">❌ 다시 해 봐요!</span>';
+    mInfo();
+  }
+}
+function mQuit(){ clearInterval(_mqT); if(MQ && MQ.mode==="test" && MQ.idx>0 && !confirm("시험을 그만할까요? (점수는 안 남아요)")) return; MQ = null; go("vMMode"); }
+function mFinish(){
+  clearInterval(_mqT);
+  var m = MQ, k = mKey(), sec = Math.round((Date.now()-m.t0)/1000);
+  if(m.mode==="speed"){
+    var sp = DB.speed = DB.speed || {}, me = sp[ME] = sp[ME] || {}, old = me[MLV]||0, rec = m.right>old;
+    if(rec) me[MLV] = m.right;
+    var st = stepsOf(ME,k); st.s3 = true; save();
+    $("mrTitle").textContent = rec ? "🏆 새 기록!" : "⏰ 1분 끝!";
+    $("mrScore").innerHTML = '<b style="color:#1d4ed8">'+m.right+'개</b>⭕ '+m.right+' · ❌ '+m.wrong+' · 최고 기록 '+Math.max(old,m.right)+'개';
+    $("mrList").innerHTML = m.qs.map(function(q){ return '<li>❌ <b>'+esc(q.q)+' = '+q.a+'</b> <span style="color:#64748b">(내 답 '+esc(q.mine)+')</span></li>'; }).join("");
+    $("mrRetry").disabled = true;
+    go("vMResult"); speak(rec ? "새 기록! "+m.right+"개!" : m.right+"개 맞혔어요!", 1);
+    gainXp(m.right + (rec && old ? 20 : 0), "1분 도전 "+m.right+"개"+(rec&&old?" 🏆 신기록":""), k+"|speed");
+    return;
+  }
+  // 시험
+  var ok = m.ok.filter(Boolean).length, n = m.qs.length, sc = Math.round(ok/n*100);
+  if(m.retry){   // 틀린 것만 다시 — 연습이라 기록·점수엔 안 남김
+    $("mrTitle").textContent = "🔁 틀린 것 다시 풀기 끝!";
+    $("mrScore").innerHTML = '<b style="color:#1d4ed8">'+ok+' / '+n+'</b>'+(ok===n?"이제 다 맞혀요! 👍":"한 번 더 해 봐요");
+    $("mrList").innerHTML = m.qs.map(function(q,i){ return '<li>'+(m.ok[i]?"⭕":"❌")+' <b>'+esc(q.q)+' = '+q.a+'</b>'+(m.ok[i]?'':' <span style="color:#b91c1c">(내 답 '+esc(m.ans[i])+')</span>')+'</li>'; }).join("");
+    $("mrRetry").disabled = ok===n; go("vMResult"); gainXp(ok*2, "다시 풀기", mKey()+"|prac"); return;
+  }
+  var wasPassed = best(ME,k)!=null && best(ME,k)>=passScore();
+  var r = DB.rec[ME] = DB.rec[ME] || {}, arr = (r[k] = r[k] || []);
+  arr.push({ no:arr.length+1, d:new Date().toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}),
+    score:sc, n:n, ok:ok, diff:"normal", where:"screen", sheet:ME, sec:sec,
+    wrong: m.qs.filter(function(q,i){ return !m.ok[i]; }).map(function(q){ return "q:"+q.q+" = "+q.a; }),
+    res: m.qs.map(function(q,i){ return [0, i+1, m.ok[i]?1:0, q.q+" = "+q.a+(m.ok[i]?"":" (내 답 "+m.ans[i]+")")]; }) });
+  save();
+  $("mrTitle").textContent = "🎉 끝! "+arr.length+"회차";
+  $("mrScore").innerHTML = '<b style="color:'+(sc>=passScore()?"#15803d":"#b91c1c")+'">'+sc+'점</b>⭕ '+ok+' ❌ '+(n-ok)+' · ⏱ '+sec+'초'+(sc===100?" · 💯":sc>=passScore()?" · ✅ 통과!":"");
+  $("mrList").innerHTML = m.qs.map(function(q,i){ return '<li><span class="mark"><b style="font-size:24px;color:'+(m.ok[i]?"#15803d":"#b91c1c")+'">'+(m.ok[i]?"⭕":"❌")+'</b></span><span style="color:#64748b;font-size:15px">'+(i+1)+'번</span> <b>'+esc(q.q)+' = '+q.a+'</b>'+(m.ok[i]?'':' <span style="color:#b91c1c">(내 답 '+esc(m.ans[i])+')</span>')+'</li>'; }).join("");
+  $("mrRetry").disabled = ok===n;
+  go("vMResult"); speak(sc===100 ? "백 점! 정말 잘했어요!" : "끝! "+sc+"점이에요!", 1);
+  var xp = XP.testTake + ok*XP.testPerOk, why = arr.length+"회차 "+sc+"점";
+  if(sc===100){ xp += XP.perfect; why += " 💯"; }
+  if(!wasPassed && sc>=passScore()){ xp += XP.firstPass; why += " · 첫 통과!"; }
+  gainXp(xp, why, null);
+}
+function mRetryWrong(){
+  var m = MQ; if(!m || m.mode!=="test") return;
+  var w = m.qs.filter(function(q,i){ return !m.ok[i]; }); if(!w.length) return;
+  MQ = { mode:"test", x:m.x, qs:w, idx:0, ans:[], ok:[], cur:w[0], input:"", right:0, wrong:0, miss:0, t0:Date.now(), end:0, retry:true };
+  go("vMQuiz"); mShow();
+  clearInterval(_mqT); _mqT = setInterval(function(){ if(!MQ || $("vMQuiz").classList.contains("hidden")){ clearInterval(_mqT); return; } mInfo(); }, 250);
 }
 
 // ───────── 시작 ─────────
