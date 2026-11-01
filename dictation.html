@@ -93,7 +93,7 @@
 <body>
 <div class="wrap">
   <h1>✏️ 받아쓰기 급수 시험</h1>
-  <div class="sub">영광중앙초 1학년 2학기 받아쓰기 급수표</div>
+  <div class="sub" id="subTitle">아이마다 자기 급수표로 공부해요</div>
 
   <!-- ① 이름 -->
   <section id="vName">
@@ -114,7 +114,8 @@
     <div class="card">
       <h2>📚 몇 급을 할까요?</h2>
       <div class="grid g2" id="levelList"></div>
-      <button class="big b-purple" style="margin-top:12px" onclick="pickLevel(0)">🏆 전체 (1급~6급)</button>
+      <button class="big b-purple" style="margin-top:12px" id="allBtn" onclick="pickLevel(0)">🏆 전체</button>
+      <div id="otherBox"></div>
     </div>
     <div class="row">
       <button class="b-dark" onclick="go('vMine')">📈 내 기록</button>
@@ -274,6 +275,13 @@
       <div class="row" style="margin-bottom:6px"><button class="back" onclick="go('vName')">◀ 뒤로</button><div class="who"><b>⚙ 설정 (부모님)</b></div></div>
       <label>👧👦 아이 이름 (한 줄에 한 명)</label>
       <textarea id="setNames" style="width:100%;height:150px;font-size:18px;padding:10px;border:2px solid #cbd5e1;border-radius:10px;font-family:inherit"></textarea>
+      <div class="hint">라온·다원·은우 이름은 각자 급수표와 연결돼 있어요. 이름을 바꾸면 그 급수표가 안 보여요.</div>
+      <label>📝 급수표 문장 넣기·고치기</label>
+      <div class="row"><select id="edKid" onchange="edLoad()"></select><select id="edG" onchange="edLoad()"></select></div>
+      <input id="edTitle" placeholder="단원 이름 (예: 5. 겪은 일을 써요)" style="width:100%;font-size:17px;padding:9px;border:2px solid #cbd5e1;border-radius:10px;margin-top:8px;font-family:inherit">
+      <textarea id="edS" placeholder="한 줄에 한 문장 (보통 10개)&#10;급수표에 있는 그대로 — 띄어쓰기·점(.)·물음표(?)까지" style="width:100%;height:200px;font-size:18px;padding:10px;border:2px solid #cbd5e1;border-radius:10px;font-family:inherit;margin-top:8px"></textarea>
+      <div class="row" style="margin-top:8px"><button class="b-ok" onclick="edSave()">💾 이 급 저장</button><button class="b-bad" onclick="edDel()">🗑 이 급 지우기</button></div>
+      <div class="hint" id="edHint"></div>
       <label>🎯 통과 점수</label>
       <select id="setPass"><option value="100">100점 (다 맞아야)</option><option value="90">90점 이상</option><option value="80">80점 이상</option><option value="70">70점 이상</option></select>
       <label>🗣 목소리</label>
@@ -292,15 +300,46 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-// ───────── 급수표 (영광중앙초 1학년 2학기) ─────────
-var LEVELS = [
+// ───────── 아이별 급수표 ─────────
+// 이름 = 급수표. goal = 목표 급 (아직 사진 없는 급은 「준비 중」으로 보임). 부모님이 설정에서 넣은 문장(DB.custom)이 더해짐
+var BUILTIN = {
+  "라온": { title:"라온 · 영광중앙초 1학년 2학기 급수표 (1~14급)", goal:14, levels:[
   { g:1, title:"1. 기분을 말해요", s:["구름이 둥실둥실","잎이 가을바람에 살랑살랑","야옹 소리를 내며","씽씽 지나갑니다.","꽃이 활짝 피었습니다.","맴맴 울고 있습니다.","단풍이 울긋불긋","병아리가 삐악삐악","노래를 부를 때 떨렸다.","노랫말이 떠오르지 않아."] },
   { g:2, title:"1. 기분을 말해요", s:["얼음처럼 꽁꽁!","뜀틀에 올랐어.","모두 날 부러워해.","보석처럼 반짝반짝!","갑자기 달려들어 놀랐어.","성이 와장창 무너졌어.","화산처럼 우르릉 쾅쾅!","성이 무너져서 속상해.","바스락 소리가 났다.","예쁘게 말해요"] },
   { g:3, title:"2. 낱말을 정확하게 읽어요", s:["호수가 넓다.","무릎을 꿇다.","흙을 밟다.","개미가 틀림없다.","낙엽이 붉다.","하늘이 맑다.","구멍을 뚫다.","나비가 가엾다.","불빛이 밝다.","감기를 앓다."] },
   { g:4, title:"2. 낱말을 정확하게 읽어요", s:["우산을 잃어버렸다.","학교 운동장이 넓다.","머리를 긁는다.","바구니에 사과가 없다.","닭과 병아리가 모이를","크레파스의 길이가 짧다.","연필심이 닳았다.","하마터면 잡아먹힐 뻔했어.","흙이 어디 있는지 아세요?","안전하게 귀가하는 날."] },
   { g:5, title:"3. 그림일기를 써요", s:["제가 좋아하는 색은","제 꿈은 탐험가입니다.","바른 자세로 말하기","귀 기울여 듣는다.","된장찌개를 먹었다.","가방이 흠뻑 젖었습니다.","날짜와 요일, 날씨","빨갛게 익은 사과를 땄다.","쓰레기를 줄이려면","곰 인형과 같이 자야겠다."] },
-  { g:6, title:"4. 감동을 나누어요", s:["‘나도 한번 먹어 볼까?’","“골고루 잘 먹는구나.”","소금을 만드는 맷돌","“나와라, 밥!”","많이 얻을 수 있어.","몰래 훔쳐 도망갔습니다.","소금이 쏟아져 나왔고","배 안에 쌓여 갔습니다.","빨간 모자가 된 아이쿠","거북이가 숲으로 왔어요!"] }
-];
+  { g:6, title:"4. 감동을 나누어요", s:["‘나도 한번 먹어 볼까?’","“골고루 잘 먹는구나.”","소금을 만드는 맷돌","“나와라, 밥!”","많이 얻을 수 있어.","몰래 훔쳐 도망갔습니다.","소금이 쏟아져 나왔고","배 안에 쌓여 갔습니다.","빨간 모자가 된 아이쿠","거북이가 숲으로 왔어요!"] },
+    { g:7, title:"5. 생각을 키워요", s:["빨간 부채 파란 부채","웃음은 힘이 세다","그래, 책이야!","스크롤은 어떻게 해?","한 장 한 장 넘기면 돼.","이렇게 할 수 있어?","내 책 돌려줄래?","충전할 필요 없어.","훌라후프 돌리기","“운동장에 나가 볼까요?”"] },
+    { g:8, title:"5. 생각을 키워요", s:["금방 뚝 떨어진다.","잘 돌리고 싶어서","허리를 이리저리 움직였다.","포기하지 않고 노력하는","도토리를 돌려주세요!","모든 것이 둥둥 떠다녀요.","물건을 묶거나","발걸이와 손잡이를 이용해","벽에 붙여 놓은 이불 속에","음식을 먹을 때에는"] },
+    { g:9, title:"6. 문장을 읽고 써요", s:["영화관을 이용하는 방법","시끄럽게 하면 안 돼.","장면을 찍으면 안 돼.","소리나 진동이 울리지 않게","발로 차면 안 돼.","발명보다 위대한 발견","종이를 뒤집어서 써요.","별자리가 되고 싶니?","반짝반짝 빛나고 싶니?","꽃향기를 맡습니다."] },
+    { g:10, title:"6. 문장을 읽고 써요", s:["소방관의 부탁","멀리 떨어진 곳으로","대피해야 합니다.","바로 출동해야 합니다.","만약 그 전화가 장난이라면","위험에 처한 사람들을","아침이면 세수를 하고","“오, 괜찮은데?”","낮잠을 자는데","세 개씩 묶었어요."] },
+    { g:11, title:"7. 무엇이 중요할까요", s:["색종이를 뒤집어 놓고","동쪽 끝에 위치한 섬","등대는 밤에도 불을 밝혀","널리 알리고 보존하는 일","땅에 스며든 물이","땅 밖으로 모이는 곳","유리창에 붙어 있는 인형","문어의 빨판을 본떠","흔히 쓰는 칫솔걸이도","낙하산은 민들레씨를 본떠"] },
+    { g:12, title:"7. 무엇이 중요할까요", s:["가는 실 끝에는","비행기에서 안전하게 땅으로","숲속을 걷다 보면","옷에 열매가 붙어 있는","더 쉽게 붙였다 떼었다","아무리 찾아도 없어.","뚫어지게 쳐다봤어.","연필 깨끗이 깎아 오기.","“알림장이 어디 갔지?”","놀고 싶었는데 아쉬웠다."] },
+    { g:13, title:"8. 느끼고 표현해요", s:["노는 건 정말 즐거워.","화가 나 소리도 질렀어.","맨날 같이 놀던","텅텅 빈 상자 같아.","‘다시 놀고 싶을까?’","책상에 재채기했다","창문 감기 들었다","아이들이 싫어하는 채소","쉿, 밤새도록 펑펑 운 건","그건 내 착각이었어."] },
+    { g:14, title:"8. 느끼고 표현해요", s:["라면처럼 뽀글뽀글 파마하면","하나도 효과가 없는 거야?","맛이 없어서?","밤새 열심히 만들었어.","버터에 달달 볶은 다음","브로콜리 섞어 주고","보글보글 끓여 주면","요술 항아리를 빼앗으려고","판결을 내려 달라고","잘못을 깨달았습니다."] }
+] },
+  "다원": { title:"다원 · 3학년 맞춤법 급수표 (🤖 연습)", goal:9, levels:[
+    { g:1, title:"소리와 다른 글자", ai:true, s:["국물이 뜨거워서 식혀 먹었다.","같이 놀이터에 갔다.","굳이 말하지 않아도 알아.","해돋이를 보러 바다에 갔다.","앞마당에 꽃이 피었다.","받아쓰기 시험을 잘 봤다.","낱말의 뜻을 찾아보았다.","밭에서 감자를 캤다.","볶음밥을 맛있게 먹었다.","줄넘기를 백 번 넘었다."] },
+    { g:2, title:"헷갈리는 말 ① 안/않·되/돼", ai:true, s:["숙제를 안 했다.","숙제를 하지 않았다.","이제 집에 가도 돼.","나는 의사가 되고 싶다.","문제의 답을 맞혔다.","친구와 답을 맞추어 보았다.","동생이 키가 더 커졌다.","바지가 작아서 못 입는다.","반드시 약속을 지킬게.","일찍 일어나야 한다."] },
+    { g:3, title:"헷갈리는 말 ② 왠지·웬일·며칠", ai:true, s:["창문을 닫고 잤다.","우리는 다른 길로 갔다.","정답이 틀렸다.","왠지 기분이 좋다.","웬일로 일찍 왔니?","어떡하면 좋을까?","어떻게 만들었니?","며칠 동안 비가 왔다.","금세 날이 어두워졌다.","오랜만에 할머니를 만났다."] },
+    { g:4, title:"겹받침", ai:true, s:["흙탕물에 신발이 젖었다.","삶은 달걀을 먹었다.","여덟 시에 학교에 간다.","짧은 글을 읽고 답했다.","의자에 앉아 책을 읽는다.","많은 사람이 모였다.","값을 깎아 주셨다.","넓은 들판을 달렸다.","닭장에 병아리가 있다.","싫은 일도 끝까지 했다."] },
+    { g:5, title:"띄어쓰기", ai:true, s:["할 수 있다고 믿어요.","먹을 것이 많다.","밥을 먹은 지 한 시간이 지났다.","사과 세 개를 샀다.","우리 집 강아지는 하얗다.","학교에 갈 때 우산을 챙겼다.","내가 좋아하는 계절은 가을이다.","열 살이 되었다.","친구뿐만 아니라 선생님도 왔다.","공부한 만큼 실력이 는다."] },
+    { g:6, title:"문장부호와 높임말", ai:true, s:["“선생님, 안녕하세요?”","할아버지께서 진지를 드신다.","어머니께 꽃을 드렸다.","“고마워, 정말 큰 도움이 됐어.”","우아, 눈이 펑펑 내린다!","아버지께서 회사에 가셨다.","우리 모둠은 넷이다.","“어디 가니?” 하고 물으셨다.","할머니 댁은 시골에 있다.","사과, 배, 감을 샀다."] },
+    { g:7, title:"생각을 나타내는 문장", ai:true, s:["나는 책 읽는 것을 좋아한다.","왜냐하면 새로운 것을 알 수 있기 때문이다.","우리 동네에는 큰 도서관이 있다.","쓰레기를 줄이려면 분리수거를 해야 한다.","친구의 말을 끝까지 들어 주자.","물을 아껴 쓰는 습관을 기르자.","날씨가 추워서 두꺼운 옷을 입었다.","동생에게 양보하니 마음이 뿌듯했다.","실수해도 괜찮아, 다시 하면 돼.","꾸준히 연습하면 실력이 늘어난다."] },
+    { g:8, title:"흉내 내는 말", ai:true, s:["아기가 아장아장 걸어간다.","비가 주룩주룩 쏟아졌다.","별이 반짝반짝 빛난다.","개구리가 폴짝폴짝 뛰었다.","시냇물이 졸졸 흐른다.","바람이 살랑살랑 분다.","배가 고파서 꼬르륵 소리가 났다.","낙엽이 우수수 떨어졌다.","문을 똑똑 두드렸다.","아이들이 깔깔 웃었다."] },
+    { g:9, title:"일기 쓰기", ai:true, s:["오늘 학교에서 과학 실험을 했다.","물에 소금을 넣으니 금방 녹았다.","실험이 신기해서 집에 와서도 생각났다.","저녁에는 가족과 함께 산책을 했다.","길가에 핀 코스모스가 참 예뻤다.","내일은 친구 생일잔치에 간다.","선물로 무엇을 줄지 고민이다.","용돈을 모아서 색연필을 사야겠다.","친구가 좋아했으면 좋겠다.","오늘 하루도 즐겁게 보냈다."] }] },
+  "은우": { title:"은우 · 한글 익히기 (예비 1학년, 🤖 연습)", goal:9, levels:[
+    { g:1, title:"받침 없는 낱말 ①", ai:true, s:["나무","하마","오리","우유","고구마","바나나","아기","모자","기차","사자"] },
+    { g:2, title:"받침 없는 낱말 ②", ai:true, s:["소나무","거미","두부","지우개","너구리","비누","다리미","도토리","바다","하루"] },
+    { g:3, title:"받침 ㄴ·ㅇ 낱말", ai:true, s:["사진","우산","강아지","사랑","친구","인형","운동","동생","고양이","비행기"] },
+    { g:4, title:"받침 ㄹ·ㅁ·ㄱ·ㅂ 낱말", ai:true, s:["달","물고기","엄마","사람","김밥","수박","가방","책","밥","별"] },
+    { g:5, title:"두 낱말 쓰기", ai:true, s:["큰 나무","작은 공","빨간 사과","노란 꽃","예쁜 옷","맛있는 밥","하얀 구름","파란 하늘","귀여운 강아지","착한 친구"] },
+    { g:6, title:"짧은 문장 ①", ai:true, s:["나비가 날아요.","아기가 웃어요.","비가 와요.","해가 떠요.","엄마가 좋아요.","물을 마셔요.","공을 차요.","꽃이 피어요.","새가 노래해요.","친구와 놀아요."] },
+    { g:7, title:"된소리 낱말", ai:true, s:["토끼","꼬리","딸기","빵","쓰레기","뿌리","까치","아빠","오빠","짜장면"] },
+    { g:8, title:"어려운 모음 낱말", ai:true, s:["사과","의자","과자","돼지","귀","병원","얘기","시계","화가","원숭이"] },
+    { g:9, title:"문장 쓰기 ②", ai:true, s:["나는 사과를 좋아해요.","강아지가 멍멍 짖어요.","우리 집에 놀러 와.","오늘은 날씨가 맑아요.","동생과 같이 그림을 그려요.","할머니께 인사해요.","손을 깨끗이 씻어요.","내일은 유치원에 가요.","아빠, 고맙습니다!","무엇을 먹을까?"] }] }
+};
 var DIFF = {
   easy:   { rate:0.7, max:3, label:"천천히 읽고, 한 문장을 3번까지 들을 수 있어요" },
   normal: { rate:0.9, max:2, label:"보통 빠르기로 읽고, 2번까지 들을 수 있어요" },
@@ -318,14 +357,15 @@ var RANKS = [
 ];
 // 경험치 규칙 — 연습은 하루 한도(같은 급·같은 단계)를 둬서 같은 것만 반복해 올리지 못하게
 var XP = { daily:15, listenAll:10, typeOne:3, pracOne:4, testTake:20, testPerOk:5, perfect:50, firstPass:100, allPerfect:300, dayCap:60 };
-var DEFAULT_NAMES = ["아이1","아이2","아이3","아이4","아이5","아이6"];
+var DEFAULT_NAMES = ["다원","라온","은우","도겸","은교","다윤"];   // 17·19·20·24·25·25년생
 
 // ───────── 저장 (이 기기) ─────────
 var KEY = "gamun_dictation_v1";
 function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e){} }
 var DB = load();
-DB.names = DB.names && DB.names.length ? DB.names : DEFAULT_NAMES.slice();
+DB.names = DB.names && DB.names.length && DB.names.join()!=="아이1,아이2,아이3,아이4,아이5,아이6" ? DB.names : DEFAULT_NAMES.slice();
+DB.custom = DB.custom || {};   // custom[이름][급] = {title, s:[...]} 또는 {del:true}
 DB.rec = DB.rec || {};     // rec[이름][급] = [{d, score, n, ok, diff, where, wrong}]
 DB.xp = DB.xp || {};       // xp[이름] = 숫자
 DB.st = DB.st || {};       // st[이름][급] = {s1:true, s2:true, s3:true}  단계 완료
@@ -334,10 +374,11 @@ DB.opt = DB.opt || { diff:"normal", max:2, rate:0.9, where:"paper", count:"20", 
 
 var $ = function(id){ return document.getElementById(id); };
 var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); };
-var ME = "", LV = 0;
+var ME = "", LV = 0, SHEET = "";   // SHEET = 지금 보는 급수표 주인 (형·누나 문제 도전이면 다른 아이)
 var VIEWS = ["vName","vLevel","vMode","vStudy","vType","vPrac","vOpt","vTest","vResult","vMine","vRanks","vBoard","vSet"];
 function go(id){
   VIEWS.forEach(function(v){ $(v).classList.toggle("hidden", v!==id); });
+  $("subTitle").textContent = (ME && id!=="vName" && id!=="vBoard" && id!=="vSet") ? (sheetOf(SHEET||ME).title || (SHEET||ME)+" 급수표") : "아이마다 자기 급수표로 공부해요";
   window.scrollTo(0,0);
   if(id==="vName") renderNames();
   if(id==="vLevel") renderLevels();
@@ -348,8 +389,8 @@ function go(id){
   if(id==="vOpt") renderOpt();
 }
 function today(){ var d=new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
-function lvKey(){ return LV ? String(LV) : "all"; }
-function lvName(k){ k = k==null ? lvKey() : String(k); return k==="all" ? "전체" : k==="wrong" ? "틀린 것" : k+"급"; }
+function lvKey(){ return (SHEET && SHEET!==ME ? SHEET+"·" : "")+(LV ? String(LV) : "all"); }
+function lvName(k){ k = k==null ? lvKey() : String(k); var m = k.split("·"); if(m.length>1) return m[0]+" "+lvName(m[1]); return k==="all" ? "전체" : k==="wrong" ? "틀린 것" : k+"급"; }
 
 // ───────── 🎖 계급 / 경험치 ─────────
 function xpOf(n){ return DB.xp[n] || 0; }
@@ -456,32 +497,56 @@ function renderNames(){
     return '<button style="background:'+cols[i%cols.length]+'" onclick="pickName('+i+')">'+esc(n)+'<small>'+insSmall(r,"#fff")+' '+esc(r.name)+'</small></button>';
   }).join("");
 }
-function pickName(i){ ME = DB.names[i]; $("whoName").textContent = ME; go("vLevel"); }
+function pickName(i){ ME = DB.names[i]; SHEET = ME; $("whoName").textContent = ME; go("vLevel"); }
+function pickSheet(n){ SHEET = n; LV = 0; go("vLevel"); }
 
 // ───────── 급 ─────────
 function passScore(){ return Number(DB.opt.pass)||90; }
 function best(name, key){ var a=(DB.rec[name]||{})[key]||[]; return a.length ? Math.max.apply(null, a.map(function(r){ return r.score; })) : null; }
 function stepsOf(n,k){ var s=(DB.st[n]=DB.st[n]||{}); return s[k]=s[k]||{}; }
+function sheetOf(n){ return BUILTIN[n] || { title:"", goal:0, levels:[] }; }
+// 그 아이 급 목록 = 기본 급수표 + 부모님이 넣은 급 (같은 급이면 넣은 쪽이 우선)
+function levelsOf(n){
+  var m = {};
+  (sheetOf(n).levels||[]).forEach(function(L){ m[L.g] = { g:L.g, title:L.title, s:L.s.slice(), src:"built", ai:!!L.ai }; });
+  var c = DB.custom[n] || {};
+  Object.keys(c).forEach(function(g){ var x = c[g]; if(!x) return; if(x.del) delete m[g]; else if(x.s && x.s.length) m[g] = { g:+g, title:x.title||"", s:x.s.slice(), src:"custom" }; });
+  return Object.keys(m).map(Number).sort(function(a,b){ return a-b; }).map(function(g){ return m[g]; });
+}
+function levelByG(g){ return levelsOf(SHEET||ME).filter(function(L){ return L.g===g; })[0]; }
 function renderLevels(){
   $("rankBox").innerHTML = rankCard(ME);
-  var cols=["#2563eb","#0891b2","#15803d","#b45309","#be123c","#6d28d9"];
-  $("levelList").innerHTML = LEVELS.map(function(L,i){
-    var b = best(ME, String(L.g)), st = stepsOf(ME, String(L.g));
+  var cols=["#2563eb","#0891b2","#15803d","#b45309","#be123c","#6d28d9","#0f766e","#9333ea","#c2410c","#1e40af"];
+  var SH = SHEET || ME, other = SH!==ME;
+  var L = levelsOf(SH), have = {}, top = 0;
+  L.forEach(function(x){ have[x.g] = x; top = Math.max(top, x.g); });
+  var goal = Math.max(sheetOf(SH).goal||0, top), h = "";
+  for(var g=1; g<=goal; g++){
+    var x = have[g];
+    if(!x){ h += '<button class="lv" style="background:#cbd5e1;color:#334155" disabled>'+g+'급<small>📷 급수표 준비 중</small></button>'; continue; }
+    var gk = (other ? SH+"·" : "")+g, b = best(ME, gk), st = stepsOf(ME, gk);
     var badge = b==null ? "" : (b>=passScore() ? '<span class="badge">✅ '+b+'점</span>' : '<span class="badge no">'+b+'점</span>');
     var dots = (st.s1?"●":"○")+(st.s2?"●":"○")+(st.s3?"●":"○")+(b!=null&&b>=passScore()?"●":"○");
-    return '<button class="lv" style="background:'+cols[i]+'" onclick="pickLevel('+L.g+')">'+badge+L.g+'급<small>'+esc(L.title)+'</small><span class="dots">'+dots+'</span></button>';
-  }).join("");
+    h += '<button class="lv" style="background:'+cols[(g-1)%cols.length]+'" onclick="pickLevel('+g+')">'+badge+g+'급<small>'+(x.ai?'🤖 ':'')+esc(x.title)+'</small><span class="dots">'+dots+'</span></button>';
+  }
+  $("levelList").innerHTML = (other ? '<div style="grid-column:1/-1;background:#fef9c3;border:2px solid #facc15;border-radius:12px;padding:10px;font-weight:800;text-align:center">👀 '+esc(SH)+' 문제에 도전 중! (경험치 +20%) <button class="b-dark" style="font-size:14px;padding:6px 10px;margin-left:6px" onclick="pickSheet(ME)">내 문제로</button></div>' : '')
+    + (h || '<div class="hint" style="grid-column:1/-1;font-size:17px;text-align:center;padding:16px;background:#f8fafc;border-radius:12px">📷 아직 '+esc(SH)+' 급수표가 없어요.<br>부모님이 급수표 사진을 보내 주거나, ⚙ 설정에서 문장을 넣으면 시작할 수 있어요.</div>');
+  var others = DB.names.filter(function(n){ return n!==SH && levelsOf(n).length; });
+  $("otherBox").innerHTML = others.length ? '<div style="font-weight:800;margin:14px 0 6px">👀 형·누나·동생 문제도 도전해 봐요</div><div class="grid g3">'
+    + others.map(function(n){ return '<button class="b-dark" style="font-size:16px;padding:12px 6px" onclick="pickSheet(\''+esc(n)+'\')">'+(n===ME?'🏠 내 문제':esc(n)+' 문제')+'<small style="display:block;font-size:12px;font-weight:600;opacity:.9">'+esc((sheetOf(n).title||"").split("·")[1]||"").trim().slice(0,14)+'</small></button>'; }).join("") + '</div>' : '';
+  $("allBtn").classList.toggle("hidden", L.length < 2);
+  $("allBtn").textContent = "🏆 전체 시험 ("+L.map(function(x){ return x.g; }).join("·")+"급)";
 }
 function pickLevel(g){ LV = g; go("vMode"); }
 function levelSentences(g){
-  if(g) return LEVELS[g-1].s.map(function(s,i){ return {g:g, i:i+1, s:s}; });
-  var all=[]; LEVELS.forEach(function(L){ L.s.forEach(function(s,i){ all.push({g:L.g, i:i+1, s:s}); }); }); return all;
+  if(g){ var x = levelByG(g); return x ? x.s.map(function(s,i){ return {g:g, i:i+1, s:s}; }) : []; }
+  var all=[]; levelsOf(SHEET||ME).forEach(function(L){ L.s.forEach(function(s,i){ all.push({g:L.g, i:i+1, s:s}); }); }); return all;
 }
 
 // ───────── 단계 고르기 ─────────
 function renderSteps(){
   var k = lvKey(), st = stepsOf(ME,k), b = best(ME,k), passed = b!=null && b>=passScore();
-  $("modeTitle").textContent = ME+" · "+(LV ? LV+"급 · "+LEVELS[LV-1].title : "🏆 전체 (1급~6급)");
+  $("modeTitle").textContent = ME+" · "+(SHEET&&SHEET!==ME ? "👀 "+SHEET+" 문제 · " : "")+(LV ? LV+"급 · "+((levelByG(LV)||{}).title||"") : "🏆 전체 ("+levelsOf(SHEET||ME).map(function(x){ return x.g; }).join("·")+"급)");
   var steps = [
     { done:st.s1, n:"1", t:"👀 보며 듣기", d:"문장을 보면서 소리 듣기", c:"#15803d", f:"startStudy()" },
     { done:st.s2, n:"2", t:"⌨️ 따라 치기", d:"보이는 문장 똑같이 치기 (핸드폰 타자 연습)", c:"#0891b2", f:"startType()" },
@@ -729,17 +794,21 @@ function recordScore(){
   if(SAVED) return; SAVED = true;
   var ok = MARK.filter(function(x){ return x===true; }).length, sc = Math.round(ok/T.qs.length*100);
   var wasPassed = T.key!=="wrong" && best(ME, T.key)!=null && best(ME, T.key)>=passScore();
-  var r = DB.rec[ME] = DB.rec[ME] || {}; (r[T.key] = r[T.key] || []).push({
+  var r = DB.rec[ME] = DB.rec[ME] || {}, arr = (r[T.key] = r[T.key] || []);
+  arr.push({
+    no: arr.length+1,   // 이 급 몇 회차
     d: new Date().toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}),
-    score: sc, n: T.qs.length, ok: ok, diff: T.diff, where: T.where,
-    wrong: T.qs.filter(function(q,k){ return MARK[k]===false; }).map(function(q){ return q.g+"-"+q.i; })
+    score: sc, n: T.qs.length, ok: ok, diff: T.diff, where: T.where, sheet: SHEET||ME,
+    wrong: T.qs.filter(function(q,k){ return MARK[k]===false; }).map(function(q){ return q.g+"-"+q.i; }),
+    res: T.qs.map(function(q,k){ return [q.g, q.i, MARK[k]?1:0]; })   // 문제마다 맞음(1)/틀림(0)
   });
   save();
   // 경험치: 어려울수록 조금 더 (쉬움 ×1, 보통 ×1.2, 어려움 ×1.5)
-  var mul = {easy:1, normal:1.2, hard:1.5, custom:1}[T.diff]||1;
+  var mul = ({easy:1, normal:1.2, hard:1.5, custom:1}[T.diff]||1) * (SHEET && SHEET!==ME ? 1.2 : 1);   // 형·누나 문제 도전 +20%
   var xp = Math.round((XP.testTake + ok*XP.testPerOk)*mul), why = sc+"점";
   if(sc===100){ xp += T.key==="all" && T.qs.length>=60 ? XP.allPerfect : XP.perfect; why += " 💯"; }
   if(T.key!=="wrong" && !wasPassed && sc>=passScore()){ xp += XP.firstPass; why += " · 첫 통과!"; }
+  why = (arr.length)+"회차 "+why;
   gainXp(xp, why, null);
 }
 function retryWrong(){
@@ -751,27 +820,62 @@ function retryWrong(){
 }
 
 // ───────── 내 기록 / 모두 ─────────
+function recStats(list){ var ok=0, bad=0; (list||[]).forEach(function(x){ ok+=x.ok; bad+=x.n-x.ok; }); return { n:(list||[]).length, ok:ok, bad:bad, kd:bad?Math.round(ok/bad*10)/10:ok, pct:ok+bad?Math.round(ok/(ok+bad)*100):0 }; }
+function sentOf(sheet, g, i){ var L = levelsOf(sheet).filter(function(x){ return x.g===+g; })[0]; return L ? L.s[i-1]||"" : ""; }
+function resOf(x){ if(x.res) return x.res; var w={}; (x.wrong||[]).forEach(function(k){ w[k]=1; }); return null; }
 function renderMine(){
   $("mineTitle").textContent = "📈 "+ME+" 기록";
-  var r = DB.rec[ME] || {}, h = rankCard(ME)+'<div class="scrollx"><table><tr><th>급</th><th>단계</th><th>최고</th><th>최근</th><th>시험</th></tr>';
-  LEVELS.map(function(L){ return String(L.g); }).concat(["all","wrong"]).forEach(function(k){
-    var a = r[k] || []; if(k==="wrong" && !a.length) return;
-    var b = best(ME,k), last = a[a.length-1], st = stepsOf(ME,k);
-    h += '<tr><td><b>'+(k==="all"?"🏆 전체":lvName(k))+'</b></td><td>'+(k==="wrong"?"":(st.s1?"①":"·")+(st.s2?"②":"·")+(st.s3?"③":"·"))+'</td><td class="'+(b==null?"n":(b>=passScore()?"p":"f"))+'">'+(b==null?"-":b+"점")+'</td><td>'+(last?last.score+"점<br><small>"+esc(last.d)+"</small>":"-")+'</td><td>'+a.length+'번</td></tr>';
+  var r = DB.rec[ME] || {}, keys = Object.keys(r).filter(function(k){ return (r[k]||[]).length; });
+  var all = []; keys.forEach(function(k){ r[k].forEach(function(x,i){ all.push({k:k, x:x, no:x.no||i+1}); }); });
+  var T0 = recStats(all.map(function(e){ return e.x; }));
+  var kdBox = function(lb,v,c){ return '<div style="flex:1 1 90px;background:#fff;border:2px solid '+c+';border-radius:10px;padding:8px;text-align:center"><div style="font-size:12px;font-weight:700;color:'+c+'">'+lb+'</div><div style="font-size:24px;font-weight:900;color:'+c+'">'+v+'</div></div>'; };
+  var h = rankCard(ME) + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    + kdBox("🎯 시험", T0.n+"회", "#334155") + kdBox("⭕ 맞음", T0.ok, "#15803d") + kdBox("❌ 틀림", T0.bad, "#b91c1c")
+    + kdBox("⚔ 맞:틀", T0.bad||T0.ok ? T0.ok+":"+T0.bad : "-", "#6d28d9") + kdBox("📊 정답률", T0.pct+"%", "#1d4ed8") + '</div>';
+  if(!all.length){ $("mineBody").innerHTML = h + '<div class="hint">아직 시험 본 기록이 없어요. 시험을 보면 회차마다 맞은 것·틀린 것이 쌓여요!</div>'; return; }
+  // 급별 요약
+  h += '<div class="scrollx"><table><tr><th>급</th><th>회차</th><th>⭕</th><th>❌</th><th>맞:틀</th><th>최고</th><th>단계</th></tr>';
+  keys.sort(function(a,b){ var pa=a.split("·"), pb=b.split("·"); if(pa.length!==pb.length) return pa.length-pb.length; return (parseInt(pa[pa.length-1])||99)-(parseInt(pb[pb.length-1])||99); }).forEach(function(k){
+    var S = recStats(r[k]), bst = best(ME,k), st = stepsOf(ME,k);
+    h += '<tr><td><b>'+(k==="all"?"🏆 전체":lvName(k))+'</b></td><td>'+S.n+'회</td><td style="color:#15803d;font-weight:800">'+S.ok+'</td><td style="color:#b91c1c;font-weight:800">'+S.bad+'</td><td>'+S.ok+':'+S.bad+'</td>'
+      + '<td class="'+(bst==null?"n":(bst>=passScore()?"p":"f"))+'">'+(bst==null?"-":bst)+'</td><td>'+(k==="wrong"?"":(st.s1?"①":"·")+(st.s2?"②":"·")+(st.s3?"③":"·"))+'</td></tr>';
   });
-  h += '</table></div><div class="hist" style="margin-top:10px">';
-  var all=[]; Object.keys(r).forEach(function(k){ (r[k]||[]).forEach(function(x){ all.push([k,x]); }); });
-  all.slice(-15).reverse().forEach(function(p){ var k=p[0], x=p[1];
-    h += '• '+esc(x.d)+' · '+lvName(k)+' · <b>'+x.score+'점</b> ('+x.ok+'/'+x.n+', '+({easy:"쉬움",normal:"보통",hard:"어려움",custom:"직접"}[x.diff]||"")+', '+(x.where==="screen"?"화면":"종이")+')'+(x.wrong&&x.wrong.length?' · 틀린 문제 '+x.wrong.join(", "):'')+'<br>'; });
-  $("mineBody").innerHTML = h + (all.length?"":"아직 시험 본 기록이 없어요.") + '</div>';
+  h += '</table></div>';
+  // 자주 틀리는 문제 TOP 5
+  var miss = {};
+  all.forEach(function(e){ var sh = e.x.sheet || ME; (e.x.wrong||[]).forEach(function(w){ var kk = sh+"|"+w; miss[kk] = (miss[kk]||0)+1; }); });
+  var mk = Object.keys(miss).sort(function(a,b){ return miss[b]-miss[a]; }).slice(0,5);
+  if(mk.length){
+    h += '<div style="font-weight:900;margin:14px 0 6px">😵 자주 틀리는 문제</div>';
+    mk.forEach(function(kk){ var p = kk.split("|"), gi = p[1].split("-"), t = sentOf(p[0], gi[0], +gi[1]);
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f1f5f9;font-size:17px"><b style="color:#b91c1c;min-width:44px">❌'+miss[kk]+'번</b><span style="flex:1">'+(p[0]!==ME?'<small style="color:#64748b">'+esc(p[0])+'</small> ':'')+gi[0]+'급 '+gi[1]+'번 <b>'+esc(t)+'</b></span>'+(t?'<button class="b-dark" style="font-size:14px;padding:5px 9px" onclick="speak(\''+esc(t).replace(/'/g,"\\'")+'\',0.8)">🔊</button>':'')+'</div>'; });
+  }
+  // 회차별 (최근 순) — 누르면 문제마다 ⭕❌
+  h += '<div style="font-weight:900;margin:14px 0 6px">🗂 회차별 기록 <span style="font-size:13px;color:#64748b;font-weight:600">누르면 문제마다 ⭕❌</span></div>';
+  all.slice().reverse().slice(0,40).forEach(function(e){
+    var x = e.x, sh = x.sheet || ME, bad = x.n - x.ok;
+    var chips = (x.res || []).map(function(q){ var t = sentOf(sh, q[0], q[1]);
+      return '<div style="display:flex;gap:6px;padding:4px 2px;font-size:15px;border-bottom:1px dashed #e2e8f0"><b style="color:'+(q[2]?'#15803d':'#b91c1c')+'">'+(q[2]?'⭕':'❌')+'</b><span style="color:#64748b;min-width:52px">'+q[0]+'급 '+q[1]+'번</span><span>'+esc(t)+'</span></div>'; }).join("")
+      || (x.wrong&&x.wrong.length ? '<div class="hint">틀린 문제: '+x.wrong.join(", ")+'</div>' : '<div class="hint">다 맞았어요!</div>');
+    h += '<details style="border:1px solid #e2e8f0;border-radius:10px;margin-bottom:6px;background:#fff"><summary style="padding:9px 10px;cursor:pointer;font-size:16px;list-style:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      + '<b style="background:#334155;color:#fff;border-radius:8px;padding:2px 8px">'+e.no+'회차</b><b>'+lvName(e.k)+'</b>'
+      + '<span style="color:#15803d;font-weight:900">⭕'+x.ok+'</span><span style="color:#b91c1c;font-weight:900">❌'+bad+'</span>'
+      + '<span style="font-weight:900;color:'+(x.score>=passScore()?'#15803d':'#b91c1c')+'">'+x.score+'점</span>'
+      + '<span style="color:#64748b;font-size:13px;margin-left:auto">'+esc(x.d)+' · '+({easy:"쉬움",normal:"보통",hard:"어려움",custom:"직접"}[x.diff]||"")+' · '+(x.where==="screen"?"화면":"종이")+'</span></summary>'
+      + '<div style="padding:4px 10px 10px">'+chips+'</div></details>';
+  });
+  $("mineBody").innerHTML = h;
 }
 function renderBoard(){
   var names = DB.names.slice().sort(function(a,b){ return xpOf(b)-xpOf(a); });
-  var h = '<table><tr><th>이름</th><th>계급</th>'+LEVELS.map(function(L){ return '<th>'+L.g+'급</th>'; }).join("")+'<th>🏆</th></tr>';
+  var gs = {}; DB.names.forEach(function(n){ levelsOf(n).forEach(function(L){ gs[L.g]=1; }); });
+  var GL = Object.keys(gs).map(Number).sort(function(a,b){ return a-b; });
+  var h = '<table><tr><th>이름</th><th>계급</th>'+GL.map(function(g){ return '<th>'+g+'급</th>'; }).join("")+'<th>🏆</th></tr>';
   names.forEach(function(n){
     var rk = RANKS[rankIdx(xpOf(n))];
-    h += '<tr><td><b>'+esc(n)+'</b></td><td style="white-space:nowrap">'+insSmall(rk)+'<br>'+esc(rk.name)+'<br><small style="color:#64748b">'+xpOf(n)+'</small></td>';
-    LEVELS.map(function(L){ return String(L.g); }).concat(["all"]).forEach(function(k){
+    var S = recStats([].concat.apply([], Object.keys(DB.rec[n]||{}).map(function(k){ return DB.rec[n][k]; })));
+    h += '<tr><td><b>'+esc(n)+'</b><br><small style="color:#64748b">'+S.n+'회 · ⭕'+S.ok+' ❌'+S.bad+'</small></td><td style="white-space:nowrap">'+insSmall(rk)+'<br>'+esc(rk.name)+'<br><small style="color:#64748b">'+xpOf(n)+'</small></td>';
+    GL.map(String).concat(["all"]).forEach(function(k){
       var b = best(n,k); h += '<td class="'+(b==null?"n":(b>=passScore()?"p":"f"))+'">'+(b==null?"-":(b>=passScore()?"✅":"")+b)+'</td>';
     });
     h += '</tr>';
@@ -785,6 +889,8 @@ function openSettings(){
   var v = prompt("부모님 확인\n\n"+a+" × "+b+" = ?"); if(v===null) return;
   if(parseInt(v,10)!==a*b){ alert("틀렸어요!"); return; }
   $("setNames").value = DB.names.join("\n"); $("setPass").value = DB.opt.pass; loadVoices(); $("qrBox").innerHTML="";
+  $("edKid").innerHTML = DB.names.map(function(n){ return '<option>'+esc(n)+'</option>'; }).join("");
+  edFillG(); edLoad();
   go("vSet");
 }
 function saveSettings(){
@@ -792,6 +898,34 @@ function saveSettings(){
   if(!ns.length){ alert("이름을 한 명 이상 적어 주세요."); return; }
   DB.names = ns; DB.opt.pass = $("setPass").value; DB.opt.voice = $("setVoice").value; save();
   alert("저장했어요!"); go("vName");
+}
+// 부모님 문장 넣기 — 이 기기에 저장 (모든 폰에 넣으려면 사진을 보내서 기본 급수표에 넣기)
+function edFillG(){
+  var n = $("edKid").value, have = {}; levelsOf(n).forEach(function(L){ have[L.g]=L.src; });
+  var cur = $("edG").value, h = "";
+  for(var g=1; g<=15; g++) h += '<option value="'+g+'">'+g+'급'+(have[g]==="built"?" (기본 급수표)":have[g]==="custom"?" (넣은 문장)":" — 비어 있음")+'</option>';
+  $("edG").innerHTML = h; if(cur) $("edG").value = cur;
+}
+function edLoad(){
+  var n = $("edKid").value, g = +$("edG").value || 1, L = levelsOf(n).filter(function(x){ return x.g===g; })[0];
+  edFillG(); $("edG").value = g;
+  $("edTitle").value = L ? L.title : ""; $("edS").value = L ? L.s.join("\n") : "";
+  $("edHint").textContent = !L ? "비어 있는 급이에요. 문장을 넣고 저장하면 "+n+" 급 목록에 생겨요." : L.src==="built" ? "기본 급수표예요. 고쳐서 저장하면 이 기기에서는 고친 문장으로 보여요." : "이 기기에서 넣은 문장이에요.";
+}
+function edSave(){
+  var n = $("edKid").value, g = $("edG").value;
+  var ss = $("edS").value.split("\n").map(function(x){ return x.replace(/^\s*\d+\s*[.)번]\s*/, "").trim(); }).filter(Boolean);
+  if(!ss.length){ alert("문장을 한 줄에 하나씩 넣어 주세요."); return; }
+  var c = DB.custom[n] = DB.custom[n] || {}; c[g] = { title:$("edTitle").value.trim(), s:ss }; save();
+  alert(n+" "+g+"급 문장 "+ss.length+"개를 저장했어요!"); edLoad();
+}
+function edDel(){
+  var n = $("edKid").value, g = $("edG").value, L = levelsOf(n).filter(function(x){ return x.g===+g; })[0];
+  if(!L){ alert("비어 있는 급이에요."); return; }
+  if(!confirm(n+" "+g+"급을 목록에서 지울까요?")) return;
+  var c = DB.custom[n] = DB.custom[n] || {};
+  if(L.src==="built") c[g] = { del:true }; else delete c[g];
+  save(); edLoad();
 }
 function resetRecords(){ if(confirm("이 기기의 시험 기록·계급을 모두 지울까요? (되돌릴 수 없어요)")){ DB.rec = {}; DB.xp = {}; DB.st = {}; DB.day = {}; save(); alert("지웠어요."); } }
 function showQR(){
