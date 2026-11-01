@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>받아쓰기 급수 시험</title>
+<style>
+  :root { --bg:#fff8ec; --card:#fff; --ink:#1f2937; --main:#1d4ed8; --ok:#15803d; --bad:#b91c1c; --warn:#b45309; --mute:#64748b; --dark:#334155; --army:#3f6212; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; -webkit-text-size-adjust:100%; }
+  .wrap { max-width:760px; margin:0 auto; padding:14px 14px 70px; }
+  h1 { text-align:center; margin:6px 0 4px; font-size:26px; }
+  .sub { text-align:center; color:var(--mute); margin-bottom:14px; font-size:14px; }
+  .card { background:var(--card); border-radius:16px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.08); margin-bottom:14px; }
+  h2 { margin:0 0 12px; font-size:21px; }
+  button { font-family:inherit; font-size:18px; font-weight:800; border:none; border-radius:12px; padding:13px 16px; cursor:pointer; color:#fff; background:var(--main); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .b-ok { background:var(--ok); } .b-bad { background:var(--bad); } .b-warn { background:var(--warn); } .b-dark { background:var(--dark); } .b-purple { background:#6d28d9; } .b-army { background:var(--army); }
+  .big { width:100%; font-size:24px; padding:18px; }
+  .grid { display:grid; gap:10px; }
+  .g2 { grid-template-columns:repeat(2,1fr); } .g3 { grid-template-columns:repeat(3,1fr); }
+  .names button { font-size:21px; padding:14px 8px; line-height:1.3; }
+  .names small { display:block; font-size:13px; font-weight:700; opacity:.95; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .row > * { flex:1 1 140px; }
+  .back { background:var(--dark); font-size:15px; padding:9px 14px; flex:0 0 auto !important; }
+  .who { font-size:16px; color:var(--mute); }
+  .who b { color:var(--ink); font-size:19px; }
+  .lv { position:relative; text-align:left; padding:14px; font-size:18px; line-height:1.35; }
+  .lv small { display:block; font-size:13px; font-weight:600; opacity:.9; }
+  .lv .badge { position:absolute; right:10px; top:10px; background:#fff; color:var(--ok); border-radius:10px; padding:2px 8px; font-size:13px; }
+  .lv .badge.no { color:var(--bad); }
+  .lv .dots { display:block; font-size:12px; margin-top:4px; letter-spacing:2px; }
+  .step { display:flex; align-items:center; gap:12px; text-align:left; width:100%; margin-bottom:10px; padding:14px; }
+  .step .n { flex:0 0 42px; height:42px; border-radius:50%; background:rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .step .t { flex:1; font-size:20px; } .step .t small { display:block; font-size:13px; font-weight:600; opacity:.92; }
+  .step .ck { font-size:24px; }
+  .step.next { outline:4px solid #facc15; outline-offset:2px; }
+  .opt label { display:block; font-weight:800; margin:10px 0 6px; }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; }
+  .seg button { flex:1 1 90px; background:#e2e8f0; color:#0f172a; font-size:16px; padding:11px 6px; }
+  .seg button.on { background:var(--main); color:#fff; }
+  .seg.diff button.on[data-v="easy"] { background:var(--ok); } .seg.diff button.on[data-v="hard"] { background:var(--bad); }
+  select { width:100%; font-size:17px; padding:9px; border:2px solid #cbd5e1; border-radius:10px; font-family:inherit; }
+  .hint { color:var(--mute); font-size:14px; margin-top:6px; line-height:1.5; }
+  .study li { font-size:22px; padding:10px 6px; border-bottom:1px solid #f1f5f9; display:flex; gap:10px; align-items:center; }
+  .study li .t { flex:1; }
+  .study li button { flex:0 0 auto; font-size:16px; padding:9px 12px; }
+  .study.cover .t { color:transparent; background:#e2e8f0; border-radius:6px; }
+  .study.cover .t.peek { color:inherit; background:none; }
+  .num { text-align:center; font-size:20px; color:var(--mute); }
+  .num b { font-size:52px; color:var(--main); display:block; line-height:1.05; }
+  .bar { height:12px; background:#e2e8f0; border-radius:6px; overflow:hidden; margin-top:8px; }
+  .bar > i { display:block; height:100%; background:var(--ok); width:0; transition:width .3s; }
+  .status { text-align:center; font-size:20px; min-height:30px; margin:12px 0; font-weight:700; }
+  .left { text-align:center; font-size:15px; color:var(--mute); margin-top:6px; }
+  input.ans { width:100%; font-size:26px; padding:14px; border:3px solid #93c5fd; border-radius:12px; font-family:inherit; margin-top:6px; }
+  .model { font-size:30px; font-weight:800; text-align:center; padding:14px 6px; background:#f8fafc; border-radius:12px; letter-spacing:1px; word-break:keep-all; }
+  .model .g { color:#15803d; } .model .r { color:#dc2626; text-decoration:underline; } .model .w { color:#94a3b8; }
+  .res li { font-size:19px; padding:10px 4px; border-bottom:1px solid #f1f5f9; list-style:none; }
+  .res .q { font-weight:800; }
+  .mine { margin-top:4px; font-size:18px; }
+  .x { background:#fecaca; color:#991b1b; border-radius:3px; text-decoration:underline wavy #dc2626; }
+  .miss { background:#fde68a; border-radius:3px; padding:0 2px; }
+  .mark { display:inline-flex; gap:6px; float:right; }
+  .mark button { font-size:20px; padding:6px 12px; }
+  .mark button.off { background:#e2e8f0; color:#334155; }
+  .score { text-align:center; font-size:22px; margin:6px 0 12px; }
+  .score b { font-size:56px; display:block; }
+  .feedback { text-align:center; font-size:24px; font-weight:900; min-height:36px; margin-top:10px; }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  th, td { border:1px solid #e2e8f0; padding:7px 4px; text-align:center; }
+  th { background:#334155; color:#fff; }
+  td.p { background:#dcfce7; color:#166534; font-weight:800; } td.f { background:#fef2f2; color:#991b1b; font-weight:700; } td.n { color:#cbd5e1; }
+  .hidden { display:none !important; }
+  .scrollx { overflow-x:auto; }
+  .hist { font-size:14px; color:#475569; line-height:1.7; }
+  /* 계급 */
+  .rank { display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,#365314,#4d7c0f); color:#fff; border-radius:14px; padding:12px 14px; margin-bottom:12px; }
+  .ins { flex:0 0 auto; min-width:54px; height:54px; border-radius:10px; background:#1a2e05; color:#facc15; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:15px; letter-spacing:-1px; padding:0 6px; border:2px solid #a3e635; }
+  .rank .info { flex:1; } .rank .info b { font-size:22px; } .rank .info small { display:block; font-size:13px; opacity:.9; }
+  .xpbar { height:10px; background:rgba(255,255,255,.25); border-radius:5px; overflow:hidden; margin-top:5px; }
+  .xpbar i { display:block; height:100%; background:#facc15; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#1a2e05; color:#facc15; padding:10px 18px; border-radius:20px; font-weight:800; z-index:30; font-size:17px; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  .promo { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; z-index:40; padding:16px; }
+  .promo .box { background:linear-gradient(160deg,#365314,#1a2e05); color:#fff; border-radius:20px; padding:26px 20px; text-align:center; max-width:420px; width:100%; border:4px solid #facc15; animation:pop .5s ease; }
+  .promo .ins { margin:12px auto; width:110px; height:110px; font-size:30px; }
+  @keyframes pop { 0%{transform:scale(.4);opacity:0} 70%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+  #qrBox { text-align:center; } #qrBox img, #qrBox canvas { margin:10px auto; }
+  @media print { .wrap > section:not(#vSet), #vSet .opt > *:not(#qrBox) { display:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>✏️ 받아쓰기 급수 시험</h1>
+  <div class="sub">영광중앙초 1학년 2학기 받아쓰기 급수표</div>
+
+  <!-- ① 이름 -->
+  <section id="vName">
+    <div class="card">
+      <h2>👋 내 이름을 눌러요</h2>
+      <div class="grid g2 names" id="nameList"></div>
+    </div>
+    <div class="row">
+      <button class="b-army" onclick="go('vBoard')">🎖 모두의 계급·기록</button>
+      <button class="b-dark" onclick="openSettings()">⚙ 설정 (부모님)</button>
+    </div>
+  </section>
+
+  <!-- ② 급 -->
+  <section id="vLevel" class="hidden">
+    <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vName')">◀ 이름</button><div class="who"><b id="whoName"></b> 어린이</div></div>
+    <div id="rankBox"></div>
+    <div class="card">
+      <h2>📚 몇 급을 할까요?</h2>
+      <div class="grid g2" id="levelList"></div>
+      <button class="big b-purple" style="margin-top:12px" onclick="pickLevel(0)">🏆 전체 (1급~6급)</button>
+    </div>
+    <div class="row">
+      <button class="b-dark" onclick="go('vMine')">📈 내 기록</button>
+      <button class="b-army" onclick="go('vRanks')">🎖 계급표</button>
+    </div>
+  </section>
+
+  <!-- ③ 단계 -->
+  <section id="vMode" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:12px"><button class="back" onclick="go('vLevel')">◀ 급</button><div class="who"><b id="modeTitle"></b></div></div>
+      <div id="stepList"></div>
+      <div class="hint" id="modeHint"></div>
+    </div>
+  </section>
+
+  <!-- 1단계: 보며 듣기 -->
+  <section id="vStudy" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><button class="back" onclick="stopAll();go('vMode')">◀ 단계</button><div class="who"><b id="studyTitle"></b></div></div>
+      <div class="row" style="margin-bottom:6px">
+        <button class="b-ok" onclick="readAll()">🔊 전체 읽어주기</button>
+        <button class="b-dark" id="coverBtn" onclick="toggleCover()">🙈 문장 가리기</button>
+      </div>
+      <div class="hint">문장 옆 🔊 를 누르면 그 문장만 읽어줘요. 「전체 읽어주기」를 끝까지 들으면 1단계 완료! 「문장 가리기」를 하면 들으면서 머릿속으로 써 보고, 문장을 눌러 확인해요.</div>
+      <ol class="study" id="studyList" style="padding:0;margin:10px 0 0"></ol>
+      <button class="big" style="margin-top:14px" onclick="stopAll();startType()">⌨️ 2단계 따라 치기로 ▶</button>
+    </div>
+  </section>
+
+  <!-- 2단계: 따라 치기 (핸드폰 타자 연습) -->
+  <section id="vType" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><button class="back" onclick="stopAll();go('vMode')">◀ 단계</button><div class="who"><b id="typeTitle"></b></div></div>
+      <div class="num"><b id="kNum">1</b>번 / <span id="kTotal">0</span>문장</div>
+      <div class="bar"><i id="kBar"></i></div>
+      <div class="hint" style="text-align:center">보이는 문장을 <b>똑같이</b> 쳐요. 띄어쓰기·점(.)·물음표(?)까지! 초록 = 맞음, 빨강 = 틀림</div>
+      <div class="model" id="kModel" style="margin-top:10px"></div>
+      <input class="ans" id="kAns" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="여기에 따라 쳐요">
+      <div class="feedback" id="kFb"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="b-dark" onclick="speak(KT.qs[KT.idx].s,0.8)">🔊 듣기</button>
+        <button class="b-dark" onclick="typeMove(-1)">◀ 이전</button>
+        <button onclick="typeMove(1)">건너뛰기 ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3단계: 듣고 써 보기 (연습) -->
+  <section id="vPrac" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><button class="back" onclick="stopAll();go('vMode')">◀ 단계</button><div class="who"><b id="pracTitle"></b></div></div>
+      <div class="num"><b id="pNum">1</b>번 / <span id="pTotal">0</span>문장</div>
+      <div class="bar"><i id="pBar"></i></div>
+      <div class="status" id="pStatus"></div>
+      <button class="big" onclick="pracSay()">🔊 듣기 (몇 번이든)</button>
+      <div class="seg" id="segPracWhere" style="margin-top:10px"><button data-v="screen">📱 화면에 쓰기</button><button data-v="paper">📄 종이에 쓰기</button></div>
+      <input class="ans" id="pAns" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="듣고 여기에 써요">
+      <button class="big b-ok" style="margin-top:10px" id="pCheck" onclick="pracCheck()">✔ 확인하기</button>
+      <div class="feedback" id="pFb"></div>
+      <div class="mine" id="pDiff" style="text-align:center"></div>
+      <div class="row hidden" id="pPaperMark" style="margin-top:10px">
+        <button class="b-ok" onclick="pracPaper(true)">⭕ 맞았어요</button><button class="b-bad" onclick="pracPaper(false)">❌ 틀렸어요</button>
+      </div>
+      <button class="big hidden" style="margin-top:10px" id="pNext" onclick="pracNext()">다음 문장 ▶</button>
+    </div>
+  </section>
+
+  <!-- 4단계: 시험 준비 -->
+  <section id="vOpt" class="hidden">
+    <div class="card opt">
+      <div class="row" style="margin-bottom:6px"><button class="back" onclick="go('vMode')">◀ 단계</button><div class="who"><b id="optTitle"></b></div></div>
+      <label>🎚 난이도</label>
+      <div class="seg diff" id="segDiff">
+        <button data-v="easy">😊 쉬움</button><button data-v="normal">🙂 보통</button><button data-v="hard">😤 어려움</button><button data-v="custom">🔧 직접</button>
+      </div>
+      <div class="hint" id="diffHint"></div>
+      <div id="customBox" class="hidden">
+        <label>🔊 한 문장 최대 몇 번 들을까요?</label>
+        <div class="seg" id="segMax"><button data-v="1">1번</button><button data-v="2">2번</button><button data-v="3">3번</button><button data-v="5">5번</button><button data-v="99">마음껏</button></div>
+        <label>🐢 읽는 빠르기</label>
+        <div class="seg" id="segRate"><button data-v="0.6">아주 천천히</button><button data-v="0.8">천천히</button><button data-v="1">보통</button><button data-v="1.2">빠르게</button></div>
+      </div>
+      <label>✍️ 어디에 쓸까요?</label>
+      <div class="seg" id="segWhere"><button data-v="paper">📄 종이에 쓰기</button><button data-v="screen">📱 화면에 쓰기</button></div>
+      <div class="hint" id="whereHint"></div>
+      <div id="allBox" class="hidden">
+        <label>🔢 전체 시험 문제 수</label>
+        <div class="seg" id="segCount"><button data-v="60">60문제 전부</button><button data-v="30">30문제</button><button data-v="20">20문제</button><button data-v="10">10문제</button></div>
+      </div>
+      <label class="row" style="font-weight:600;margin-top:12px;gap:8px"><input type="checkbox" id="optShuffle" style="width:22px;height:22px;flex:0 0 auto"> <span style="flex:1">순서 섞기</span></label>
+      <label class="row" style="font-weight:600;gap:8px"><input type="checkbox" id="optNum" checked style="width:22px;height:22px;flex:0 0 auto"> <span style="flex:1">"1번"처럼 번호도 읽어주기</span></label>
+      <button class="big b-ok" style="margin-top:14px" onclick="startTest()">▶ 시험 시작</button>
+    </div>
+  </section>
+
+  <!-- 시험 -->
+  <section id="vTest" class="hidden">
+    <div class="card">
+      <div class="num"><b id="tNum">1</b>번 / 전체 <span id="tTotal">0</span>문제</div>
+      <div class="bar"><i id="tBar"></i></div>
+      <div class="status" id="tStatus">준비…</div>
+      <button class="big" id="againBtn" onclick="play(false)">🔊 다시 듣기</button>
+      <div class="left" id="tLeft"></div>
+      <input class="ans hidden" id="tAns" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="여기에 써요">
+      <button class="big b-ok" style="margin-top:12px" id="nextBtn" onclick="nextQ()">다 썼어요 · 다음 ▶</button>
+      <div class="row" style="margin-top:12px">
+        <button class="b-dark" id="prevBtn" onclick="prevQ()">◀ 이전 문제</button>
+        <button class="b-bad" onclick="quitTest()">■ 그만하기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 채점 -->
+  <section id="vResult" class="hidden">
+    <div class="card">
+      <h2 id="rTitle" style="text-align:center"></h2>
+      <div class="hint" id="rHint" style="text-align:center"></div>
+      <div class="score" id="rScore"></div>
+      <ol class="res" id="rList" style="padding:0"></ol>
+      <button class="big b-ok hidden" id="saveMarkBtn" onclick="finishPaper()">✅ 채점 끝 · 점수 저장</button>
+      <div class="row" style="margin-top:12px">
+        <button onclick="retryWrong()" id="retryWrongBtn">🔁 틀린 것만 다시</button>
+        <button class="b-dark" onclick="go('vMode')">🪜 단계로</button>
+        <button class="b-dark" onclick="go('vLevel')">📚 다른 급</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 내 기록 -->
+  <section id="vMine" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vLevel')">◀ 뒤로</button><div class="who"><b id="mineTitle"></b></div></div>
+      <div id="mineBody"></div>
+    </div>
+  </section>
+
+  <!-- 계급표 -->
+  <section id="vRanks" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vLevel')">◀ 뒤로</button><div class="who"><b>🎖 계급표</b></div></div>
+      <div id="ranksBody"></div>
+    </div>
+  </section>
+
+  <!-- 모두의 기록 -->
+  <section id="vBoard" class="hidden">
+    <div class="card">
+      <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vName')">◀ 뒤로</button><div class="who"><b>🎖 모두의 계급·기록</b> <span style="font-size:13px">(이 기기에서 한 것)</span></div></div>
+      <div class="scrollx" id="boardBody"></div>
+    </div>
+  </section>
+
+  <!-- 설정 -->
+  <section id="vSet" class="hidden">
+    <div class="card opt">
+      <div class="row" style="margin-bottom:6px"><button class="back" onclick="go('vName')">◀ 뒤로</button><div class="who"><b>⚙ 설정 (부모님)</b></div></div>
+      <label>👧👦 아이 이름 (한 줄에 한 명)</label>
+      <textarea id="setNames" style="width:100%;height:150px;font-size:18px;padding:10px;border:2px solid #cbd5e1;border-radius:10px;font-family:inherit"></textarea>
+      <label>🎯 통과 점수</label>
+      <select id="setPass"><option value="100">100점 (다 맞아야)</option><option value="90">90점 이상</option><option value="80">80점 이상</option><option value="70">70점 이상</option></select>
+      <label>🗣 목소리</label>
+      <select id="setVoice"></select>
+      <div class="hint" id="voiceHint"></div>
+      <button class="big b-ok" style="margin-top:12px" onclick="saveSettings()">💾 저장</button>
+      <div class="row" style="margin-top:12px">
+        <button class="b-purple" onclick="showQR()">🔳 큐알 만들기</button>
+        <button class="b-bad" onclick="resetRecords()">🗑 기록·계급 모두 지우기</button>
+      </div>
+      <div id="qrBox"></div>
+      <div class="hint">이름·기록·계급은 이 기기(폰·태블릿)에만 저장돼요. 이름별 큐알을 찍으면 그 아이 이름으로 바로 들어가요.</div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ───────── 급수표 (영광중앙초 1학년 2학기) ─────────
+var LEVELS = [
+  { g:1, title:"1. 기분을 말해요", s:["구름이 둥실둥실","잎이 가을바람에 살랑살랑","야옹 소리를 내며","씽씽 지나갑니다.","꽃이 활짝 피었습니다.","맴맴 울고 있습니다.","단풍이 울긋불긋","병아리가 삐악삐악","노래를 부를 때 떨렸다.","노랫말이 떠오르지 않아."] },
+  { g:2, title:"1. 기분을 말해요", s:["얼음처럼 꽁꽁!","뜀틀에 올랐어.","모두 날 부러워해.","보석처럼 반짝반짝!","갑자기 달려들어 놀랐어.","성이 와장창 무너졌어.","화산처럼 우르릉 쾅쾅!","성이 무너져서 속상해.","바스락 소리가 났다.","예쁘게 말해요"] },
+  { g:3, title:"2. 낱말을 정확하게 읽어요", s:["호수가 넓다.","무릎을 꿇다.","흙을 밟다.","개미가 틀림없다.","낙엽이 붉다.","하늘이 맑다.","구멍을 뚫다.","나비가 가엾다.","불빛이 밝다.","감기를 앓다."] },
+  { g:4, title:"2. 낱말을 정확하게 읽어요", s:["우산을 잃어버렸다.","학교 운동장이 넓다.","머리를 긁는다.","바구니에 사과가 없다.","닭과 병아리가 모이를","크레파스의 길이가 짧다.","연필심이 닳았다.","하마터면 잡아먹힐 뻔했어.","흙이 어디 있는지 아세요?","안전하게 귀가하는 날."] },
+  { g:5, title:"3. 그림일기를 써요", s:["제가 좋아하는 색은","제 꿈은 탐험가입니다.","바른 자세로 말하기","귀 기울여 듣는다.","된장찌개를 먹었다.","가방이 흠뻑 젖었습니다.","날짜와 요일, 날씨","빨갛게 익은 사과를 땄다.","쓰레기를 줄이려면","곰 인형과 같이 자야겠다."] },
+  { g:6, title:"4. 감동을 나누어요", s:["‘나도 한번 먹어 볼까?’","“골고루 잘 먹는구나.”","소금을 만드는 맷돌","“나와라, 밥!”","많이 얻을 수 있어.","몰래 훔쳐 도망갔습니다.","소금이 쏟아져 나왔고","배 안에 쌓여 갔습니다.","빨간 모자가 된 아이쿠","거북이가 숲으로 왔어요!"] }
+];
+var DIFF = {
+  easy:   { rate:0.7, max:3, label:"천천히 읽고, 한 문장을 3번까지 들을 수 있어요" },
+  normal: { rate:0.9, max:2, label:"보통 빠르기로 읽고, 2번까지 들을 수 있어요" },
+  hard:   { rate:1.1, max:1, label:"조금 빠르게 읽고, 딱 1번만 들을 수 있어요" }
+};
+// 🎖 계급 (방역코스와 같은 계급표)
+var RANKS = [
+  { name:'이등병', xp:0, icon:'▔' }, { name:'일병', xp:100, icon:'▔▔' }, { name:'상병', xp:250, icon:'▔▔▔' },
+  { name:'병장', xp:450, icon:'▔▔▔▔' }, { name:'하사', xp:700, icon:'∨' }, { name:'중사', xp:1000, icon:'∨∨' },
+  { name:'상사', xp:1400, icon:'∨∨∨' }, { name:'원사', xp:1900, icon:'∨∨∨∨' }, { name:'준위', xp:2500, icon:'◈' },
+  { name:'소위', xp:3200, icon:'◆' }, { name:'중위', xp:4000, icon:'◆◆' }, { name:'대위', xp:5000, icon:'◆◆◆' },
+  { name:'소령', xp:6200, icon:'❖' }, { name:'중령', xp:7600, icon:'❖❖' }, { name:'대령', xp:9200, icon:'❖❖❖' },
+  { name:'준장', xp:11000, icon:'★' }, { name:'소장', xp:13000, icon:'★★' }, { name:'중장', xp:15500, icon:'★★★' },
+  { name:'대장', xp:18500, icon:'★★★★' }, { name:'부원수', xp:22000, icon:'★★★★★' }, { name:'원수', xp:26000, icon:'★★★★★★' }
+];
+// 경험치 규칙 — 연습은 하루 한도(같은 급·같은 단계)를 둬서 같은 것만 반복해 올리지 못하게
+var XP = { daily:15, listenAll:10, typeOne:3, pracOne:4, testTake:20, testPerOk:5, perfect:50, firstPass:100, allPerfect:300, dayCap:60 };
+var DEFAULT_NAMES = ["아이1","아이2","아이3","아이4","아이5","아이6"];
+
+// ───────── 저장 (이 기기) ─────────
+var KEY = "gamun_dictation_v1";
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e){} }
+var DB = load();
+DB.names = DB.names && DB.names.length ? DB.names : DEFAULT_NAMES.slice();
+DB.rec = DB.rec || {};     // rec[이름][급] = [{d, score, n, ok, diff, where, wrong}]
+DB.xp = DB.xp || {};       // xp[이름] = 숫자
+DB.st = DB.st || {};       // st[이름][급] = {s1:true, s2:true, s3:true}  단계 완료
+DB.day = DB.day || {};     // day[이름] = {d:"2026-11-01", got:{"3|type":30}, streak:n, last:"..."}
+DB.opt = DB.opt || { diff:"normal", max:2, rate:0.9, where:"paper", count:"20", pass:"90", voice:"", pracWhere:"screen" };
+
+var $ = function(id){ return document.getElementById(id); };
+var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); };
+var ME = "", LV = 0;
+var VIEWS = ["vName","vLevel","vMode","vStudy","vType","vPrac","vOpt","vTest","vResult","vMine","vRanks","vBoard","vSet"];
+function go(id){
+  VIEWS.forEach(function(v){ $(v).classList.toggle("hidden", v!==id); });
+  window.scrollTo(0,0);
+  if(id==="vName") renderNames();
+  if(id==="vLevel") renderLevels();
+  if(id==="vMode") renderSteps();
+  if(id==="vMine") renderMine();
+  if(id==="vBoard") renderBoard();
+  if(id==="vRanks") renderRanks();
+  if(id==="vOpt") renderOpt();
+}
+function today(){ var d=new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+function lvKey(){ return LV ? String(LV) : "all"; }
+function lvName(k){ k = k==null ? lvKey() : String(k); return k==="all" ? "전체" : k==="wrong" ? "틀린 것" : k+"급"; }
+
+// ───────── 🎖 계급 / 경험치 ─────────
+function xpOf(n){ return DB.xp[n] || 0; }
+function rankIdx(xp){ var r=0; for(var i=0;i<RANKS.length;i++) if(xp>=RANKS[i].xp) r=i; return r; }
+// 계급장: 병사(▔)는 작대기를 한 줄씩 쌓아서, 나머지(∨ ◆ ★ …)는 기호를 나란히
+function insHtml(r, big){
+  var st = big ? ' style="width:110px;height:110px;font-size:30px"' : '';
+  var bars = (r.icon.match(/▔/g)||[]).length;
+  if(bars && bars===r.icon.length){
+    var h = big ? 9 : 5, w = big ? 64 : 34, g = big ? 6 : 3, s = '';
+    for(var i=0;i<bars;i++) s += '<i style="display:block;width:'+w+'px;height:'+h+'px;background:#facc15;border-radius:2px;margin:'+g+'px auto"></i>';
+    return '<div class="ins"'+st+'><div>'+s+'</div></div>';
+  }
+  return '<div class="ins"'+st+'><span style="letter-spacing:'+(big?'2px':'0')+'">'+r.icon+'</span></div>';
+}
+// 작은 계급장 (표·이름 버튼용)
+function insSmall(r, col){
+  col = col || "#4d7c0f";
+  var bars = (r.icon.match(/▔/g)||[]).length;
+  if(bars && bars===r.icon.length){
+    var s=''; for(var i=0;i<bars;i++) s+='<i style="display:block;width:22px;height:3px;background:'+col+';border-radius:1px;margin:2px auto"></i>';
+    return '<span style="display:inline-block;vertical-align:middle">'+s+'</span>';
+  }
+  return '<span style="color:'+col+';font-weight:900">'+r.icon+'</span>';
+}
+function rankCard(n){
+  var x = xpOf(n), i = rankIdx(x), r = RANKS[i], nx = RANKS[i+1];
+  var pct = nx ? Math.round((x-r.xp)/(nx.xp-r.xp)*100) : 100;
+  return '<div class="rank">'+insHtml(r)+'<div class="info"><b>'+esc(r.name)+'</b> · '+esc(n)
+    +'<small>경험치 '+x+(nx?' · 다음 계급 「'+nx.name+'」까지 '+(nx.xp-x):' · 최고 계급!')+'</small><div class="xpbar"><i style="width:'+pct+'%"></i></div></div></div>';
+}
+var _toastT=null;
+function toast(msg){
+  var t=document.querySelector(".toast"); if(!t){ t=document.createElement("div"); t.className="toast"; document.body.appendChild(t); }
+  t.textContent=msg; t.style.display="block"; clearTimeout(_toastT); _toastT=setTimeout(function(){ t.style.display="none"; },1800);
+}
+// 경험치 주기. cap = 오늘 이 급·이 단계에서 더 받을 수 있는 한도 키 (없으면 한도 없음)
+function gainXp(amount, why, capKey){
+  if(!ME || amount<=0) return 0;
+  var t = today(), d = DB.day[ME] = DB.day[ME] || { d:"", got:{}, streak:0 };
+  var bonus = 0;
+  if(d.d !== t){
+    var y = new Date(Date.now()-86400000), ys = y.getFullYear()+"-"+("0"+(y.getMonth()+1)).slice(-2)+"-"+("0"+y.getDate()).slice(-2);
+    d.streak = d.d===ys ? (d.streak||0)+1 : 1; d.d = t; d.got = {};
+    bonus = XP.daily + Math.min(d.streak-1, 5)*5;   // 매일 하면 연속 보너스 (최대 +25)
+  }
+  if(capKey){ var used = d.got[capKey]||0; amount = Math.max(0, Math.min(amount, XP.dayCap-used)); d.got[capKey] = used+amount; }
+  var before = rankIdx(xpOf(ME)), total = amount+bonus;
+  if(total<=0){ save(); return 0; }
+  DB.xp[ME] = xpOf(ME)+total; save();
+  toast("⭐ +"+total+" "+why+(bonus?" (오늘 첫 공부 +"+bonus+(d.streak>1?" · "+d.streak+"일 연속!":"")+")":""));
+  var after = rankIdx(xpOf(ME));
+  if(after>before) promote(RANKS[after]);
+  return total;
+}
+function promote(r){
+  var p=document.createElement("div"); p.className="promo";
+  p.innerHTML='<div class="box"><div style="font-size:22px;font-weight:900">🎉 진급을 축하합니다! 🎉</div>'+insHtml(r,true)+'<div style="font-size:34px;font-weight:900;color:#facc15">'+esc(r.name)+'</div><div style="margin:8px 0 16px">'+esc(ME)+' '+esc(r.name)+'! 받아쓰기 실력이 쑥쑥 늘고 있어요</div><button class="b-ok big" onclick="this.closest(\'.promo\').remove()">충성! ✋</button></div>';
+  document.body.appendChild(p);
+  speak(ME+" "+r.name+"! 진급을 축하합니다!", 0.95);
+}
+function renderRanks(){
+  var x = xpOf(ME), cur = rankIdx(x);
+  var h = rankCard(ME)+'<table><tr><th>계급</th><th>표시</th><th>필요 경험치</th></tr>';
+  RANKS.forEach(function(r,i){ h+='<tr style="'+(i===cur?'background:#fef9c3;font-weight:900':'')+'"><td>'+(i===cur?'👉 ':'')+esc(r.name)+'</td><td>'+insSmall(r)+'</td><td>'+r.xp+'</td></tr>'; });
+  h += '</table><div class="hint" style="margin-top:10px"><b>경험치 얻는 법</b><br>'
+    + '• 그날 처음 공부 +'+XP.daily+' (며칠 연속이면 더!)<br>• 1단계 전체 듣기 끝까지 +'+XP.listenAll+'<br>• 2단계 따라 치기 한 문장 +'+XP.typeOne+'<br>• 3단계 듣고 써서 맞히면 +'+XP.pracOne
+    + '<br>• 시험 보기 +'+XP.testTake+', 맞은 문제마다 +'+XP.testPerOk+'<br>• 100점 +'+XP.perfect+' · 처음 통과 +'+XP.firstPass+' · 전체 시험 100점 +'+XP.allPerfect
+    + '<br>• 연습(1~3단계)은 한 급에서 하루에 단계마다 '+XP.dayCap+'까지만 쌓여요</div>';
+  $("ranksBody").innerHTML = h;
+}
+
+// ───────── 목소리 ─────────
+var synth = window.speechSynthesis, voices = [];
+function loadVoices(){
+  voices = synth ? synth.getVoices() : [];
+  var ko = voices.filter(function(v){ return v.lang && v.lang.toLowerCase().indexOf("ko")===0; });
+  var sel = $("setVoice"); sel.innerHTML = '<option value="">기본 (한국어)</option>';
+  ko.forEach(function(v){ var o=document.createElement("option"); o.value=v.name; o.textContent=v.name; sel.appendChild(o); });
+  sel.value = DB.opt.voice || "";
+  $("voiceHint").textContent = ko.length ? "" : "이 기기에 한국어 목소리가 안 보여요. 소리가 안 나면 기기 설정에서 한국어 음성(TTS)을 켜 주세요.";
+}
+if(synth){ loadVoices(); if(synth.onvoiceschanged!==undefined) synth.onvoiceschanged = loadVoices; }
+function speak(text, rate){
+  return new Promise(function(res){
+    if(!synth){ res(); return; }
+    var u = new SpeechSynthesisUtterance(String(text).replace(/[‘’“”'"]/g,""));
+    u.lang = "ko-KR"; u.rate = rate || 0.9;
+    var v = voices.filter(function(x){ return x.name===DB.opt.voice; })[0]; if(v) u.voice = v;
+    var done=false, fin=function(){ if(!done){ done=true; res(); } };
+    u.onend = fin; u.onerror = fin; setTimeout(fin, 15000);
+    synth.speak(u);
+  });
+}
+var runId = 0;
+function stopAll(){ runId++; if(synth) synth.cancel(); }
+var wait = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
+
+// ───────── 이름 ─────────
+function renderNames(){
+  var cols=["#1d4ed8","#15803d","#b45309","#6d28d9","#be123c","#0e7490"];
+  $("nameList").innerHTML = DB.names.map(function(n,i){
+    var r = RANKS[rankIdx(xpOf(n))];
+    return '<button style="background:'+cols[i%cols.length]+'" onclick="pickName('+i+')">'+esc(n)+'<small>'+insSmall(r,"#fff")+' '+esc(r.name)+'</small></button>';
+  }).join("");
+}
+function pickName(i){ ME = DB.names[i]; $("whoName").textContent = ME; go("vLevel"); }
+
+// ───────── 급 ─────────
+function passScore(){ return Number(DB.opt.pass)||90; }
+function best(name, key){ var a=(DB.rec[name]||{})[key]||[]; return a.length ? Math.max.apply(null, a.map(function(r){ return r.score; })) : null; }
+function stepsOf(n,k){ var s=(DB.st[n]=DB.st[n]||{}); return s[k]=s[k]||{}; }
+function renderLevels(){
+  $("rankBox").innerHTML = rankCard(ME);
+  var cols=["#2563eb","#0891b2","#15803d","#b45309","#be123c","#6d28d9"];
+  $("levelList").innerHTML = LEVELS.map(function(L,i){
+    var b = best(ME, String(L.g)), st = stepsOf(ME, String(L.g));
+    var badge = b==null ? "" : (b>=passScore() ? '<span class="badge">✅ '+b+'점</span>' : '<span class="badge no">'+b+'점</span>');
+    var dots = (st.s1?"●":"○")+(st.s2?"●":"○")+(st.s3?"●":"○")+(b!=null&&b>=passScore()?"●":"○");
+    return '<button class="lv" style="background:'+cols[i]+'" onclick="pickLevel('+L.g+')">'+badge+L.g+'급<small>'+esc(L.title)+'</small><span class="dots">'+dots+'</span></button>';
+  }).join("");
+}
+function pickLevel(g){ LV = g; go("vMode"); }
+function levelSentences(g){
+  if(g) return LEVELS[g-1].s.map(function(s,i){ return {g:g, i:i+1, s:s}; });
+  var all=[]; LEVELS.forEach(function(L){ L.s.forEach(function(s,i){ all.push({g:L.g, i:i+1, s:s}); }); }); return all;
+}
+
+// ───────── 단계 고르기 ─────────
+function renderSteps(){
+  var k = lvKey(), st = stepsOf(ME,k), b = best(ME,k), passed = b!=null && b>=passScore();
+  $("modeTitle").textContent = ME+" · "+(LV ? LV+"급 · "+LEVELS[LV-1].title : "🏆 전체 (1급~6급)");
+  var steps = [
+    { done:st.s1, n:"1", t:"👀 보며 듣기", d:"문장을 보면서 소리 듣기", c:"#15803d", f:"startStudy()" },
+    { done:st.s2, n:"2", t:"⌨️ 따라 치기", d:"보이는 문장 똑같이 치기 (핸드폰 타자 연습)", c:"#0891b2", f:"startType()" },
+    { done:st.s3, n:"3", t:"✍️ 듣고 써 보기", d:"듣고 쓴 뒤 바로 정답 확인 (연습)", c:"#b45309", f:"startPrac()" },
+    { done:passed, n:"4", t:"📝 시험 보기", d:b==null?"아직 안 봤어요":"최고 "+b+"점"+(passed?" ✅ 통과":""), c:"#1d4ed8", f:"go('vOpt')" }
+  ];
+  var nextI = steps.findIndex(function(s){ return !s.done; });
+  $("stepList").innerHTML = steps.map(function(s,i){
+    return '<button class="step'+(i===nextI?' next':'')+'" style="background:'+s.c+'" onclick="'+s.f+'"><span class="n">'+s.n+'</span><span class="t">'+s.t+'<small>'+esc(s.d)+'</small></span><span class="ck">'+(s.done?'✅':(i===nextI?'👈':''))+'</span></button>';
+  }).join("");
+  $("modeHint").textContent = nextI<0 ? "🎉 이 급은 모든 단계를 다 했어요! 다음 급에 도전하거나 100점에 도전해 봐요." : "노란 테두리가 지금 할 차례예요. 순서대로 하면 시험이 쉬워져요!";
+}
+function stepDone(n){ var st = stepsOf(ME, lvKey()); if(!st["s"+n]){ st["s"+n]=true; save(); return true; } return false; }
+
+// ───────── 1단계: 보며 듣기 ─────────
+var COVER=false;
+function startStudy(){
+  $("studyTitle").textContent = ME+" · "+lvName()+" · 1단계 보며 듣기";
+  COVER=false; $("studyList").classList.remove("cover"); $("coverBtn").textContent="🙈 문장 가리기";
+  $("studyList").innerHTML = levelSentences(LV).map(function(q,k){
+    return '<li><b style="min-width:52px;color:#64748b;font-size:16px">'+(LV?q.i:q.g+"-"+q.i)+'</b><span class="t" onclick="this.classList.toggle(\'peek\')">'+esc(q.s)+'</span><button onclick="readOne('+k+')">🔊</button></li>';
+  }).join("");
+  go("vStudy");
+}
+function readOne(k){ stopAll(); speak(levelSentences(LV)[k].s, 0.8); }
+async function readAll(){
+  stopAll(); var my = runId, L = levelSentences(LV), lis = $("studyList").children;
+  for(var k=0;k<L.length;k++){
+    if(my!==runId) return;
+    for(var j=0;j<lis.length;j++) lis[j].style.background = j===k ? "#fef9c3" : "";
+    lis[k].scrollIntoView({block:"center", behavior:"smooth"});
+    await speak(L[k].s, 0.8); await wait(900);
+  }
+  if(my!==runId) return;
+  for(var j2=0;j2<lis.length;j2++) lis[j2].style.background="";
+  stepDone(1);
+  gainXp(XP.listenAll, "끝까지 들었어요!", lvKey()+"|listen");
+}
+function toggleCover(){ COVER=!COVER; $("studyList").classList.toggle("cover", COVER); $("coverBtn").textContent = COVER ? "👀 문장 보이기" : "🙈 문장 가리기"; }
+
+// ───────── 2단계: 따라 치기 ─────────
+function norm(s){ return String(s||"").replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/\s+/g," ").trim(); }
+var KT = null;
+function startType(){
+  var qs = levelSentences(LV);
+  KT = { qs:qs, idx:0, done:qs.map(function(){ return false; }) };
+  $("typeTitle").textContent = ME+" · "+lvName()+" · 2단계 따라 치기";
+  go("vType"); typeShow();
+}
+function typeShow(){
+  var q = KT.qs[KT.idx];
+  $("kNum").textContent = KT.idx+1; $("kTotal").textContent = KT.qs.length;
+  $("kBar").style.width = (KT.done.filter(Boolean).length/KT.qs.length*100)+"%";
+  $("kAns").value = ""; $("kFb").textContent = KT.done[KT.idx] ? "✅ 이미 맞혔어요" : "";
+  typePaint(); $("kAns").focus();
+}
+// 쳐 나가는 대로 글자마다 초록/빨강
+function typePaint(){
+  var a = [...norm(KT.qs[KT.idx].s)], b = [...String($("kAns").value).replace(/[‘’]/g,"'").replace(/[“”]/g,'"')];
+  $("kModel").innerHTML = a.map(function(ch,i){
+    var cls = i>=b.length ? "w" : (b[i]===ch ? "g" : "r");
+    return '<span class="'+cls+'">'+(ch===" "?"&nbsp;":esc(ch))+'</span>';
+  }).join("");
+}
+$("kAns").addEventListener("input", function(){
+  typePaint();
+  var q = KT.qs[KT.idx];
+  if(norm(this.value)===norm(q.s) && !KT.typing){
+    KT.typing = true;
+    var first = !KT.done[KT.idx]; KT.done[KT.idx] = true;
+    $("kFb").innerHTML = '<span style="color:#15803d">🎉 정확해요!</span>';
+    if(first) gainXp(XP.typeOne, "따라 치기", lvKey()+"|type");
+    if(KT.done.every(Boolean)){ stepDone(2); setTimeout(function(){ KT.typing=false; alert("2단계 따라 치기 끝! 이제 3단계 「듣고 써 보기」를 해 봐요."); go("vMode"); }, 700); return; }
+    setTimeout(function(){ KT.typing=false; typeMove(1); }, 800);
+  }
+});
+$("kAns").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); if(norm(this.value)!==norm(KT.qs[KT.idx].s)) $("kFb").innerHTML='<span style="color:#b91c1c">빨간 글자를 고쳐 봐요</span>'; } });
+function typeMove(d){
+  var n = KT.idx+d; if(n<0) return;
+  if(n>=KT.qs.length){ var left = KT.done.filter(function(x){ return !x; }).length; if(left){ n = KT.done.indexOf(false); } else { go("vMode"); return; } }
+  KT.idx = n; typeShow();
+}
+
+// ───────── 3단계: 듣고 써 보기 (연습) ─────────
+var PT = null;
+function startPrac(){
+  var qs = levelSentences(LV);
+  PT = { qs:qs, idx:0, ok:qs.map(function(){ return null; }) };
+  $("pracTitle").textContent = ME+" · "+lvName()+" · 3단계 듣고 써 보기";
+  seg("segPracWhere", DB.opt.pracWhere, pracWherePick);
+  go("vPrac"); pracShow(true);
+}
+function pracWherePick(v){ DB.opt.pracWhere=v; save(); seg("segPracWhere", v, pracWherePick); pracShow(false); }
+function pracShow(auto){
+  var screen = DB.opt.pracWhere!=="paper";
+  $("pNum").textContent = PT.idx+1; $("pTotal").textContent = PT.qs.length;
+  $("pBar").style.width = (PT.ok.filter(function(x){ return x===true; }).length/PT.qs.length*100)+"%";
+  $("pAns").value = ""; $("pAns").classList.toggle("hidden", !screen);
+  $("pCheck").textContent = screen ? "✔ 확인하기" : "✔ 다 썼어요 · 정답 보기";
+  $("pCheck").classList.remove("hidden"); $("pFb").textContent = ""; $("pDiff").innerHTML = "";
+  $("pPaperMark").classList.add("hidden"); $("pNext").classList.add("hidden");
+  $("pStatus").textContent = "🔊 듣고 써 봐요";
+  if(auto) pracSay();
+}
+function pracSay(){ stopAll(); speak(PT.qs[PT.idx].s, 0.85); }
+function pracCheck(){
+  var q = PT.qs[PT.idx], screen = DB.opt.pracWhere!=="paper";
+  $("pCheck").classList.add("hidden");
+  if(!screen){
+    $("pFb").innerHTML = '정답: <span style="color:#1d4ed8">'+esc(q.s)+'</span>';
+    $("pPaperMark").classList.remove("hidden"); return;
+  }
+  pracResult(norm($("pAns").value)===norm(q.s));
+  if(!PT.ok[PT.idx]) $("pDiff").innerHTML = '정답: <b>'+esc(q.s)+'</b><br>내가 쓴 것: '+diffHtml(q.s, $("pAns").value);
+}
+function pracPaper(v){ $("pPaperMark").classList.add("hidden"); pracResult(v); }
+function pracResult(ok){
+  var first = PT.ok[PT.idx]!==true;
+  PT.ok[PT.idx] = ok;
+  $("pFb").innerHTML = ok ? '<span style="color:#15803d">⭕ 맞았어요!</span>' : '<span style="color:#b91c1c">❌ 아까워요! 다시 들어 볼까요?</span>';
+  if(ok && first) gainXp(XP.pracOne, "듣고 쓰기", lvKey()+"|prac");
+  $("pNext").classList.remove("hidden");
+  $("pNext").textContent = PT.ok.every(function(x){ return x===true; }) ? "🎉 3단계 끝!" : (ok ? "다음 문장 ▶" : "다음 문장 ▶ (틀린 건 나중에 다시)");
+}
+function pracNext(){
+  if(PT.ok.every(function(x){ return x===true; })){ stepDone(3); alert("3단계 끝! 이제 4단계 「시험 보기」에 도전해요!"); go("vMode"); return; }
+  var n = PT.idx+1; while(n<PT.qs.length && PT.ok[n]===true) n++;
+  if(n>=PT.qs.length){ n = PT.ok.findIndex(function(x){ return x!==true; }); }
+  PT.idx = n; pracShow(true);
+}
+$("pAns").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); if(!$("pCheck").classList.contains("hidden")) pracCheck(); else if(!$("pNext").classList.contains("hidden")) pracNext(); } });
+
+// ───────── 4단계: 시험 준비 ─────────
+function seg(id, val, onPick){
+  [].forEach.call($(id).children, function(b){ b.classList.toggle("on", b.getAttribute("data-v")===String(val)); b.onclick=function(){ onPick(b.getAttribute("data-v")); }; });
+}
+function renderOpt(){
+  var o = DB.opt;
+  $("optTitle").textContent = ME+" · "+lvName()+" 시험";
+  seg("segDiff", o.diff, function(v){ o.diff=v; if(DIFF[v]){ o.max=DIFF[v].max; o.rate=DIFF[v].rate; } save(); renderOpt(); });
+  seg("segMax", o.max, function(v){ o.max=Number(v); save(); renderOpt(); });
+  seg("segRate", o.rate, function(v){ o.rate=Number(v); save(); renderOpt(); });
+  seg("segWhere", o.where, function(v){ o.where=v; save(); renderOpt(); });
+  seg("segCount", o.count, function(v){ o.count=v; save(); renderOpt(); });
+  $("customBox").classList.toggle("hidden", o.diff!=="custom");
+  $("diffHint").textContent = DIFF[o.diff] ? DIFF[o.diff].label : "듣는 횟수와 빠르기를 직접 골라요";
+  $("whereHint").textContent = o.where==="paper" ? "종이에 쓰고, 끝나면 정답을 보면서 ⭕❌를 눌러 채점해요." : "화면 칸에 글자를 쳐요. 끝나면 띄어쓰기·문장부호까지 자동으로 채점해요.";
+  $("allBox").classList.toggle("hidden", LV!==0);
+  if(LV===0) $("optShuffle").checked = true;
+}
+
+// ───────── 시험 ─────────
+var T = null;
+function startTest(){
+  var o = DB.opt, qs = levelSentences(LV);
+  if($("optShuffle").checked) qs = shuffle(qs);
+  if(LV===0) qs = qs.slice(0, Number(o.count)||60);
+  T = { qs:qs, idx:0, heard:qs.map(function(){return 0;}), ans:qs.map(function(){return "";}), max:Number(o.max)||2, rate:Number(o.rate)||0.9, where:o.where, key:lvKey(), sayNum:$("optNum").checked, diff:o.diff };
+  $("tAns").classList.toggle("hidden", T.where!=="screen");
+  go("vTest"); showQ(true);
+}
+function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function updLeft(){
+  var n = T.heard[T.idx], m = T.max;
+  $("tLeft").textContent = m>=99 ? "마음껏 다시 들을 수 있어요" : (n>=m ? "🔇 듣기를 다 썼어요 ("+m+"번)" : "앞으로 "+(m-n)+"번 더 들을 수 있어요");
+  $("againBtn").disabled = m<99 && n>=m;
+}
+async function play(first){
+  if(T.max<99 && T.heard[T.idx]>=T.max) return;
+  stopAll(); var my = runId;
+  $("againBtn").disabled = true;
+  if(first && T.sayNum){ $("tStatus").textContent = "🔊 "+(T.idx+1)+"번"; await speak((T.idx+1)+"번", T.rate); if(my!==runId) return; await wait(500); }
+  T.heard[T.idx]++;
+  $("tStatus").textContent = "🔊 읽는 중…";
+  await speak(T.qs[T.idx].s, T.rate);
+  if(my!==runId) return;
+  $("tStatus").textContent = "✍️ 다 쓰면 「다음 ▶」을 눌러요";
+  updLeft();
+  if(T.where==="screen") $("tAns").focus();
+}
+function showQ(auto){
+  $("tNum").textContent = T.idx+1; $("tTotal").textContent = T.qs.length;
+  $("tBar").style.width = (T.idx/T.qs.length*100)+"%";
+  $("tAns").value = T.ans[T.idx] || "";
+  $("prevBtn").disabled = T.idx===0;
+  $("nextBtn").textContent = T.idx===T.qs.length-1 ? "다 썼어요 · 끝내기 ✔" : "다 썼어요 · 다음 ▶";
+  updLeft();
+  if(auto && T.heard[T.idx]===0) play(true); else $("tStatus").textContent = "✍️ 다 쓰면 「다음 ▶」을 눌러요";
+}
+function nextQ(){
+  T.ans[T.idx] = $("tAns").value;
+  if(T.idx < T.qs.length-1){ T.idx++; showQ(true); }
+  else { stopAll(); showResult(); }
+}
+function prevQ(){ T.ans[T.idx]=$("tAns").value; if(T.idx>0){ T.idx--; stopAll(); showQ(false); } }
+function quitTest(){ if(confirm("시험을 그만할까요? (점수는 안 남아요)")){ stopAll(); go("vMode"); } }
+$("tAns").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); nextQ(); } });
+
+// ───────── 채점 ─────────
+function diffHtml(ans, mine){
+  var a=[...norm(ans)], b=[...norm(mine)], n=a.length, m=b.length, D=[];
+  for(var i=0;i<=n;i++){ D.push(new Array(m+1).fill(0)); }
+  for(i=n-1;i>=0;i--) for(var j=m-1;j>=0;j--) D[i][j] = a[i]===b[j] ? D[i+1][j+1]+1 : Math.max(D[i+1][j], D[i][j+1]);
+  var out="", i2=0, j2=0;
+  while(i2<n || j2<m){
+    if(i2<n && j2<m && a[i2]===b[j2]){ out+=esc(b[j2]); i2++; j2++; }
+    else if(j2<m && (i2>=n || D[i2][j2+1]>=D[i2+1][j2])){ out+='<span class="x">'+(b[j2]===" "?"␣":esc(b[j2]))+'</span>'; j2++; }
+    else { out+='<span class="miss">'+(a[i2]===" "?"␣":esc(a[i2]))+'</span>'; i2++; }
+  }
+  return out || '<span class="miss">(안 씀)</span>';
+}
+var MARK = [], SAVED = false;
+function showResult(){
+  var screen = T.where==="screen";
+  $("rTitle").textContent = "🎉 끝! 잘했어요!";
+  MARK = T.qs.map(function(q,k){ return screen ? norm(T.ans[k])===norm(q.s) : null; });
+  SAVED = false;
+  $("saveMarkBtn").classList.toggle("hidden", screen);
+  $("rHint").textContent = screen ? "빨간 글자 = 틀리게 쓴 것, 노란 글자 = 빠진 것 (␣ = 띄어쓰기)" : "정답을 보면서 종이에 쓴 것과 비교해요. 맞으면 ⭕, 틀리면 ❌ 를 눌러요.";
+  renderResultList();
+  if(screen) recordScore();
+  go("vResult");
+  speak("끝! 잘했어요!", 0.9);
+}
+function renderResultList(){
+  var screen = T.where==="screen";
+  $("rList").innerHTML = T.qs.map(function(q,k){
+    var lb = (LV&&T.key!=="wrong" ? "" : q.g+"급 ")+q.i+"번";
+    var mk = screen ? '<span class="mark"><b style="font-size:26px;color:'+(MARK[k]?"#15803d":"#b91c1c")+'">'+(MARK[k]?"⭕":"❌")+'</b></span>'
+      : '<span class="mark"><button class="b-ok '+(MARK[k]===true?"":"off")+'" onclick="setMark('+k+',true)">⭕</button><button class="b-bad '+(MARK[k]===false?"":"off")+'" onclick="setMark('+k+',false)">❌</button></span>';
+    return '<li>'+mk+'<span style="color:#64748b;font-size:15px">'+lb+'</span> <span class="q">'+esc(q.s)+'</span> <button style="font-size:14px;padding:4px 9px" class="b-dark" onclick="speak(T.qs['+k+'].s,0.8)">🔊</button>'
+      + (screen && !MARK[k] ? '<div class="mine">내가 쓴 것: '+diffHtml(q.s, T.ans[k])+'</div>' : '') + '</li>';
+  }).join("");
+  var ok = MARK.filter(function(x){ return x===true; }).length, done = MARK.every(function(x){ return x!==null; });
+  var sc = Math.round(ok/T.qs.length*100);
+  $("rScore").innerHTML = done ? '<b style="color:'+(sc>=passScore()?"#15803d":"#b91c1c")+'">'+sc+'점</b>'+ok+' / '+T.qs.length+' 맞음'+(sc===100?" · 💯 완벽해요!":sc>=passScore()?" · ✅ 통과!":" · 조금만 더!") : '<span style="color:#64748b">⭕❌ 를 다 누르면 점수가 나와요 ('+MARK.filter(function(x){return x!==null;}).length+' / '+T.qs.length+')</span>';
+  $("retryWrongBtn").disabled = !done || ok===T.qs.length;
+}
+function setMark(k,v){ if(SAVED) return; MARK[k]=v; renderResultList(); }
+function finishPaper(){
+  if(!MARK.every(function(x){ return x!==null; })){ alert("⭕❌ 를 다 눌러 주세요."); return; }
+  recordScore(); $("saveMarkBtn").classList.add("hidden");
+}
+function recordScore(){
+  if(SAVED) return; SAVED = true;
+  var ok = MARK.filter(function(x){ return x===true; }).length, sc = Math.round(ok/T.qs.length*100);
+  var wasPassed = T.key!=="wrong" && best(ME, T.key)!=null && best(ME, T.key)>=passScore();
+  var r = DB.rec[ME] = DB.rec[ME] || {}; (r[T.key] = r[T.key] || []).push({
+    d: new Date().toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}),
+    score: sc, n: T.qs.length, ok: ok, diff: T.diff, where: T.where,
+    wrong: T.qs.filter(function(q,k){ return MARK[k]===false; }).map(function(q){ return q.g+"-"+q.i; })
+  });
+  save();
+  // 경험치: 어려울수록 조금 더 (쉬움 ×1, 보통 ×1.2, 어려움 ×1.5)
+  var mul = {easy:1, normal:1.2, hard:1.5, custom:1}[T.diff]||1;
+  var xp = Math.round((XP.testTake + ok*XP.testPerOk)*mul), why = sc+"점";
+  if(sc===100){ xp += T.key==="all" && T.qs.length>=60 ? XP.allPerfect : XP.perfect; why += " 💯"; }
+  if(T.key!=="wrong" && !wasPassed && sc>=passScore()){ xp += XP.firstPass; why += " · 첫 통과!"; }
+  gainXp(xp, why, null);
+}
+function retryWrong(){
+  var w = T.qs.filter(function(q,k){ return MARK[k]===false; });
+  if(!w.length) return;
+  T = { qs:w, idx:0, heard:w.map(function(){return 0;}), ans:w.map(function(){return "";}), max:T.max, rate:T.rate, where:T.where, key:"wrong", sayNum:T.sayNum, diff:T.diff };
+  $("tAns").classList.toggle("hidden", T.where!=="screen");
+  go("vTest"); showQ(true);
+}
+
+// ───────── 내 기록 / 모두 ─────────
+function renderMine(){
+  $("mineTitle").textContent = "📈 "+ME+" 기록";
+  var r = DB.rec[ME] || {}, h = rankCard(ME)+'<div class="scrollx"><table><tr><th>급</th><th>단계</th><th>최고</th><th>최근</th><th>시험</th></tr>';
+  LEVELS.map(function(L){ return String(L.g); }).concat(["all","wrong"]).forEach(function(k){
+    var a = r[k] || []; if(k==="wrong" && !a.length) return;
+    var b = best(ME,k), last = a[a.length-1], st = stepsOf(ME,k);
+    h += '<tr><td><b>'+(k==="all"?"🏆 전체":lvName(k))+'</b></td><td>'+(k==="wrong"?"":(st.s1?"①":"·")+(st.s2?"②":"·")+(st.s3?"③":"·"))+'</td><td class="'+(b==null?"n":(b>=passScore()?"p":"f"))+'">'+(b==null?"-":b+"점")+'</td><td>'+(last?last.score+"점<br><small>"+esc(last.d)+"</small>":"-")+'</td><td>'+a.length+'번</td></tr>';
+  });
+  h += '</table></div><div class="hist" style="margin-top:10px">';
+  var all=[]; Object.keys(r).forEach(function(k){ (r[k]||[]).forEach(function(x){ all.push([k,x]); }); });
+  all.slice(-15).reverse().forEach(function(p){ var k=p[0], x=p[1];
+    h += '• '+esc(x.d)+' · '+lvName(k)+' · <b>'+x.score+'점</b> ('+x.ok+'/'+x.n+', '+({easy:"쉬움",normal:"보통",hard:"어려움",custom:"직접"}[x.diff]||"")+', '+(x.where==="screen"?"화면":"종이")+')'+(x.wrong&&x.wrong.length?' · 틀린 문제 '+x.wrong.join(", "):'')+'<br>'; });
+  $("mineBody").innerHTML = h + (all.length?"":"아직 시험 본 기록이 없어요.") + '</div>';
+}
+function renderBoard(){
+  var names = DB.names.slice().sort(function(a,b){ return xpOf(b)-xpOf(a); });
+  var h = '<table><tr><th>이름</th><th>계급</th>'+LEVELS.map(function(L){ return '<th>'+L.g+'급</th>'; }).join("")+'<th>🏆</th></tr>';
+  names.forEach(function(n){
+    var rk = RANKS[rankIdx(xpOf(n))];
+    h += '<tr><td><b>'+esc(n)+'</b></td><td style="white-space:nowrap">'+insSmall(rk)+'<br>'+esc(rk.name)+'<br><small style="color:#64748b">'+xpOf(n)+'</small></td>';
+    LEVELS.map(function(L){ return String(L.g); }).concat(["all"]).forEach(function(k){
+      var b = best(n,k); h += '<td class="'+(b==null?"n":(b>=passScore()?"p":"f"))+'">'+(b==null?"-":(b>=passScore()?"✅":"")+b)+'</td>';
+    });
+    h += '</tr>';
+  });
+  $("boardBody").innerHTML = h + '</table><div class="hint">계급 높은 순 · 숫자 = 최고 점수 · ✅ = 통과 ('+passScore()+'점 이상)</div>';
+}
+
+// ───────── 설정 ─────────
+function openSettings(){
+  var a = 11 + Math.floor(Math.random()*8), b = 3 + Math.floor(Math.random()*6);
+  var v = prompt("부모님 확인\n\n"+a+" × "+b+" = ?"); if(v===null) return;
+  if(parseInt(v,10)!==a*b){ alert("틀렸어요!"); return; }
+  $("setNames").value = DB.names.join("\n"); $("setPass").value = DB.opt.pass; loadVoices(); $("qrBox").innerHTML="";
+  go("vSet");
+}
+function saveSettings(){
+  var ns = $("setNames").value.split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
+  if(!ns.length){ alert("이름을 한 명 이상 적어 주세요."); return; }
+  DB.names = ns; DB.opt.pass = $("setPass").value; DB.opt.voice = $("setVoice").value; save();
+  alert("저장했어요!"); go("vName");
+}
+function resetRecords(){ if(confirm("이 기기의 시험 기록·계급을 모두 지울까요? (되돌릴 수 없어요)")){ DB.rec = {}; DB.xp = {}; DB.st = {}; DB.day = {}; save(); alert("지웠어요."); } }
+function showQR(){
+  var base = location.href.split("?")[0].split("#")[0], box = $("qrBox");
+  if(typeof QRCode==="undefined"){ box.innerHTML = '<div class="hint">큐알 도구를 못 불러왔어요. 인터넷을 확인해 주세요.<br>주소: '+esc(base)+'</div>'; return; }
+  box.innerHTML = '<div style="font-weight:800;margin-top:14px">📱 모두 같이 쓰는 큐알</div><div id="qrAll"></div><div class="hint" style="word-break:break-all">'+esc(base)+'</div>'
+    + '<div style="font-weight:800;margin-top:14px">👧 이름별 큐알 (찍으면 그 이름으로 바로)</div><div class="grid g3" id="qrNames"></div>'
+    + '<button class="b-dark" style="margin-top:12px" onclick="window.print()">🖨 인쇄</button>';
+  new QRCode($("qrAll"), { text: base, width: 200, height: 200 });
+  DB.names.forEach(function(n,i){
+    var d = document.createElement("div"); d.innerHTML = '<div id="qrn'+i+'"></div><b>'+esc(n)+'</b>'; $("qrNames").appendChild(d);
+    new QRCode($("qrn"+i), { text: base+"?n="+encodeURIComponent(n), width: 110, height: 110 });
+  });
+}
+
+// ───────── 시작 ─────────
+(function(){
+  var n = new URLSearchParams(location.search).get("n");
+  if(n && DB.names.indexOf(n)<0){ DB.names.push(n); save(); }
+  if(n){ ME = n; $("whoName").textContent = ME; go("vLevel"); } else go("vName");
+})();
+</script>
+</body>
+</html>
