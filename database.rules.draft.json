@@ -62,6 +62,10 @@
         "$row": {
           ".write": "$node.beginsWith('Mod_') && !data.exists() && newData.hasChildren()"
         }
+      },
+      "PubTheme": {
+        ".read": true,
+        ".write": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')"
       }
     },
     "evtData": {
