@@ -1275,7 +1275,7 @@ document.addEventListener("keydown", function(e){
 });
 function mCheck(){
   var m = MQ; if(m.input==="") return;
-  var ok = Number(m.input)===m.cur.a;
+  var ok = typeof mEq==="function" ? mEq(m.input, m.cur) : Number(m.input)===m.cur.a;
   if(m.mode==="test"){
     m.ans[m.idx] = m.input; m.ok[m.idx] = ok; m.input = "";
     if(m.idx < m.qs.length-1){ m.idx++; m.cur = m.qs[m.idx]; mShow(); } else mFinish();
@@ -1358,6 +1358,9 @@ function mRetryWrong(){
 })();
 </script>
 <!-- ☁️ 로그인 · 서버 저장 · 알림 (아이 계정은 가문굴비 업무 데이터와 따로) -->
+<script src="hanja-data.js?v=20261103a"></script>
+<script src="english-data.js?v=20261103a"></script>
+<script src="study-plus.js?v=20261103a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
