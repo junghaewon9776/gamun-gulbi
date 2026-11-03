@@ -23,7 +23,7 @@ function _kHelper(body){
     KC.auth = KC.app.auth(); KC.db = KC.app.database();
     KC.auth.onAuthStateChanged(function(u){
       var done = function(kid){
-        if(kid){ KC.uid = u.uid; KC.name = u.uid; } else { KC.uid = ""; KC.name = ""; }
+        if(kid){ KC.uid = u.uid; KC.name = _kShort(u.uid); } else { KC.uid = ""; KC.name = ""; }
         KC.ready = true;
         if(!$("vName").classList.contains("hidden")) renderNames();
       };
@@ -33,6 +33,9 @@ function _kHelper(body){
   } catch(e){ console.warn("[받아쓰기] 서버 연결 안 됨 — 이 폰에만 저장해요", e); }
 })();
 function _kOn(){ return !!KC.auth; }
+// 아이디에 성이 붙어 있어도(정다원) 앱 안에서는 이름(다원)으로 — 급수표·학년·형제 순서가 이름 기준
+var KID_SURNAME = "정";
+function _kShort(id){ id = String(id || ""); var L = (typeof DEFAULT_NAMES !== "undefined" ? DEFAULT_NAMES : []).concat(DB.names || []); return L.indexOf(id) >= 0 ? id : (id.length >= 3 && L.indexOf(id.slice(1)) >= 0 ? id.slice(1) : id); }
 
 // ── 첫 화면: 이름 · 비밀번호 로그인 ──
 var _renderNames0 = renderNames;
@@ -57,14 +60,18 @@ renderNames = function(){
 function kLogin(){
   var nm = ($("kName").value || "").trim(), pin = ($("kPin").value || "").trim(), er = $("kErr");
   if(!nm){ er.textContent = "이름을 쳐 주세요"; return; }
-  if(!/^\d{4,8}$/.test(pin)){ er.textContent = "비밀번호는 숫자 4개예요"; return; }
+  if(pin.length < 4){ er.textContent = "비밀번호는 4개 이상이에요"; return; }
   er.textContent = "확인 중...";
+  // 성 없이 이름만 쳐도 들어가게: "다원"이 없으면 "정다원"으로 한 번 더
   _kHelper({ action: "login", id: nm, pw: pin }).then(function(r){
+    if(r && !r.ok && /존재하지/.test(r.err || "") && nm.charAt(0) !== KID_SURNAME) return _kHelper({ action: "login", id: KID_SURNAME + nm, pw: pin });
+    return r;
+  }).then(function(r){
     if(!r || !r.ok){ var m = (r && r.err) || ""; throw { kid: /존재하지/.test(m) ? "그런 이름이 없어요. 엄마·아빠한테 물어봐요" : /일치하지/.test(m) ? "비밀번호가 틀렸어요" : m || "들어가지 못했어요" }; }
     if(!r.me || r.me.r !== "kid") throw { kid: "아이 계정이 아니에요" };
     return KC.auth.signInWithCustomToken(r.token);
   }).then(function(c){
-    KC.uid = c.user.uid; KC.name = c.user.uid; return kPull();
+    KC.uid = c.user.uid; KC.name = _kShort(c.user.uid); return kPull();
   }).then(function(){ er.textContent = ""; kGo(); })
     .catch(function(e){ er.textContent = (e && e.kid) || "연결이 안 돼요: " + ((e && e.message) || e); });
 }
