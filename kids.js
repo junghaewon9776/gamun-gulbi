@@ -2,6 +2,7 @@
 // 👦 아이들 공부 기록 — 받아쓰기·수학(dictation.html) 아이 계정 기록 보기 + 알림 설정
 //   /kids/{uid} = { name, rec, xp, rk, st, day, speed, at, log:{…} }   (아이 앱이 저장)
 //   /kids/_cfg  = { tok, chats, on:{test,rank,daily} }                  (여기서 저장 → 아이 앱이 알림 보냄)
+//   아이 계정 = /main/Users 의 역할 "kid" (아이디 = 이름) — 로그인은 가문굴비와 같은 로그인 도우미
 //   읽기: 가문굴비 최고관리자·관리자만 (DB 규칙)
 // ============================================================================
 var KD = null, KD_LOADING = false, KD_SEL = "", KD_TAB = "rec";
@@ -18,10 +19,11 @@ function _kdTime(t){ try { return new Date(t).toLocaleString("ko-KR", { month: "
 function _kdKeyName(k){ k = String(k); if(k.indexOf("수·") === 0) return "🔢 수학 " + k.slice(2); if(k === "all") return "전체"; if(k === "wrong") return "틀린 것"; var m = k.split("·"); return m.length > 1 ? m[0] + " 급수표 " + _kdKeyName(m[1]) : k + "급"; }
 
 function dKids(){
-  if(!KD){ _kdLoad(); return '<div class="card"><div class="mut">📡 아이들 기록 불러오는 중...</div></div>'; }
+  if(!KD){ _kdLoad(); return _kdAcctCard() + '<div class="card"><div class="mut">📡 아이들 기록 불러오는 중...</div></div>'; }
   var ids = _kdKids(), B = function(bg, l, on, ex){ return '<button class="btn" style="background:' + bg + ';color:#fff;' + (ex || "") + '" onclick="' + on + '">' + l + '</button>'; };
   var h = '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><strong style="font-size:18px">👦 아이들 공부 기록</strong><div style="display:flex;gap:6px;flex-wrap:wrap">' + B("#475569", "🔄 새로", "KD=null;draw()") + B("#2563eb", "✏️ 받아쓰기 열기", "window.open(KD_URL,'_blank')") + B("#7c3aed", "🔔 알림 설정", "kdCfg()") + '</div></div>';
   h += '<div class="mut" style="font-size:12.5px;margin-top:4px">아이가 받아쓰기에서 <b>이름 + 비밀번호</b>로 들어가면 여기 기록이 쌓여요. 시험을 보거나 진급하면 텔레그램으로 알려요.</div></div>';
+  h += _kdAcctCard();
   if(!ids.length) return h + '<div class="card" style="padding:30px;text-align:center;color:#94a3b8">아직 로그인해서 공부한 아이가 없어요</div>';
   // 아이 카드
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px">';
@@ -72,6 +74,47 @@ function kdPrint(k){
   w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(x.name) + ' 시험 기록지</title><style>@page{size:A4;margin:12mm}body{font-family:"Malgun Gothic",sans-serif;color:#111}table{border-collapse:collapse;width:100%}td,th{border:1px solid #333;padding:4px 6px;font-size:12px}th{background:#eef2f7}h1{text-align:center;letter-spacing:8px}.tb{text-align:center;padding:8px;background:#1e293b}.tb button{padding:8px 18px;font-weight:700;border:none;border-radius:6px;background:#2563eb;color:#fff}@media print{.tb{display:none}}</style></head><body><div class="tb"><button onclick="window.print()">🖨️ 인쇄 / PDF</button></div>'
     + '<h1>' + esc(x.name) + ' 시험 기록지</h1><div style="text-align:right;font-size:13px;margin-bottom:6px">🎖 ' + esc(x.rk || "") + ' · 경험치 ' + (x.xp || 0) + ' · ' + esc(todayKST ? todayKST() : "") + '</div>' + _kdRecHtml(k, true) + '</body></html>');
   w.document.close();
+}
+// 👦 아이 계정 (받아쓰기 로그인) — 계정관리 · 아이들 탭에 같이 나옴. 역할 "kid", 아이디 = 이름
+var KD_NAMES = ["다원", "라온", "은우", "도겸", "은교", "다윤"];
+function _kdAcctList(){ var a = []; for(var k in US){ if(US[k] && US[k].r === "kid") a.push(k); } return a.sort(function(x, y){ var i = KD_NAMES.indexOf(x), j = KD_NAMES.indexOf(y); return (i < 0 ? 99 : i) - (j < 0 ? 99 : j) || x.localeCompare(y); }); }
+function _kdAcctCard(){
+  if(typeof _isGlobalAdm !== "function" || !_isGlobalAdm()) return "";
+  var L = _kdAcctList(), miss = KD_NAMES.filter(function(n){ return !US[n]; });
+  var h = '<div class="card" style="border:2px solid #16a34a;background:#f0fdf4"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px"><h3 style="margin:0;color:#14532d;font-weight:800">👦 아이 계정 (받아쓰기)</h3>';
+  h += '<button class="btn btn-s" style="background:#16a34a;color:#fff;font-weight:700" onclick="kdAddKid()">+ 아이 추가</button></div>';
+  h += '<div style="font-size:12px;color:#166534;margin-bottom:8px">아이는 받아쓰기 첫 화면에서 <b>이름 + 비밀번호</b>로 들어가요 (처음 비밀번호 1234 · 들어가서 바꿀 수 있어요). 이 계정으로는 가문굴비 업무 화면은 못 봐요.</div>';
+  if(miss.length) h += '<div style="margin-bottom:8px">' + miss.map(function(n){ return '<button class="btn btn-s" style="background:#15803d;color:#fff;margin:2px" onclick="kdAddKid(\'' + esc(n) + '\')">+ ' + esc(n) + '</button>'; }).join("") + '</div>';
+  h += '<div class="scrollx"><table><tr><th>이름 (아이디)</th><th>관리</th></tr>';
+  if(!L.length) h += '<tr><td colspan="2" style="text-align:center;color:#999;padding:14px">아직 아이 계정이 없어요 — 위 이름 버튼을 누르면 바로 만들어져요</td></tr>';
+  L.forEach(function(id){ h += '<tr><td style="font-weight:800;font-size:15px">' + esc(id) + '</td><td><button class="btn btn-s" style="background:#b45309;color:#fff" onclick="kdResetPw(\'' + esc(id) + '\')">🔑 비번 1234로</button> <button class="btn btn-r btn-s" onclick="kdDelKid(\'' + esc(id) + '\')">삭제</button></td></tr>'; });
+  return h + '</table></div></div>';
+}
+async function kdAddKid(nm){
+  if(!nm){ nm = prompt("👦 아이 이름 (받아쓰기에서 칠 이름)"); if(nm === null) return; nm = nm.trim(); }
+  if(!nm) return;
+  if(US[nm]){ alert("이미 있는 아이디예요: " + nm); return; }
+  showLoading("만드는 중...");
+  var r = await api("addAcct", { id: nm, pw: "1234", r: "kid", ar: "", nm: nm, tel: "", _who: CID });
+  hideLoading();
+  if(!r.ok){ alert(r.err || "실패"); return; }
+  US[nm] = { r: "kid", ar: "", nm: nm, tel: "" };
+  toast(r.warn ? r.warn : "👦 " + nm + " 계정 만들었어요 (비밀번호 1234)", !!r.warn); draw();
+}
+async function kdResetPw(id){
+  if(!confirm(id + " 비밀번호를 1234 로 되돌릴까요?")) return;
+  showLoading("바꾸는 중...");
+  var r = typeof secHelper === "function" ? await secHelper({ action: "setPw", id: id, newPw: "1234" }) : await api("updateAcct", { oldId: id, id: id, pw: "1234", r: "kid", ar: "", nm: id });
+  hideLoading();
+  if(r && r.ok) toast("🔑 " + id + " 비밀번호 1234 로 바꿨어요"); else alert("실패: " + ((r && r.err) || ""));
+}
+async function kdDelKid(id){
+  if(!confirm(id + " 아이 계정을 지울까요?\n(공부 기록은 그대로 남아요)")) return;
+  showLoading("지우는 중...");
+  var r = await api("deleteAcct", { id: id });
+  hideLoading();
+  if(!r.ok){ alert(r.err || "실패"); return; }
+  delete US[id]; toast(id + " 계정 지웠어요"); draw();
 }
 // 🔔 알림 설정 — 아이 앱이 /kids/_cfg 를 읽어 텔레그램으로 보냄
 function kdCfg(){

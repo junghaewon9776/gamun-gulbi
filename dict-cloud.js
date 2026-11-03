@@ -1,30 +1,34 @@
 // ============================================================================
 // ☁️ 받아쓰기 로그인 · 서버 저장 · 알림 (dictation.html 뒤에 붙음)
-//   아이 계정: Firebase 이메일 로그인 — 아이는 이름 + 비밀번호(처음 1234)만 침
-//     이메일 = "k" + 이름 UTF-8 16진수 + KID_DOMAIN, 실제 비번 = "dict:" + 4자리 (Firebase 6자 제한 때문)
+//   아이 계정: 가문굴비 계정관리 → 👦 아이 계정 (역할 "kid", 아이디 = 이름, 처음 비번 1234)
+//     로그인 = 가문굴비와 같은 로그인 도우미(SEC_AUTH_URL) → 입장권(uid = 이름, r = kid)
 //   따로 쓰는 Firebase 앱("kids") → 같은 폰의 가문굴비 관리자 로그인과 안 섞임
 //   /kids/{uid}      = { name, rec, xp, st, day, speed, rk, at } — 자기 것만 읽기·쓰기
 //   /kids/{uid}/log  = 공부한 일 (시험·진급·오늘 첫 공부)
 //   /kids/_board/{uid} = { name, xp, rk } — 형제끼리 계급 보기 (아이 계정 누구나 읽기)
 //   /kids/_cfg       = { tok, chats, on:{test,rank,daily} } — 알림 설정 (가문굴비 👦 아이들 탭에서 저장)
 // ============================================================================
-var KID_DOMAIN = "@kids.gamungulbi.app";
 var KC = { app: null, auth: null, db: null, uid: "", name: "", cfg: null, t: null, ready: false };
 
-function _kHex(s){ return Array.prototype.map.call(new TextEncoder().encode(String(s).trim()), function(b){ return ("0" + b.toString(16)).slice(-2); }).join(""); }
-function _kEmail(name){ return "k" + _kHex(name) + KID_DOMAIN; }
-function _kPw(pin){ return "dict:" + String(pin).trim(); }
+// 로그인 도우미 부르기 (가문굴비 sec-auth.js 와 같은 방식)
+function _kHelper(body){
+  body.sys = (typeof SEC_SYS !== "undefined" && SEC_SYS) || "gamun";
+  return fetch(SEC_AUTH_URL, { method: "POST", redirect: "follow", body: JSON.stringify(body) }).then(function(r){ return r.json(); });
+}
 
 (function(){
   try {
-    if(typeof firebase === "undefined" || typeof firebaseConfig === "undefined") return;
+    if(typeof firebase === "undefined" || typeof firebaseConfig === "undefined" || typeof SEC_AUTH_URL === "undefined" || !SEC_AUTH_URL) return;
     KC.app = firebase.apps.filter(function(a){ return a.name === "kids"; })[0] || firebase.initializeApp(firebaseConfig, "kids");
     KC.auth = KC.app.auth(); KC.db = KC.app.database();
     KC.auth.onAuthStateChanged(function(u){
-      if(u && u.email && u.email.indexOf(KID_DOMAIN) > 0){ KC.uid = u.uid; KC.name = u.displayName || KC.name; }
-      else { KC.uid = ""; KC.name = ""; }
-      KC.ready = true;
-      if(!$("vName").classList.contains("hidden")) renderNames();
+      var done = function(kid){
+        if(kid){ KC.uid = u.uid; KC.name = u.uid; } else { KC.uid = ""; KC.name = ""; }
+        KC.ready = true;
+        if(!$("vName").classList.contains("hidden")) renderNames();
+      };
+      if(!u) return done(false);
+      u.getIdTokenResult().then(function(t){ done(t.claims.r === "kid"); }, function(){ done(false); });
     });
   } catch(e){ console.warn("[받아쓰기] 서버 연결 안 됨 — 이 폰에만 저장해요", e); }
 })();
@@ -55,10 +59,14 @@ function kLogin(){
   if(!nm){ er.textContent = "이름을 쳐 주세요"; return; }
   if(!/^\d{4,8}$/.test(pin)){ er.textContent = "비밀번호는 숫자 4개예요"; return; }
   er.textContent = "확인 중...";
-  KC.auth.signInWithEmailAndPassword(_kEmail(nm), _kPw(pin)).then(function(c){
-    KC.uid = c.user.uid; KC.name = c.user.displayName || nm; return kPull();
+  _kHelper({ action: "login", id: nm, pw: pin }).then(function(r){
+    if(!r || !r.ok){ var m = (r && r.err) || ""; throw { kid: /존재하지/.test(m) ? "그런 이름이 없어요. 엄마·아빠한테 물어봐요" : /일치하지/.test(m) ? "비밀번호가 틀렸어요" : m || "들어가지 못했어요" }; }
+    if(!r.me || r.me.r !== "kid") throw { kid: "아이 계정이 아니에요" };
+    return KC.auth.signInWithCustomToken(r.token);
+  }).then(function(c){
+    KC.uid = c.user.uid; KC.name = c.user.uid; return kPull();
   }).then(function(){ er.textContent = ""; kGo(); })
-    .catch(function(e){ er.textContent = /password|credential|user-not-found|invalid/i.test(e.code + e.message) ? "이름이나 비밀번호가 틀렸어요" : "연결이 안 돼요: " + (e.message || e); });
+    .catch(function(e){ er.textContent = (e && e.kid) || "연결이 안 돼요: " + ((e && e.message) || e); });
 }
 function kGo(){
   var i = DB.names.indexOf(KC.name);
@@ -142,12 +150,14 @@ gainXp = function(amount, why){
 // ── 🔑 비밀번호 바꾸기 ──
 function kChangePw(){
   var u = KC.auth && KC.auth.currentUser; if(!u){ alert("로그인한 다음에 바꿀 수 있어요"); return; }
+  var o = prompt("🔑 지금 비밀번호"); if(o === null) return;
   var a = prompt("🔑 새 비밀번호 (숫자 4개)"); if(a === null) return;
   if(!/^\d{4,8}$/.test(a.trim())){ alert("숫자 4개로 해 주세요"); return; }
   var b = prompt("한 번 더 쳐 주세요"); if(b === null) return;
   if(a.trim() !== b.trim()){ alert("두 번 친 게 달라요"); return; }
-  u.updatePassword(_kPw(a)).then(function(){ alert("✅ 비밀번호를 바꿨어요! 잊어버리지 마요"); })
-    .catch(function(e){ alert(/recent/i.test(e.code + e.message) ? "로그아웃했다가 다시 들어와서 바꿔 주세요" : "못 바꿨어요: " + e.message); });
+  u.getIdToken().then(function(t){ return _kHelper({ action: "setPw", idToken: t, id: KC.uid, oldPw: o.trim(), newPw: a.trim() }); })
+    .then(function(r){ if(r && r.ok) alert("✅ 비밀번호를 바꿨어요! 잊어버리지 마요"); else alert(/현재 비밀번호/.test((r && r.err) || "") ? "지금 비밀번호가 틀렸어요" : "못 바꿨어요: " + ((r && r.err) || "")); })
+    .catch(function(e){ alert("못 바꿨어요: " + ((e && e.message) || e)); });
 }
 // 급 고르기 화면 위에 내 계정 버튼 (비번 바꾸기 · 로그아웃)
 (function(){

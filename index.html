@@ -509,14 +509,14 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="firebase-config.js"></script>
 <script src="common.js?v=20261024sec2"></script>
 <script src="mod-engine.js?v=20261027btn"></script>
-<script src="sec-auth.js?v=20261024sec2"></script>
+<script src="sec-auth.js?v=20261103kid"></script>
 <script src="est.js?v=20261103t"></script>
 <script src="photo.js?v=20261103t"></script>
 <script src="pb.js?v=20261103t"></script>
 <script src="recv.js?v=20261103t"></script>
 <script src="easy.js?v=20261103t"></script>
 <script src="tabperm.js?v=20261103u"></script>
-<script src="kids.js?v=20261103a"></script>
+<script src="kids.js?v=20261103b"></script>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="console.warn('XLSX CDN load failed')"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" onerror="console.warn('xlsx-js-style CDN load failed')"></script>
@@ -20787,6 +20787,7 @@ function dAcct(){
     }
     h+='</table></div></div>';
   }
+  if(typeof _kdAcctCard==='function') h+=_kdAcctCard();
   h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px"><h3 style="margin:0">부서 및 담당자 계정</h3><div style="display:flex;gap:6px;flex-wrap:wrap">'+(_isGlobalAdm()?'<button class="btn btn-g btn-s" onclick="popAddArea()">+ 부서 추가</button> <button class="btn-out btn-tp btn-s" onclick="tmplAcct()">📋 양식</button> <button class="btn-out btn-ex btn-s" onclick="expAcct()">📥 엑셀 내보내기</button> <button class="btn-out btn-im btn-s" onclick="impClick(\'acct\')">📤 엑셀 가져오기</button>':'')+(isSuper()?' <button class="btn btn-s" style="background:#10b981;color:#fff" onclick="openSheet(\'Users\')">📊 스프레드시트 열기</button>':'')+'</div></div>';
   h+='<div style="font-size:11px;color:#888;margin-bottom:8px">한 부서에 담당자를 여러 명 추가할 수 있습니다. 모두 동일 권한(해당 부서 자료 등록/수정)을 갖습니다. 예: 사무국 · 홍보팀 · 운영팀 · 진행팀 · 재무팀</div>';
   h+='<div class="scrollx"><table><tr><th>부서</th><th>아이디</th><th class="mobile-hide">비번</th><th class="mobile-hide">이름</th><th class="mobile-hide">연락처</th><th>관리</th></tr>';
@@ -22668,7 +22669,7 @@ function _evtMgrHtml(){
   // acctEvt: {acctId, evtId, role} → 빠른 조회용 맵
   var mp={};  (EVTMGR.acctEvt||[]).forEach(function(m){ mp[m.acctId+"::"+m.evtId]=m.role; });
   // super/admin 계정은 매트릭스에 표시하지 않음 — 전역 관리자이므로 행사별 개별 설정이 의미 없음
-  users = users.filter(function(u){ return u.r !== "admin" && u.r !== "super"; });
+  users = users.filter(function(u){ return u.r !== "admin" && u.r !== "super" && u.r !== "kid"; });
   var roleOpt=function(sel){
     var known = {"":1,"admin":1,"subAdm":1,"user":1,"viewer":1};
     // 알려진 옵션 외 값(area/mem 등 자동 시드된 구버전 role)이 저장돼 있으면

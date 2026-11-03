@@ -77,6 +77,8 @@
     loggingIn = true;
     return call({action:"login", id:p.id, pw:p.pw}).then(function(r){
       if (!r || !r.ok) return r || {ok:false, err:"로그인 실패"};
+      // 아이 계정(받아쓰기 전용)은 업무 화면 대신 받아쓰기로
+      if (r.me && r.me.r === "kid") { setTimeout(function(){ location.href = "dictation.html"; }, 1200); return {ok:false, err:"아이 계정이에요 — 받아쓰기로 갈게요 ✏️"}; }
       return fbAuth.signInWithCustomToken(r.token).then(function(){ return afterSignIn(p.id); });
     }, function(e){
       // 도우미 연결 실패 → 규칙이 아직 열려 있을 때만 통하는 예전 방식
