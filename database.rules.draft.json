@@ -136,6 +136,10 @@
     "excel_config": {
       ".read": true,
       ".write": true
+    },
+    "phData": {
+      ".read": "auth != null && auth.token.sys === 'gamun'",
+      ".write": "auth != null && auth.token.sys === 'gamun'"
     }
   }
 }
