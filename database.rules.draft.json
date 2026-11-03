@@ -3,38 +3,38 @@
     ".read": false,
     ".write": false,
     "main": {
-      ".read": "auth != null && auth.token.sys === 'gamun'",
+      ".read": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
       "Users": {
-        ".write": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin' || auth.token.r === 'subAdm')",
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid' && (auth.token.r === 'super' || auth.token.r === 'admin' || auth.token.r === 'subAdm')",
         "$i": {
-          ".write": "auth != null && auth.token.sys === 'gamun' && data.child('id').val() === auth.uid && newData.child('id').val() === data.child('id').val() && newData.child('r').val() === data.child('r').val() && newData.child('ar').val() === data.child('ar').val()"
+          ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid' && data.child('id').val() === auth.uid && newData.child('id').val() === data.child('id').val() && newData.child('r').val() === data.child('r').val() && newData.child('ar').val() === data.child('ar').val()"
         }
       },
       "ModDefs": {
         ".read": true,
-        ".write": "auth != null && auth.token.sys === 'gamun'"
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
       },
       "Assets": {
         ".read": true,
-        ".write": "auth != null && auth.token.sys === 'gamun'"
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
       },
       "DriveProxyUrl": {
         ".read": true,
-        ".write": "auth != null && auth.token.sys === 'gamun'"
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
       },
       "PubCfg": {
         ".read": true,
-        ".write": "auth != null && auth.token.sys === 'gamun'"
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
       },
       "PubFee": {
         "$h": {
           ".read": true
         },
-        ".write": "auth != null && auth.token.sys === 'gamun'"
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
       },
       "ModStock": {
         ".read": true,
-        ".write": "auth != null && auth.token.sys === 'gamun'",
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
         "$sk": {
           "$col": {
             "$opt": {
@@ -45,17 +45,17 @@
       },
       "Config": {
         ".read": true,
-        ".write": "auth != null && auth.token.sys === 'gamun'"
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
       },
       "Rentals": {
-        ".write": "auth != null && auth.token.sys === 'gamun'",
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
         "$row": {
           ".write": "!data.exists() && newData.hasChildren()"
         }
       },
       "$node": {
         ".read": "$node.beginsWith('Mod_') && query.orderByChild === '_id' && query.equalTo != null && query.limitToFirst <= 1",
-        ".write": "auth != null && auth.token.sys === 'gamun'",
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
         ".indexOn": [
           "_id"
         ],
@@ -65,9 +65,9 @@
       }
     },
     "evtData": {
-      ".read": "auth != null && auth.token.sys === 'gamun'",
+      ".read": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
       "$evt": {
-        ".write": "auth != null && auth.token.sys === 'gamun'",
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
         "PubCfg": {
           ".read": true
         },
@@ -138,8 +138,25 @@
       ".write": true
     },
     "phData": {
-      ".read": "auth != null && auth.token.sys === 'gamun'",
-      ".write": "auth != null && auth.token.sys === 'gamun'"
+      ".read": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
+      ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
+    },
+    "kids": {
+      ".read": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')",
+      "_cfg": {
+        ".read": "auth != null && auth.token.sys === 'gamun'",
+        ".write": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')"
+      },
+      "_board": {
+        ".read": "auth != null && auth.token.sys === 'gamun'",
+        "$uid": {
+          ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid"
+        }
+      },
+      "$uid": {
+        ".read": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid",
+        ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid"
+      }
     }
   }
 }
