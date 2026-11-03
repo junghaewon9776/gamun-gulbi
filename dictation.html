@@ -112,7 +112,7 @@
 
   <!-- ② 급 -->
   <section id="vLevel" class="hidden">
-    <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vName')">◀ 이름</button><div class="who"><b id="whoName"></b> 어린이</div></div>
+    <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vName')">◀ 이름</button><div class="who"><b id="whoName"></b></div></div>
     <div id="rankBox"></div>
     <div class="card">
       <div class="row" style="margin-bottom:12px"><button class="b-ok" style="font-size:19px" disabled>✏️ 받아쓰기</button><button class="b-purple" style="font-size:19px" onclick="go('vMath')">🔢 수학</button></div>
@@ -281,7 +281,7 @@
 
   <!-- 🔢 수학: 급 고르기 -->
   <section id="vMath" class="hidden">
-    <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vName')">◀ 이름</button><div class="who"><b id="mWho"></b> 어린이</div></div>
+    <div class="row" style="margin-bottom:10px"><button class="back" onclick="go('vName')">◀ 이름</button><div class="who"><b id="mWho"></b></div></div>
     <div id="mRankBox"></div>
     <div class="card">
       <div class="row" style="margin-bottom:12px"><button class="b-ok" style="font-size:19px" onclick="go('vLevel')">✏️ 받아쓰기</button><button class="b-purple" style="font-size:19px" disabled>🔢 수학</button></div>
@@ -431,6 +431,18 @@ var RANKS = [
 // 경험치 규칙 — 연습은 하루 한도(같은 급·같은 단계)를 둬서 같은 것만 반복해 올리지 못하게
 var XP = { daily:15, listenAll:10, typeOne:3, pracOne:4, testTake:20, testPerOk:5, perfect:50, firstPass:100, allPerfect:300, dayCap:60 };
 var DEFAULT_NAMES = ["다원","라온","은우","도겸","은교","다윤"];   // 17·19·20·24·25·25년생
+var BIRTH_YEAR = {"다원":2017,"라온":2019,"은우":2020,"도겸":2024,"은교":2025,"다윤":2025};
+// 이름 옆 꼬리표 — 년생으로 학년 계산 (학년은 3월에 바뀜): 초3 → "초등 3학년", 7세 → "유치원", 더 어리면 없음
+function gradeTag(n){
+  var y = BIRTH_YEAR[n]; if(!y) return "";
+  var d = new Date(), sy = d.getFullYear() - (d.getMonth() < 2 ? 1 : 0), g = sy - y - 6;
+  if(g >= 1 && g <= 6) return "초등 " + g + "학년";
+  if(g >= 7 && g <= 9) return "중학교 " + (g - 6) + "학년";
+  if(g >= 10 && g <= 12) return "고등학교 " + (g - 9) + "학년";
+  if(g >= -2 && g <= 0) return "유치원";
+  return "";
+}
+function whoLabel(n){ var t = gradeTag(n); return n + (t ? " · " + t : ""); }
 
 // ───────── 저장 (이 기기) ─────────
 var KEY = "gamun_dictation_v1";
@@ -572,7 +584,7 @@ function renderNames(){
     return '<button style="background:'+cols[i%cols.length]+'" onclick="pickName('+i+')">'+esc(n)+'<small>'+insSmall(r,"#fff")+' '+esc(r.name)+'</small></button>';
   }).join("");
 }
-function pickName(i){ ME = DB.names[i]; SHEET = ME; $("whoName").textContent = ME; go("vLevel"); }
+function pickName(i){ ME = DB.names[i]; SHEET = ME; $("whoName").textContent = whoLabel(ME); go("vLevel"); }
 function pickSheet(n){ SHEET = n; LV = 0; go("vLevel"); }
 
 // ───────── 급 ─────────
@@ -1145,7 +1157,7 @@ function mName(id){ var x = mLv(id); return x ? x.t : id; }
 var MLV = "";
 function mKey(){ return "수·"+MLV; }
 function mRenderLevels(){
-  $("mWho").textContent = ME; $("mRankBox").innerHTML = rankCard(ME);
+  $("mWho").textContent = whoLabel(ME); $("mRankBox").innerHTML = rankCard(ME);
   var rec = MREC[ME] || [], cols = { a:"#15803d", s:"#b45309", m:"#0e7490", g:"#6d28d9", x:"#be123c", d:"#6d28d9" };
   var tile = function(x){
     var k = "수·"+x.id, b = best(ME,k), sp = ((DB.speed||{})[ME]||{})[x.id], st = stepsOf(ME,k);
@@ -1318,7 +1330,7 @@ function mRetryWrong(){
 (function(){
   var n = new URLSearchParams(location.search).get("n");
   if(n && DB.names.indexOf(n)<0){ DB.names.push(n); save(); }
-  if(n){ ME = n; $("whoName").textContent = ME; go("vLevel"); } else go("vName");
+  if(n){ ME = n; $("whoName").textContent = whoLabel(ME); go("vLevel"); } else go("vName");
 })();
 </script>
 </body>
