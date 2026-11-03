@@ -182,12 +182,19 @@ function kdCfg(){
   h += '<div style="font-size:13px;color:#475569;margin-bottom:10px">아이가 받아쓰기를 하면 이 텔레그램으로 알려요 (가문굴비 알림 봇).</div>';
   h += '<label style="font-size:13px;font-weight:700">받을 텔레그램 숫자 ID <span style="font-weight:400;color:#64748b">(여러 개는 쉼표)</span></label><input id="kdChats" value="' + esc(c.chats || me || (typeof TG_CHAT_IDS !== "undefined" ? TG_CHAT_IDS : "")) + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;margin:4px 0 12px">';
   [["test", "📝 시험 끝났을 때 (점수 · 틀린 것)"], ["rank", "🎖 진급했을 때"], ["daily", "📚 그날 처음 공부 시작할 때"]].forEach(function(o){ h += '<label style="display:block;font-size:14px;margin:6px 0"><input type="checkbox" id="kdOn_' + o[0] + '"' + (on[o[0]] ? " checked" : "") + '> ' + o[1] + '</label>'; });
+  h += '<div style="margin-top:14px;padding-top:10px;border-top:1px solid #e5e7eb"><label style="font-size:13px;font-weight:700">🔒 받아쓰기 부모님 비밀번호 <span style="font-weight:400;color:#64748b">(설정·채점 잠금 · 모든 폰 공통 · ' + (c.ppw ? "정해져 있음" : "아직 안 정함 → 폰마다 처음 1234") + ')</span></label>'
+    + '<input id="kdPpw" type="text" placeholder="바꿀 때만 입력 (4자 이상) — 비우면 그대로" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;margin-top:4px"></div>';
   h += '<div style="text-align:right;margin-top:12px"><button class="btn" style="background:#16a34a;color:#fff;padding:9px 20px" onclick="kdCfgSave()">💾 저장</button></div>';
   openPopup(h, 520);
 }
+// 받아쓰기 앱과 같은 암호값 (dictation.html _pph 와 같아야 함)
+function _kdPph(s){ s = "gamun-parent:" + String(s == null ? "" : s).trim(); var h = 5381; for(var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return "p" + h.toString(36); }
 function kdCfgSave(){
   var o = { tok: (typeof TG_BOT_TOKEN !== "undefined" ? TG_BOT_TOKEN : ""), chats: document.getElementById("kdChats").value.trim(), on: {} };
   ["test", "rank", "daily"].forEach(function(k){ if(document.getElementById("kdOn_" + k).checked) o.on[k] = 1; });
+  var pp = (document.getElementById("kdPpw").value || "").trim(), old = (KD && KD._cfg) || {};
+  if(pp && pp.length < 4){ alert("부모님 비밀번호는 4자 이상이에요"); return; }
+  if(pp) o.ppw = _kdPph(pp); else if(old.ppw) o.ppw = old.ppw;
   showLoading("저장 중...");
   fbDb.ref("/kids/_cfg").set(o).then(function(){ hideLoading(); KD._cfg = o; closePopup(); toast("🔔 알림 설정 저장했어요"); })
     .catch(function(e){ hideLoading(); toast("저장 실패: " + e.message, true); });

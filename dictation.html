@@ -346,7 +346,7 @@
   <!-- 설정 -->
   <section id="vSet" class="hidden">
     <div class="card opt">
-      <div class="row" style="margin-bottom:6px"><button class="back" onclick="go('vName')">◀ 뒤로</button><div class="who"><b>⚙ 설정 (부모님)</b></div></div>
+      <div class="row" style="margin-bottom:6px"><button class="back" onclick="go('vName')">◀ 뒤로</button><div class="who"><b>⚙ 설정 (부모님)</b></div><button class="b-dark" style="flex:0 0 auto;font-size:15px;padding:9px 12px" onclick="changeParentPw()">🔑 부모님 비밀번호 바꾸기</button></div>
       <label>👧👦 아이 이름 (한 줄에 한 명)</label>
       <textarea id="setNames" style="width:100%;height:150px;font-size:18px;padding:10px;border:2px solid #cbd5e1;border-radius:10px;font-family:inherit"></textarea>
       <div class="hint">라온·다원·은우 이름은 각자 급수표와 연결돼 있어요. 이름을 바꾸면 그 급수표가 안 보여요.</div>
@@ -928,11 +928,25 @@ function diffHtml(ans, mine){
 }
 var MARK = [], SAVED = false, LOCKED = false;
 // 부모님 확인 (곱셈) — 설정 열기·종이 시험 정답 열기
+// 부모님 비밀번호 (처음 1234) — 글자 그대로 말고 암호값으로 보관.
+//   가문굴비 👦 아이들 탭에서 정하면 모든 폰 공통(서버 /kids/_cfg.ppw), 아니면 이 폰 설정에서 바꾼 것(DB.opt.ppw)
+function _pph(s){ s = "gamun-parent:" + String(s == null ? "" : s).trim(); var h = 5381; for(var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return "p" + h.toString(36); }
+function _ppwWant(){ var c = (typeof KC !== "undefined" && KC.cfg) || null; return (c && c.ppw) || DB.opt.ppwS || DB.opt.ppw || _pph("1234"); }
 function parentCheck(){
-  var a = 11 + Math.floor(Math.random()*8), b = 3 + Math.floor(Math.random()*6);
-  var v = prompt("부모님 확인\n\n"+a+" × "+b+" = ?"); if(v===null) return false;
-  if(parseInt(v,10)!==a*b){ alert("틀렸어요!"); return false; }
+  var v = prompt("🔒 부모님 비밀번호"); if(v===null) return false;
+  if(_pph(v)!==_ppwWant()){ alert("비밀번호가 틀렸어요!"); return false; }
   return true;
+}
+function changeParentPw(){
+  var c = (typeof KC !== "undefined" && KC.cfg) || null;
+  if((c && c.ppw) || DB.opt.ppwS){ alert("부모님 비밀번호는 가문굴비 → 👦 아이들 → 🔔 알림 설정에서 모든 폰 공통으로 정해져 있어요.\n그곳에서 바꿔 주세요."); return; }
+  var o = prompt("🔒 지금 부모님 비밀번호"); if(o===null) return;
+  if(_pph(o)!==_ppwWant()){ alert("지금 비밀번호가 틀렸어요"); return; }
+  var a = prompt("🔑 새 부모님 비밀번호 (4자 이상)"); if(a===null) return;
+  if(String(a).trim().length < 4){ alert("4자 이상으로 해 주세요"); return; }
+  var b = prompt("한 번 더 쳐 주세요"); if(b===null) return;
+  if(String(a).trim()!==String(b).trim()){ alert("두 번 친 게 달라요"); return; }
+  DB.opt.ppw = _pph(a); save(); alert("✅ 부모님 비밀번호를 바꿨어요 (이 폰)");
 }
 function showResult(){
   var screen = T.where==="screen";
@@ -1365,6 +1379,6 @@ function mRetryWrong(){
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="dict-cloud.js?v=20261103c"></script>
+<script src="dict-cloud.js?v=20261103d"></script>
 </body>
 </html>

@@ -92,6 +92,8 @@ function kPull(){
     if(has){ KEYS.forEach(function(k){ DB[k] = DB[k] || {}; if(S[k]) DB[k][n] = S[k]; }); if(S.xp != null) DB.xp[n] = S.xp; }
     var B = r[1] && r[1].val() || {}; Object.keys(B).forEach(function(u){ var b = B[u]; if(b && b.name && b.name !== n){ if(DB.names.indexOf(b.name) < 0) DB.names.push(b.name); DB.xp[b.name] = b.xp || 0; } });
     KC.cfg = r[2] && r[2].val() || null;
+    // 모든 폰 공통 부모님 비밀번호는 이 폰에도 기억 (로그인 전 설정 화면에서도 쓰게)
+    if(KC.cfg && KC.cfg.ppw) DB.opt.ppwS = KC.cfg.ppw; else delete DB.opt.ppwS;
     _save0();
     if(!has) kPush(true);   // 처음 로그인: 이 폰에 있던 기록을 서버로
   });
