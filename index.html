@@ -516,6 +516,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="recv.js?v=20261103t"></script>
 <script src="easy.js?v=20261103t"></script>
 <script src="tabperm.js?v=20261103u"></script>
+<script src="kids.js?v=20261103a"></script>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="console.warn('XLSX CDN load failed')"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" onerror="console.warn('xlsx-js-style CDN load failed')"></script>
@@ -1542,6 +1543,8 @@ function mkTabs(){
   // ── 견적·계약 묶음 (견적·계약 / 현장사진·보고서 / 받을 돈 / 쉬운 화면) — 공사(행사)관리 '사용 모듈'에서 켜고 끔 ──
   var _cc = (typeof _constCat === "function") ? _constCat() : null;
   if(isA() && _cc) cats.push(_cc);
+  // 👦 아이들 공부 기록 (받아쓰기) — 최고관리자·관리자만
+  if(ME && (ME.r==="super"||ME.r==="admin") && typeof dKids==="function") cats.push({id:"kids",label:"👦 아이들",items:[{k:"kids",l:"공부 기록"}]});
   // 📱 쉬운 화면을 쓰던 사람은 다음에 열 때도 쉬운 화면으로
   if(!window.__ezInit && isA() && _cc && _hasConstMod("easy")){ window.__ezInit=1; try{ if(localStorage.getItem("hs_easy")==="1") { CTAB="easy"; _curCat="const"; } }catch(e){} }
 
@@ -6099,6 +6102,7 @@ function draw(){
   else if(CTAB=="easy")el.innerHTML=dEasy();
   else if(CTAB=="recv")el.innerHTML=dRecv();
   else if(CTAB=="tabPerm")el.innerHTML=dTabPerm();
+  else if(CTAB=="kids")el.innerHTML=dKids();
   else if(CTAB=="dash")el.innerHTML=dDash();
   else if(CTAB=="act")el.innerHTML=dAct();
   else if(CTAB=="pur")el.innerHTML=dPur();

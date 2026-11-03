@@ -430,6 +430,29 @@ var RANKS = [
 ];
 // 경험치 규칙 — 연습은 하루 한도(같은 급·같은 단계)를 둬서 같은 것만 반복해 올리지 못하게
 var XP = { daily:15, listenAll:10, typeOne:3, pracOne:4, testTake:20, testPerOk:5, perfect:50, firstPass:100, allPerfect:300, dayCap:60 };
+// 🎖 계급 오르는 속도: 상사 전까지는 쭉쭉(×2) · 상사부터는 100점을 쌓아야 (100점 아니면 ×0.5, 100점 보너스 ×3)
+var XP_FAST_UNTIL = 6;   // RANKS[6] = 상사
+var XP_RULE = { early:2, lateTest:0.5, latePrac:0.5, latePerfect:3,
+  up:   { take:3, perOk:1.5, prac:1.5, perfect:2 },   // 동생이 형·누나 문제 도전: 해 본 것에 많이, 100점이면 크게
+  down: { mul:0.5 } };                                // 형·누나가 동생 문제: 절반
+function xpEarly(n){ return rankIdx(xpOf(n||ME)) < XP_FAST_UNTIL; }
+// 지금 푸는 급수표가 누구 것인지: up=형·누나 것, down=동생 것, ""=내 것  (DB.names 는 나이 많은 순)
+function sibKind(){
+  if(!SHEET || SHEET===ME) return "";
+  var a = DB.names.indexOf(SHEET), b = DB.names.indexOf(ME);
+  return a<0 || b<0 ? "up" : a<b ? "up" : "down";
+}
+// 시험 경험치 — base: 보는 것+맞은 것, perfectBonus: 100점 보너스
+function xpTest(ok, sc, perfectBonus, mul){
+  var sk = sibKind(), R = XP_RULE, xp, early = xpEarly();
+  if(sk==="up") xp = XP.testTake*R.up.take + ok*XP.testPerOk*R.up.perOk;   // 점수보다 해 본 것
+  else xp = XP.testTake + ok*XP.testPerOk;
+  xp *= (mul||1);
+  if(sk==="down") xp *= R.down.mul;
+  if(early) xp *= R.early; else if(sc<100) xp *= R.lateTest;
+  if(sc===100){ var pb = perfectBonus * (early ? R.early : R.latePerfect) * (sk==="up" ? R.up.perfect : 1); if(sk==="down") pb *= R.down.mul; xp += pb; }
+  return Math.round(xp);
+}
 var DEFAULT_NAMES = ["다원","라온","은우","도겸","은교","다윤"];   // 17·19·20·24·25·25년생
 var BIRTH_YEAR = {"다원":2017,"라온":2019,"은우":2020,"도겸":2024,"은교":2025,"다윤":2025};
 // 이름 옆 꼬리표 — 년생으로 학년 계산 (학년은 3월에 바뀜): 초3 → "초등 3학년", 7세 → "유치원", 더 어리면 없음
@@ -524,7 +547,8 @@ function gainXp(amount, why, capKey){
     d.streak = d.d===ys ? (d.streak||0)+1 : 1; d.d = t; d.got = {};
     bonus = XP.daily + Math.min(d.streak-1, 5)*5;   // 매일 하면 연속 보너스 (최대 +25)
   }
-  if(capKey){ var used = d.got[capKey]||0; amount = Math.max(0, Math.min(amount, XP.dayCap-used)); d.got[capKey] = used+amount; }
+  if(capKey){ var used = d.got[capKey]||0; amount = Math.max(0, Math.min(amount, XP.dayCap-used)); d.got[capKey] = used+amount;
+    var sk = sibKind(); amount *= (xpEarly() ? XP_RULE.early : XP_RULE.latePrac) * (sk==="up" ? XP_RULE.up.prac : sk==="down" ? XP_RULE.down.mul : 1); amount = Math.round(amount); }
   var before = rankIdx(xpOf(ME)), total = amount+bonus;
   if(total<=0){ save(); return 0; }
   DB.xp[ME] = xpOf(ME)+total; save();
@@ -546,7 +570,9 @@ function renderRanks(){
   h += '</table><div class="hint" style="margin-top:10px"><b>경험치 얻는 법</b><br>'
     + '• 그날 처음 공부 +'+XP.daily+' (며칠 연속이면 더!)<br>• 1단계 전체 듣기 끝까지 +'+XP.listenAll+'<br>• 2단계 따라 치기 한 문장 +'+XP.typeOne+'<br>• 3단계 듣고 써서 맞히면 +'+XP.pracOne
     + '<br>• 시험 보기 +'+XP.testTake+', 맞은 문제마다 +'+XP.testPerOk+'<br>• 100점 +'+XP.perfect+' · 처음 통과 +'+XP.firstPass+' · 전체 시험 100점 +'+XP.allPerfect
-    + '<br>• 연습(1~3단계)은 한 급에서 하루에 단계마다 '+XP.dayCap+'까지만 쌓여요</div>';
+    + '<br>• 연습(1~3단계)은 한 급에서 하루에 단계마다 '+XP.dayCap+'까지만 쌓여요'
+    + '<br><br><b>🚀 상사까지는 경험치 2배!</b> 상사부터는 <b>100점</b>을 받아야 쑥쑥 올라요 (100점 보너스 3배, 100점 아니면 절반)'
+    + '<br><b>💪 형·누나 문제 도전</b>은 점수가 낮아도 해 본 것만으로 경험치가 많고, 100점이면 보너스가 2배!</div>';
   $("ranksBody").innerHTML = h;
 }
 
@@ -972,10 +998,9 @@ function recordScore(){
   });
   save();
   // 경험치: 어려울수록 조금 더 (쉬움 ×1, 보통 ×1.2, 어려움 ×1.5)
-  var mul = ({easy:1, normal:1.2, hard:1.5, custom:1}[T.diff]||1) * (SHEET && SHEET!==ME ? 1.2 : 1);   // 형·누나 문제 도전 +20%
-  var xp = Math.round((XP.testTake + ok*XP.testPerOk)*mul), why = sc+"점";
-  if(sc===100){ xp += T.key==="all" && T.qs.length>=60 ? XP.allPerfect : XP.perfect; why += " 💯"; }
-  if(T.key!=="wrong" && !wasPassed && sc>=passScore()){ xp += XP.firstPass; why += " · 첫 통과!"; }
+  var mul = ({easy:1, normal:1.2, hard:1.5, custom:1}[T.diff]||1);
+  var xp = xpTest(ok, sc, T.key==="all" && T.qs.length>=60 ? XP.allPerfect : XP.perfect, mul), why = sc+"점" + (sc===100 ? " 💯" : "") + (sibKind()==="up" ? " · 형·누나 문제 도전!" : "");
+  if(T.key!=="wrong" && !wasPassed && sc>=passScore()){ xp += XP.firstPass * (xpEarly() ? XP_RULE.early : 1); why += " · 첫 통과!"; }
   why = (arr.length)+"회차 "+why;
   gainXp(xp, why, null);
 }
@@ -1313,9 +1338,8 @@ function mFinish(){
   $("mrList").innerHTML = m.qs.map(function(q,i){ return '<li><span class="mark"><b style="font-size:24px;color:'+(m.ok[i]?"#15803d":"#b91c1c")+'">'+(m.ok[i]?"⭕":"❌")+'</b></span><span style="color:#64748b;font-size:15px">'+(i+1)+'번</span> <b>'+esc(q.q)+' = '+q.a+'</b>'+(m.ok[i]?'':' <span style="color:#b91c1c">(내 답 '+esc(m.ans[i])+')</span>')+'</li>'; }).join("");
   $("mrRetry").disabled = ok===n;
   go("vMResult"); speak(sc===100 ? "백 점! 정말 잘했어요!" : "끝! "+sc+"점이에요!", 1);
-  var xp = XP.testTake + ok*XP.testPerOk, why = arr.length+"회차 "+sc+"점";
-  if(sc===100){ xp += XP.perfect; why += " 💯"; }
-  if(!wasPassed && sc>=passScore()){ xp += XP.firstPass; why += " · 첫 통과!"; }
+  var xp = xpTest(ok, sc, XP.perfect, 1), why = arr.length+"회차 "+sc+"점" + (sc===100 ? " 💯" : "");
+  if(!wasPassed && sc>=passScore()){ xp += XP.firstPass * (xpEarly() ? XP_RULE.early : 1); why += " · 첫 통과!"; }
   gainXp(xp, why, null);
 }
 function mRetryWrong(){
@@ -1333,5 +1357,11 @@ function mRetryWrong(){
   if(n){ ME = n; $("whoName").textContent = whoLabel(ME); go("vLevel"); } else go("vName");
 })();
 </script>
+<!-- ☁️ 로그인 · 서버 저장 · 알림 (아이 계정은 가문굴비 업무 데이터와 따로) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="dict-cloud.js?v=20261103a"></script>
 </body>
 </html>
