@@ -101,12 +101,23 @@ function kGo(){
     if(done) return; done = true; KC.going = false;
     var g = document.getElementById("kGoing"); if(g && g.remove) g.remove();
     // 서버가 안 돼도 공부는 하게 — 이 폰에 저장했다가 다음에 합쳐서 올라감
-    if(err) toast("⚠️ 서버 연결이 안 돼서 이 폰에만 저장해요 (" + String((err && (err.code || err.message)) || err).slice(0, 60) + ")");
     try { pickName(i); kDailyMark(); } catch(e){ alert("화면을 못 열었어요: " + (e.message || e)); }
+    if(err) kErrBar(String((err && (err.code || err.message)) || err));
   };
   setTimeout(function(){ enter("시간 초과"); }, 8000);
   kPull().then(function(){ enter(); }, function(e){ console.warn("[받아쓰기] 불러오기 실패", e); enter(e); });
 }
+// 서버 연결 실패 — 사라지지 않게 위에 띄워 두기 (이유 그대로 + 다시 로그인)
+function kErrBar(why){
+  var old = document.getElementById("kErrBar"); if(old) old.remove();
+  var lv = $("vLevel"); if(!lv || !lv.insertAdjacentHTML) return;
+  var tip = /PERMISSION|permission/i.test(why) ? "로그인이 오래돼서 그래요 → 🔄 다시 로그인을 눌러 주세요" : /시간 초과|network|unavailable/i.test(why) ? "인터넷이 느리거나 끊겼어요 → 와이파이를 확인하고 🔄 다시 로그인" : "🔄 다시 로그인을 눌러 주세요";
+  lv.insertAdjacentHTML("afterbegin", '<div id="kErrBar" style="background:#fef2f2;border:3px solid #dc2626;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:15px;color:#7f1d1d">'
+    + '<b>⚠️ 서버에 연결이 안 됐어요</b> — 지금 공부는 이 폰에 저장했다가 다음에 합쳐서 올라가요.<br>' + esc(tip)
+    + '<div style="font-size:12px;color:#991b1b;margin-top:4px">이유: ' + esc(why.slice(0, 120)) + '</div>'
+    + '<div class="row" style="margin-top:8px"><button class="b-bad" style="font-size:16px" onclick="kRelogin()">🔄 다시 로그인</button><button class="b-dark" style="font-size:16px;flex:0 0 auto" onclick="this.closest(\'#kErrBar\').remove()">✕ 닫기</button></div></div>');
+}
+function kRelogin(){ try { KC.auth.signOut(); } catch(e){} ME = ""; var b = document.getElementById("kErrBar"); if(b) b.remove(); go("vName"); }
 function kOut(){ if(!confirm("로그아웃할까요?")) return; KC.auth.signOut(); ME = ""; renderNames(); }
 
 // ── 서버에서 받기 (서버 기록이 있으면 서버 것, 없으면 이 폰 기록을 올림) ──
