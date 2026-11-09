@@ -126,7 +126,8 @@ function kPull(){
   if(!KC.uid) return Promise.resolve();
   var n = KC.name;
   return Promise.all([KC.db.ref("/kids/" + KC.uid).once("value"), KC.db.ref("/kids/_board").once("value").catch(function(){ return null; }), KC.db.ref("/kids/_cfg").once("value").catch(function(){ return null; })]).then(function(r){
-    var S = r[0].val() || {}, has = S.rec || S.xp != null || S.st;
+    var S = r[0].val() || {}; ["rec", "st", "speed"].forEach(function(k){ if(S[k]) S[k] = kKeys(S[k], false); });
+    var has = S.rec || S.xp != null || S.st;
     // 이 폰 기록(로그인 안 하고 QR 로 한 것 등)과 서버 기록을 합침 — 어느 쪽도 버리지 않음
     var localHad = !!((DB.rec || {})[n] || xpOf(n));
     if(has){ var mg = null; try { mg = kMerge(S, n); } catch(e){ console.warn("[받아쓰기] 합치기 실패 — 이 폰 기록을 그대로 씀", e); localHad = true; }
@@ -140,6 +141,18 @@ function kPull(){
   });
 }
 // 서버 기록 S + 이 폰 기록(이름 n) 합치기: 시험 기록은 같은 것(날짜·점수·맞은 수)만 빼고 다 모음, 경험치·기록은 큰 쪽
+// 서버(Firebase)는 키에 . $ # [ ] / 를 못 씀 — 한자 「7급Ⅱ」 같은 단계 이름(漢·h7.5-1)의 점을 ‧ 로 바꿔 올리고 받을 때 되돌림
+var K_BAD = { ".": "‧", "$": "＄", "#": "＃", "[": "［", "]": "］", "/": "∕" };
+function kKeys(o, up){
+  if(!o || typeof o !== "object" || Array.isArray(o)) return o;
+  var r = {};
+  Object.keys(o).forEach(function(k){
+    var nk = k;
+    Object.keys(K_BAD).forEach(function(c){ nk = up ? nk.split(c).join(K_BAD[c]) : nk.split(K_BAD[c]).join(c); });
+    r[nk] = o[k];
+  });
+  return r;
+}
 // 서버(Firebase)는 1·2·3 같은 숫자 키 묶음을 빈 칸 있는 목록으로 돌려줌 → 다시 {키: 값} 으로, 빈 칸은 버림
 function kObj(o){ var r = {}; if(!o) return r; Object.keys(o).forEach(function(k){ if(o[k] != null) r[k] = o[k]; }); return r; }
 function kArr(a){ return (Array.isArray(a) ? a : a ? Object.keys(a).map(function(k){ return a[k]; }) : []).filter(function(x){ return x && typeof x === "object"; }); }
@@ -176,7 +189,7 @@ function kPush(now){
   clearTimeout(KC.t);
   var go = function(){
     var n = KC.name, o = { name: n, xp: xpOf(n), rk: RANKS[rankIdx(xpOf(n))].name, at: new Date().toISOString() };
-    KEYS.forEach(function(k){ o[k] = (DB[k] || {})[n] || null; });
+    KEYS.forEach(function(k){ var v = (DB[k] || {})[n] || null; o[k] = v && k !== "day" ? kKeys(v, true) : v; });
     KC.db.ref("/kids/" + KC.uid).update(JSON.parse(JSON.stringify(o))).catch(function(e){ console.warn("[받아쓰기] 서버 저장 실패", e); });
     KC.db.ref("/kids/_board/" + KC.uid).set({ name: n, xp: o.xp, rk: o.rk }).catch(function(){});
   };
