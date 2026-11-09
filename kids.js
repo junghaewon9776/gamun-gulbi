@@ -5,7 +5,7 @@
 //   아이 계정 = /main/Users 의 역할 "kid" (아이디 = 이름) — 로그인은 가문굴비와 같은 로그인 도우미
 //   읽기: 가문굴비 최고관리자·관리자만 (DB 규칙)
 // ============================================================================
-var KD = null, KD_LOADING = false, KD_SEL = "", KD_TAB = "rec";
+var KD = null, KD_LOADING = false, KD_SEL = "", KD_TAB = "rec", KD_RECVIEW = "new";   // 기록지 보기: new=최신순 / lv=단계별
 var KD_URL = "https://junghaewon9776.github.io/gamun-gulbi/dictation.html";
 
 function _kdLoad(){
@@ -63,6 +63,17 @@ function _kdKeyName(k){
   if(k === "all") return "✏️ 받아쓰기 전체"; if(k === "wrong") return "✏️ 받아쓰기 틀린 것";
   var m = k.split("·"); return m.length > 1 ? "✏️ " + m[0] + " 급수표 " + _kdKeyName(m[1]).replace(/^✏️ /, "") : "✏️ 받아쓰기 " + k + "급";
 }
+// 단계별 순서 — 과목(받아쓰기·수학·한자·영어·알파벳) → 그 과목 안의 단계 순서
+function _kdLvOrder(k){
+  k = String(k);
+  var sub = function(id, keys){ var m = String(id).match(/^.(.+)-(\d+)$/); var gi = m ? keys.indexOf(m[1]) : -1; return (gi < 0 ? 99 : gi) * 100 + (m ? +m[2] : 0); };
+  if(k.indexOf("수·") === 0){ var id = k.slice(2), mk = Object.keys(KD_MATH), i = mk.indexOf(id), dm = id.match(/^d(\d)$/); return [1, i >= 0 ? i : (dm ? 100 + +dm[1] : 999)]; }
+  if(k.indexOf("漢·") === 0) return [2, sub(k.slice(2), ["9", "8", "7.5", "7", "6.5", "6", "4.5"])];
+  if(k.indexOf("英·") === 0) return [3, sub(k.slice(2), ["p", "0", "3", "4", "5", "6"])];
+  if(k.indexOf("ABC·") === 0) return [4, ["u1", "u2", "u3", "a1", "a2", "a3", "a4"].indexOf(k.slice(4))];
+  var n = parseInt(k.split("·").pop(), 10); return [0, isNaN(n) ? 900 : n];
+}
+var KD_SUBJ = ["✏️ 받아쓰기", "🔢 수학", "🈶 한자", "🔤 영어", "🔤 알파벳"];
 // "11. 3. 오후 07:08" → 비교용 숫자 (해는 없어서 월·일·시·분만)
 function _kdWhen(d){
   var m = String(d || "").match(/(\d+)\.\s*(\d+)\.\s*(오전|오후)?\s*(\d+):(\d+)/); if(!m) return 0;
@@ -87,16 +98,22 @@ function _kdRecHtml(k, print){
   keys.forEach(function(key){ arrOf(rec[key]).forEach(function(r){ all.push({ key: key, r: r, w: _kdWhen(r.d) }); }); });
   all.sort(function(a, b){ return b.w - a.w; });
   var h = '';
-  // 🕘 최근 시험 10개 (어느 과목이든)
-  h += '<div style="font-weight:900;font-size:15px;margin:4px 0 6px">🕘 최근 시험</div>' + tbl(["120px", "auto", "60px", "64px", "38%"])
+  if(!print) h += '<div style="display:flex;gap:6px;margin:2px 0 10px">' + [["new", "🕘 최신순 (위가 최근)"], ["lv", "📚 단계별 (과목·단계 순서)"]].map(function(v){ var on = KD_RECVIEW === v[0]; return '<button class="btn" style="background:' + (on ? "#1e3a8a" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#1e293b") + ';font-weight:800" onclick="KD_RECVIEW=\'' + v[0] + '\';draw()">' + v[1] + '</button>'; }).join("") + '</div>';
+  var view = print ? "lv" : KD_RECVIEW;
+  if(view === "new"){
+  // 🕘 최신순 — 어느 과목이든 본 시험 전부, 위가 가장 최근
+  h += tbl(["120px", "auto", "60px", "64px", "38%"])
     + '<thead><tr' + (print ? "" : ' style="background:#eff6ff"') + '>' + th("날짜") + th("무슨 시험") + th("점수", "right") + th("맞음", "center") + th("틀린 것") + '</tr></thead><tbody>'
-    + all.slice(0, 10).map(function(o){ return '<tr><td style="' + S + 'white-space:nowrap">' + esc(o.r.d || "") + '</td><td style="' + S + 'font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(_kdKeyName(o.key)) + ' <span style="color:#64748b;font-weight:400">' + (o.r.no || "") + '회</span></td>' + scoreTd(o.r) + '<td style="' + S + 'text-align:center">' + (o.r.ok || 0) + '/' + (o.r.n || 0) + '</td><td style="' + S + 'font-size:12px;color:#b91c1c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(wrongOf(o.key, o.r)) + '">' + esc(wrongOf(o.key, o.r)) + '</td></tr>'; }).join("")
+    + all.map(function(o){ return '<tr><td style="' + S + 'white-space:nowrap">' + esc(o.r.d || "") + '</td><td style="' + S + 'font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(_kdKeyName(o.key)) + ' <span style="color:#64748b;font-weight:400">' + (o.r.no || "") + '회</span></td>' + scoreTd(o.r) + '<td style="' + S + 'text-align:center">' + (o.r.ok || 0) + '/' + (o.r.n || 0) + '</td><td style="' + S + 'font-size:12px;color:#b91c1c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(wrongOf(o.key, o.r)) + '">' + esc(wrongOf(o.key, o.r)) + '</td></tr>'; }).join("")
     + '</tbody></table>';
-  // 과목별 — 최근에 본 것부터
-  var last = {}; all.forEach(function(o){ if(!(o.key in last)) last[o.key] = o.w; });
-  keys.sort(function(a, b){ return (last[b] || 0) - (last[a] || 0); });
-  h += '<div style="font-weight:900;font-size:15px;margin:18px 0 2px">📚 과목별 기록 <span style="font-weight:400;color:#64748b;font-size:12px">— 최근에 본 것부터</span></div>';
+  return h;
+  }
+  // 📚 단계별 — 과목 묶음 → 단계 순서, 단계 안의 회차는 최신부터
+  keys.sort(function(a, b){ var x = _kdLvOrder(a), y = _kdLvOrder(b); return x[0] - y[0] || x[1] - y[1] || a.localeCompare(b); });
+  var curSub = -1;
   keys.forEach(function(key){
+    var so = _kdLvOrder(key)[0];
+    if(so !== curSub){ curSub = so; h += '<div style="font-weight:900;font-size:16px;margin:18px 0 2px;padding:6px 10px;background:#f1f5f9;border-left:5px solid #1e3a8a;border-radius:6px">' + KD_SUBJ[so] + '</div>'; }
     var arr = arrOf(rec[key]).slice().sort(function(a, b){ return _kdWhen(b.d) - _kdWhen(a.d) || (b.no || 0) - (a.no || 0); });
     h += '<div style="font-weight:800;margin:12px 0 4px">' + esc(_kdKeyName(key)) + ' <span style="font-weight:400;color:#64748b;font-size:12px">' + arr.length + '회 · 최고 ' + Math.max.apply(null, arr.map(function(r){ return r.score || 0; })) + '점</span></div>';
     h += tbl(["60px", "120px", "60px", "64px", "84px", "auto"]) + '<thead><tr' + (print ? "" : ' style="background:#f8fafc"') + '>' + th("회차") + th("날짜") + th("점수", "right") + th("맞음", "center") + th("어디에") + th("틀린 것") + '</tr></thead><tbody>';
