@@ -129,7 +129,8 @@ function kPull(){
     var S = r[0].val() || {}, has = S.rec || S.xp != null || S.st;
     // 이 폰 기록(로그인 안 하고 QR 로 한 것 등)과 서버 기록을 합침 — 어느 쪽도 버리지 않음
     var localHad = !!((DB.rec || {})[n] || xpOf(n));
-    if(has){ var mg = kMerge(S, n); KEYS.forEach(function(k){ DB[k] = DB[k] || {}; if(mg[k]) DB[k][n] = mg[k]; }); DB.xp[n] = mg.xp; }
+    if(has){ var mg = null; try { mg = kMerge(S, n); } catch(e){ console.warn("[받아쓰기] 합치기 실패 — 이 폰 기록을 그대로 씀", e); localHad = true; }
+      if(mg){ KEYS.forEach(function(k){ DB[k] = DB[k] || {}; if(mg[k]) DB[k][n] = mg[k]; }); DB.xp[n] = mg.xp; } }
     var B = r[1] && r[1].val() || {}; Object.keys(B).forEach(function(u){ var b = B[u]; if(b && b.name && b.name !== n){ if(DB.names.indexOf(b.name) < 0) DB.names.push(b.name); DB.xp[b.name] = b.xp || 0; } });
     KC.cfg = r[2] && r[2].val() || null;
     // 모든 폰 공통 부모님 비밀번호는 이 폰에도 기억 (로그인 전 설정 화면에서도 쓰게)
@@ -139,20 +140,24 @@ function kPull(){
   });
 }
 // 서버 기록 S + 이 폰 기록(이름 n) 합치기: 시험 기록은 같은 것(날짜·점수·맞은 수)만 빼고 다 모음, 경험치·기록은 큰 쪽
+// 서버(Firebase)는 1·2·3 같은 숫자 키 묶음을 빈 칸 있는 목록으로 돌려줌 → 다시 {키: 값} 으로, 빈 칸은 버림
+function kObj(o){ var r = {}; if(!o) return r; Object.keys(o).forEach(function(k){ if(o[k] != null) r[k] = o[k]; }); return r; }
+function kArr(a){ return (Array.isArray(a) ? a : a ? Object.keys(a).map(function(k){ return a[k]; }) : []).filter(function(x){ return x && typeof x === "object"; }); }
 function kMerge(S, n){
-  var L = function(k){ return (DB[k] || {})[n]; }, out = {};
-  var rec = JSON.parse(JSON.stringify(S.rec || {})), lr = L("rec") || {};
+  var L = function(k){ return kObj((DB[k] || {})[n]); }, out = {};
+  var rec = {}, sr = kObj(S.rec), lr = L("rec");
+  Object.keys(sr).forEach(function(key){ rec[key] = JSON.parse(JSON.stringify(kArr(sr[key]))); });
   Object.keys(lr).forEach(function(key){
     var a = rec[key] = rec[key] || [], sig = {};
     a.forEach(function(x){ sig[[x.d, x.score, x.ok, x.n].join("|")] = 1; });
-    (lr[key] || []).forEach(function(x){ var s = [x.d, x.score, x.ok, x.n].join("|"); if(!sig[s]){ a.push(x); sig[s] = 1; } });
-    a.forEach(function(x, i){ x.no = i + 1; });
+    kArr(lr[key]).forEach(function(x){ var s = [x.d, x.score, x.ok, x.n].join("|"); if(!sig[s]){ a.push(x); sig[s] = 1; } });
   });
+  Object.keys(rec).forEach(function(key){ rec[key].forEach(function(x, i){ x.no = i + 1; }); });
   out.rec = rec;
-  var st = JSON.parse(JSON.stringify(S.st || {})), ls = L("st") || {};
+  var st = JSON.parse(JSON.stringify(kObj(S.st))), ls = L("st");
   Object.keys(ls).forEach(function(key){ st[key] = st[key] || {}; Object.keys(ls[key] || {}).forEach(function(s){ if(ls[key][s]) st[key][s] = ls[key][s]; }); });
   out.st = st;
-  var sp = JSON.parse(JSON.stringify(S.speed || {})), lp = L("speed") || {};
+  var sp = JSON.parse(JSON.stringify(kObj(S.speed))), lp = L("speed");
   Object.keys(lp).forEach(function(k){ sp[k] = Math.max(sp[k] || 0, lp[k] || 0); });
   out.speed = sp;
   var sd = S.day || null, ld = L("day") || null;
