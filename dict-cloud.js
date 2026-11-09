@@ -62,6 +62,12 @@ renderNames = function(){
   }
   $("nameList").innerHTML = h;
   var hd = document.querySelector("#vName h2"); if(hd) hd.textContent = KC.uid ? "👋 반가워요!" : "👋 이름이랑 비밀번호를 쳐요";
+  // QR 로 왔으면: 그 아이로 이미 로그인돼 있으면 바로 들어가고, 아니면 이름 채워 두기
+  if(KC.qrName){
+    var q = KC.qrName;
+    if(KC.uid && _kShort(KC.name) === _kShort(q)){ KC.qrName = ""; setTimeout(kGo, 0); }
+    else if(!KC.uid){ var ki = $("kName"); if(ki && !ki.value){ ki.value = q; var kp = $("kPin"); if(kp) setTimeout(function(){ kp.focus(); }, 50); } }
+  }
 };
 function kLogin(){
   var nm = ($("kName").value || "").trim(), pin = ($("kPin").value || "").trim(), er = $("kErr");
@@ -99,15 +105,45 @@ function kPull(){
   var n = KC.name;
   return Promise.all([KC.db.ref("/kids/" + KC.uid).once("value"), KC.db.ref("/kids/_board").once("value").catch(function(){ return null; }), KC.db.ref("/kids/_cfg").once("value").catch(function(){ return null; })]).then(function(r){
     var S = r[0].val() || {}, has = S.rec || S.xp != null || S.st;
-    if(has){ KEYS.forEach(function(k){ DB[k] = DB[k] || {}; if(S[k]) DB[k][n] = S[k]; }); if(S.xp != null) DB.xp[n] = S.xp; }
+    // 이 폰 기록(로그인 안 하고 QR 로 한 것 등)과 서버 기록을 합침 — 어느 쪽도 버리지 않음
+    var localHad = !!((DB.rec || {})[n] || xpOf(n));
+    if(has){ var mg = kMerge(S, n); KEYS.forEach(function(k){ DB[k] = DB[k] || {}; if(mg[k]) DB[k][n] = mg[k]; }); DB.xp[n] = mg.xp; }
     var B = r[1] && r[1].val() || {}; Object.keys(B).forEach(function(u){ var b = B[u]; if(b && b.name && b.name !== n){ if(DB.names.indexOf(b.name) < 0) DB.names.push(b.name); DB.xp[b.name] = b.xp || 0; } });
     KC.cfg = r[2] && r[2].val() || null;
     // 모든 폰 공통 부모님 비밀번호는 이 폰에도 기억 (로그인 전 설정 화면에서도 쓰게)
     if(KC.cfg && KC.cfg.ppw) DB.opt.ppwS = KC.cfg.ppw; else delete DB.opt.ppwS;
     _save0();
-    if(!has) kPush(true);   // 처음 로그인: 이 폰에 있던 기록을 서버로
+    if(!has || localHad) kPush(true);   // 처음 로그인 · 이 폰에만 있던 기록 → 서버로
   });
 }
+// 서버 기록 S + 이 폰 기록(이름 n) 합치기: 시험 기록은 같은 것(날짜·점수·맞은 수)만 빼고 다 모음, 경험치·기록은 큰 쪽
+function kMerge(S, n){
+  var L = function(k){ return (DB[k] || {})[n]; }, out = {};
+  var rec = JSON.parse(JSON.stringify(S.rec || {})), lr = L("rec") || {};
+  Object.keys(lr).forEach(function(key){
+    var a = rec[key] = rec[key] || [], sig = {};
+    a.forEach(function(x){ sig[[x.d, x.score, x.ok, x.n].join("|")] = 1; });
+    (lr[key] || []).forEach(function(x){ var s = [x.d, x.score, x.ok, x.n].join("|"); if(!sig[s]){ a.push(x); sig[s] = 1; } });
+    a.forEach(function(x, i){ x.no = i + 1; });
+  });
+  out.rec = rec;
+  var st = JSON.parse(JSON.stringify(S.st || {})), ls = L("st") || {};
+  Object.keys(ls).forEach(function(key){ st[key] = st[key] || {}; Object.keys(ls[key] || {}).forEach(function(s){ if(ls[key][s]) st[key][s] = ls[key][s]; }); });
+  out.st = st;
+  var sp = JSON.parse(JSON.stringify(S.speed || {})), lp = L("speed") || {};
+  Object.keys(lp).forEach(function(k){ sp[k] = Math.max(sp[k] || 0, lp[k] || 0); });
+  out.speed = sp;
+  var sd = S.day || null, ld = L("day") || null;
+  out.day = !sd ? ld : !ld ? sd : (String(ld.d) > String(sd.d) ? ld : String(ld.d) < String(sd.d) ? sd : (ld.streak || 0) >= (sd.streak || 0) ? ld : sd);
+  out.xp = Math.max(Number(S.xp) || 0, xpOf(n));
+  return out;
+}
+// 📷 QR 로 들어오면(주소 ?n=이름) 로그인 화면으로 — 이름은 미리 채워 두고 비밀번호만 (로그인해야 서버에 기록돼요)
+(function(){
+  if(!_kOn()) return;
+  var n = new URLSearchParams(location.search).get("n"); if(!n) return;
+  KC.qrName = n; ME = ""; go("vName");
+})();
 function kPush(now){
   if(!KC.uid || !KC.name || (!now && ME !== KC.name)) return;   // 평소엔 로그인한 아이로 공부 중일 때만, 첫 로그인 올리기(now)는 바로
   clearTimeout(KC.t);
