@@ -26653,7 +26653,7 @@ async function shipOpen(k){
     }
     bar+='<div class="muted" style="font-size:11px;margin-top:6px">📤 송장업로드=받는분 매칭 송장 저장 · 송장발송=받는분/담당자 문자(미리보기 확인)</div></div>';
   }
-  // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) 우선 ② 없으면 주문히스토리(excel_orders)에서 이름+전화로 조회
+  // 송장 표시: ① 이 파일에 직접 업로드된 송장(d.trk) ② 이 파일에서 만든 주문(파일명-순번) ③ 행의 주문번호로 주문히스토리 ④ 주문번호 없을 때만 이름+전화(이 파일 날짜 근처)
   var trkMap=[], delFlag=[], rowSd=[], rowPath=[], rowIns=[], rowChg=[], rowBtel=[], rowNo=[];
   var _fileNm=String(d.file||'');   // 이 파일 주문: 주문번호가 "파일명-순번"
   if(ni>=0){
@@ -26666,22 +26666,27 @@ async function shipOpen(k){
         if(v['수취인명']||v['플랫폼']||v['송장번호']!==undefined){
           var key=_trkNrm(v['수취인명'])+'|'+_trkTail(v['수취인전화']);
           var ono=String(v['주문번호']||'');
+          var pno=String(v['상품주문번호']||'');
+          if(pno && pno!==ono && !byNo[pno]) byNo[pno]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), path:p, no:pno};
           if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), ins:String(v['인사말']||''), chg:String(v['변경주소']||''), btel:String(v['구매자전화']||''), bname:String(v['구매자명']||''), no:ono, path:p};
-          if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||''}); }
+          if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||'', dt:String(v['등록일시']||'')}); }
           if(v['del'] && _fileNm && ono.indexOf(_fileNm+'-')===0) delSet[key]=1;
         }
         else { walk(v,p); }
       }); })(ORD,'/excel_orders');
+      var oci=_shipNoCol(heads), fileDay=String(d.t||'');
       rows.forEach(function(r,i2){
         var rec = _fileNm ? byNo[_fileNm+'-'+(i2+1)] : null;
+        var rowNo2 = oci>=0 ? String(r[oci]||'').trim() : '';
+        if(!rec && rowNo2) rec = byNo[rowNo2] || null;   // 행에 주문번호가 있으면 그 번호로
         var nm=_trkNrm(String(r[ni]||'')), tel=ti>=0?_trkTail(r[ti]):'';
         var st=stored[i2]||stored[String(i2)];
         if(st&&st.t){ trkMap[i2]={trk:st.t, car:st.c||''}; }
         else if(rec && rec.trk){ trkMap[i2]={trk:rec.trk, car:rec.car||''}; }
-        else if(nm){
-          var q=(idx[nm+'|'+tel]&&idx[nm+'|'+tel].length)?idx[nm+'|'+tel]:null;
-          if(!q){ var bn=Object.keys(idx).filter(function(x){return x.indexOf(nm+'|')===0&&idx[x].length;}); if(bn.length) q=idx[bn[0]]; }
-          if(q) trkMap[i2]=q.shift();
+        else if(!rec && !rowNo2 && nm && tel){
+          // 주문번호가 없을 때만: 이름+전화가 같고 이 파일 날짜 근처 주문 하나
+          var q=(idx[nm+'|'+tel]||[]).filter(function(x){ return !x.used && _shipNear(x.dt, fileDay); });
+          if(q.length){ q[0].used=true; trkMap[i2]={trk:q[0].trk, car:q[0].car}; }
         }
         delFlag[i2] = rec ? !!rec.del : !!delSet[nm+'|'+tel];
         rowSd[i2] = (rec&&rec.sd) ? rec.sd : String(d['발송일자']||'');
@@ -26922,6 +26927,12 @@ function _trkNrm(s){
   return s;
 }
 function _trkTail(s){ return String(s).replace(/[^0-9]/g,'').slice(-4); }
+// 📦 송장 찾기 규칙 (2026-11-09 고침 — 예전 주문 송장을 이름·전화로 잘못 가져오던 것)
+//   ① 주문번호가 있으면 주문번호로만 찾음 (이름·주소·연락처로 끼워 맞추지 않음)
+//   ② 주문번호가 없을 때만 이름+전화로 — 그것도 이 파일 날짜 근처(7일 전 ~ 3일 뒤) 주문만, 이름만 같은 건 안 씀
+function _shipNoCol(heads){ return (heads||[]).findIndex(function(x){ return /주문\s*번호|상품주문번호|order\s*no/i.test(String(x||'')); }); }
+function _shipDay(s){ var m=String(s||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? new Date(+m[1], +m[2]-1, +m[3]).getTime() : 0; }
+function _shipNear(orderDate, fileDate){ var o=_shipDay(orderDate), f=_shipDay(fileDate); if(!o||!f) return true; var dd=(o-f)/86400000; return dd>=-7 && dd<=3; }
 // 전화번호 → 탭하면 전화 걸리는 링크(tel:). 번호 없거나 형식오류면 빨간 표시
 function _telLink(v){
   var s=String(v==null?'':v).trim();
@@ -27065,9 +27076,14 @@ function shipTrackUpload(k, file){
       // 이 파일 받는분 인덱스 (행번호)
       var fidx={};
       rows.forEach(function(r,i){ var nm=_trkNrm(String(r[ni]||'')); if(!nm) return; var key=nm+'|'+(ti>=0?_trkTail(r[ti]):''); (fidx[key]=fidx[key]||[]).push(i); });
-      // 주문히스토리 인덱스 (송장 없는 것)
-      var oidx={};
-      Object.keys(ORDH_DATA).forEach(function(key){ var o=ORDH_DATA[key]||{}; if(o['송장번호']) return; var kk=_trkNrm(o['수취인명'])+'|'+_trkTail(o['수취인전화']); (oidx[kk]=oidx[kk]||[]).push(key); });
+      // 주문히스토리 (송장 없는 것) — 주문번호로 찾는 표 + 이름|전화 표(이 파일 날짜 근처만)
+      var oidx={}, onoIdx={}, fileDay=String(d.t||''), oci=_shipNoCol(heads), _fileNm=String(d.file||'');
+      Object.keys(ORDH_DATA).forEach(function(key){ var o=ORDH_DATA[key]||{}; if(o['송장번호']) return;
+        [o['주문번호'], o['상품주문번호']].forEach(function(no){ no=String(no||'').trim(); if(no) onoIdx[no]=key; });
+        if(!_shipNear(o['등록일시'], fileDay)) return;
+        var tl=_trkTail(o['수취인전화']); if(!tl) return;
+        var kk=_trkNrm(o['수취인명'])+'|'+tl; (oidx[kk]=oidx[kk]||[]).push(key); });
+      var used={};
       var basePath=(SHIP_PATH[k]||'/excel_ship/'+k);
       var updates={}, ok=0, miss=0, missNames=[];
       var pick=function(idxMap,nm,tel){
@@ -27081,7 +27097,13 @@ function shipTrackUpload(k, file){
         if(ri===null){ miss++; if(missNames.length<10) missNames.push(p.nmRaw); return; }
         updates[basePath+'/trk/'+ri]={t:p.trk, c:car};
         ok++;
-        var okey=pick(oidx,nm,tel);   // 주문히스토리도 동기화
+        // 주문히스토리도 동기화 — ① 이 행이 만든 주문(파일명-순번) ② 행의 주문번호 ③ 주문번호 없을 때만 이름+전화(날짜 근처, 전화 끝 4자리까지 같아야)
+        var rowNo3 = oci>=0 ? String((rows[ri]||[])[oci]||'').trim() : '', okey=null;
+        if(_fileNm && onoIdx[_fileNm+'-'+(ri+1)]) okey=onoIdx[_fileNm+'-'+(ri+1)];
+        else if(rowNo3) okey=onoIdx[rowNo3]||null;
+        else if(tel){ var cand=(oidx[nm+'|'+tel]||[]).filter(function(x){ return !used[x]; }); if(cand.length) okey=cand[0]; }
+        if(okey!==null && used[okey]) okey=null;
+        if(okey!==null) used[okey]=1;
         if(okey!==null){ updates[(ORDH_PATH[okey]||'/excel_orders/'+okey)+'/송장번호']=p.trk; if(car) updates[(ORDH_PATH[okey]||'/excel_orders/'+okey)+'/택배사']=car; }
       });
       if(ok===0){ alert('이 파일에서 매칭된 받는분이 없습니다.'+(missNames.length?('\n\n송장파일 이름 예: '+missNames.join(', ')):'')); return; }
@@ -28279,7 +28301,7 @@ var ORDH_LIMIT=300;   // 주문히스토리 표시 개수 (더보기/전체펼�
 var ORDH_RENDER_TOKEN=0;   // 청크 렌더 중복 방지 토큰
 var ORDH_LAST_ROWS=[];     // 현재 필터 결과(엑셀 다운로드용)
 // 주문히스토리 열너비(px) — 이 PC에 저장. 순서: 체크·등록일시·발송일자·플랫폼·수취인·수취인전화·주소·구매자·구매자전화·상품명·수량·택배사·송장번호·문자·주소확인·명함인사말·주소변경·수정삭제
-var ORDH_COLW_DEF=[34,132,140,72,76,118,240,76,118,180,48,66,120,84,78,110,86,88];
+var ORDH_COLW_DEF=[34,132,140,72,150,76,118,240,76,118,180,48,66,120,84,78,110,86,88];   // 플랫폼 다음에 주문번호(150)
 var ORDH_COLW=(function(){ try{ var s=JSON.parse(localStorage.getItem('gamunOrdhColW')||'null'); if(s&&s.length===ORDH_COLW_DEF.length) return s.map(Number); }catch(e){} return ORDH_COLW_DEF.slice(); })();
 function _ordhSaveColW(){ try{ localStorage.setItem('gamunOrdhColW', JSON.stringify(ORDH_COLW)); }catch(e){} }
 function _ordhColgroup(){ return '<colgroup>'+ORDH_COLW.map(function(w){return '<col style="width:'+w+'px">';}).join('')+'</colgroup>'; }
@@ -28406,6 +28428,8 @@ function ordhInsertOk(k,on){
     .catch(function(e){ alert('실패: '+e.message); });
 }
 // 📄 주문번호(와꾸는 파일명) 보기 — 길어서 눌러서 확인·복사
+// 진짜 주문번호 — 스마트스토어 등은 상품주문번호(없으면 주문번호), 와꾸는 파일명-순번이라 빈칸
+function _ordhRealNo(d){ d=d||{}; if(d['플랫폼']==='와꾸') return String(d['상품주문번호']||'').trim(); return String(d['상품주문번호']||d['주문번호']||'').trim(); }
 function ordhShowNo(k){
   var d=ORDH_DATA[k]||{};
   var no=String(d['주문번호']||'(주문번호 없음)');
@@ -28761,7 +28785,7 @@ function renderOrderHist(){
     h='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#334155;margin-bottom:8px"><input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)" style="width:18px;height:18px"> 전체선택</label>';
     h+='<div id="ordh_body"></div>';
   } else {
-    var _labels=['<input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)">','등록일시','📅발송일자','플랫폼','수취인','수취인전화','주소','구매자','구매자전화','상품명','수량','택배사','송장번호','문자','주소확인','🎴명함·인사말','📍주소변경','수정/삭제'];
+    var _labels=['<input type="checkbox" id="ordh_all" onclick="ordhCheckAll(this.checked)">','등록일시','📅발송일자','플랫폼','주문번호','수취인','수취인전화','주소','구매자','구매자전화','상품명','수량','택배사','송장번호','문자','주소확인','🎴명함·인사말','📍주소변경','수정/삭제'];
     var _thead='<thead><tr style="position:sticky;top:0;background:#f1f5f9;z-index:2">'+_labels.map(function(lb,ci){ return '<th style="position:relative">'+lb+'<span class="ordhrz" onpointerdown="_ordhRzStart(event,'+ci+')" title="드래그로 열너비 조절"></span></th>'; }).join('')+'</tr></thead>';
     h='<table class="tbl ordhtbl" style="width:'+_ordhTblWidth()+'px;white-space:nowrap">'+_ordhColgroup()+_thead+'<tbody id="ordh_body"></tbody></table>';
   }
@@ -28791,6 +28815,7 @@ function _ordhRowHtml(row){
   h+='<td style="font-size:12px">'+(d['등록일시']||'')+(isDel?' <span style="background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:800">삭제됨</span>':'')+'</td>';
   h+='<td><input type="date" value="'+esc(_shipDateOf(d))+'" onchange="ordhSetShipDate(\''+row.k+'\',this.value)" style="width:130px;font-size:12px;padding:2px 4px;border:1px solid '+(d['발송일자']?'#16a34a':'#cbd5e1')+';border-radius:6px'+(d['발송일자']?';background:#f0fdf4;font-weight:700':'')+'" title="'+(d['발송일자']?'발송일자 지정됨':'미지정 (등록일 기준 표시)')+'"></td>';
   h+='<td onclick="ordhShowNo(\''+row.k+'\')" style="cursor:pointer" title="주문번호(와꾸는 파일명) 보기">'+(d['플랫폼']||'')+' <span style="color:#94a3b8;font-size:11px">📄</span></td>';
+  h+='<td style="font-size:12px;font-family:monospace;overflow:hidden;text-overflow:ellipsis" title="'+esc(_ordhRealNo(d)||'와꾸(엑셀 목록) — 진짜 주문번호 없음 · 📄 눌러 파일명 보기')+'">'+(_ordhRealNo(d)?esc(_ordhRealNo(d)):'<span style="color:#94a3b8">와꾸</span>')+'</td>';
   h+='<td style="font-weight:600">'+(d['수취인명']||'')+'</td>';
   h+='<td style="font-size:12px">'+_telLink(d['수취인전화'])+'</td>';
   h+='<td style="max-width:220px;font-size:12px" title="'+esc(d['주소']||'')+(_chg?(' → 📍변경: '+esc(_chg)):'')+'"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap'+(_chg?';color:#94a3b8;text-decoration:line-through':'')+'">'+esc(d['주소']||'')+'</div>'+(_chg?('<div style="color:#ea580c;font-weight:700;white-space:normal">📍'+esc(_chg)+'</div>'):'')+'</td>';
