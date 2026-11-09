@@ -17,6 +17,9 @@ var ABC = [
 ].map(function(r){ return { L: r[0], l: r[0].toLowerCase(), nm: r[1], snd: r[2], jamo: r[3], ex: r[4], exK: r[5], em: r[6] }; });
 var ABC_SND = {}; ABC.forEach(function(x){ ABC_SND[x.l] = x.snd; });
 var ABC_LV = [
+  // 🅰 대·소문자만 — 글자 모양과 이름만 (소리·단어 없이)
+  { id: "u1", t: "대·소문자만 A ~ M", from: 0, to: 13, only: true }, { id: "u2", t: "대·소문자만 N ~ Z", from: 13, to: 26, only: true }, { id: "u3", t: "대·소문자만 A ~ Z 전체", from: 0, to: 26, only: true },
+  // 🔤 소리까지 — 이름 · 소리(b = 브) · 예시 단어
   { id: "a1", t: "A ~ I", from: 0, to: 9 }, { id: "a2", t: "J ~ R", from: 9, to: 18 }, { id: "a3", t: "S ~ Z", from: 18, to: 26 }, { id: "a4", t: "A ~ Z 전체", from: 0, to: 26 }
 ];
 var AB = { lv: null };
@@ -54,25 +57,39 @@ function abcBlend(w){ return String(w).toLowerCase().split("").filter(function(c
   while(box.firstChild){ if(before) W.insertBefore(box.firstChild, before); else W.appendChild(box.firstChild); }
   ["vAbc", "vAbcMode", "vAbcCard", "vAbcQuiz", "vAbcWrite", "vAbcRes"].forEach(function(v){ VIEWS.push(v); });
 })();
+// 과목 단추줄(받아쓰기·수학·한자·영어)에 🔤 ABC 단추 — 어디서든 바로 알파벳으로
+var AB_BTN = '<button class="abBtn" style="font-size:19px;background:#1d4ed8" onclick="go(\'vAbc\')">🔤 ABC</button>';
+(function(){
+  ["vLevel", "vMath"].forEach(function(v){ var row = document.querySelector("#" + v + " .card .row"); if(row && !row.querySelector(".abBtn")) row.insertAdjacentHTML("beforeend", AB_BTN); });
+})();
 var _goAbc0 = go;
-go = function(id){ _goAbc0(id); if(id === "vAbc") abRenderLevels(); if(id === "vAbcMode") abRenderSteps(); };
+go = function(id){
+  _goAbc0(id);
+  if(id === "vWs"){ var r = document.getElementById("wsSubRow"); if(r && !r.querySelector(".abBtn")) r.insertAdjacentHTML("beforeend", AB_BTN); }
+  if(id === "vAbc") abRenderLevels(); if(id === "vAbcMode") abRenderSteps();
+};
 
 function abRenderLevels(){
   $("abWho").textContent = whoLabel(ME);
-  $("abLevels").innerHTML = ABC_LV.map(function(x){
+  var tile = function(x){
     var k = "ABC·" + x.id, b = best(ME, k), st = stepsOf(ME, k);
     var badge = b == null ? "" : (b >= passScore() ? '<span class="badge">✅ ' + b + '점</span>' : '<span class="badge no">' + b + '점</span>');
     var dots = (st.s1 ? "●" : "○") + (st.s2 ? "●" : "○") + (st.s3 ? "●" : "○") + (st.s4 ? "●" : "○") + (b != null && b >= passScore() ? "●" : "○");
-    return '<button class="lv" style="background:#1d4ed8" onclick="AB.lv=ABC_LV[' + ABC_LV.indexOf(x) + '];go(\'vAbcMode\')">' + badge + '🔤 ' + x.t + '<small class="abig" style="font-size:18px">' + ABC.slice(x.from, Math.min(x.to, x.from + 6)).map(function(a){ return a.L + a.l; }).join(" ") + (x.to - x.from > 6 ? " …" : "") + '</small><span class="dots">' + dots + '</span></button>';
-  }).join("");
+    return '<button class="lv" style="background:' + (x.only ? "#7c3aed" : "#1d4ed8") + '" onclick="AB.lv=ABC_LV[' + ABC_LV.indexOf(x) + '];go(\'vAbcMode\')">' + badge + (x.only ? '🅰 ' : '🔤 ') + x.t + '<small class="abig" style="font-size:18px">' + ABC.slice(x.from, Math.min(x.to, x.from + 6)).map(function(a){ return a.L + a.l; }).join(" ") + (x.to - x.from > 6 ? " …" : "") + '</small><span class="dots">' + dots + '</span></button>';
+  };
+  $("abLevels").innerHTML = '<div style="grid-column:1/-1;font-weight:800;margin:4px 0 2px">🅰 1단계: 대문자·소문자 익히기 <span style="font-weight:600;color:#64748b;font-size:13px">— 글자 모양과 이름만</span></div>'
+    + ABC_LV.filter(function(x){ return x.only; }).map(tile).join("")
+    + '<div style="grid-column:1/-1;font-weight:800;margin:12px 0 2px">🔤 2단계: 글자 소리 익히기 <span style="font-weight:600;color:#64748b;font-size:13px">— b 는 「브」(ㅂ) 소리</span></div>'
+    + ABC_LV.filter(function(x){ return !x.only; }).map(tile).join("");
 }
 function abRenderSteps(){
   var k = abcKey(), st = stepsOf(ME, k), b = best(ME, k), passed = b != null && b >= passScore();
   $("abModeTitle").textContent = ME + " · 🔤 " + AB.lv.t;
+  var only = AB.lv.only;
   var steps = [
-    { done: st.s1, t: "📖 보기", d: "글자 이름 · 소리 · 단어 듣기", c: "#15803d", f: "abCards()" },
-    { done: st.s2, t: "🔊 소리 고르기", d: "글자를 보고 무슨 소리인지 — 10개 맞히면 완료", c: "#0891b2", f: "abStart('snd')" },
-    { done: st.s3, t: "👂 듣고 고르기", d: "이름·소리를 듣고 글자 찾기 — 10개 맞히면 완료", c: "#7c3aed", f: "abStart('hear')" },
+    { done: st.s1, t: "📖 보기", d: only ? "대문자 · 소문자 모양과 이름 듣기" : "글자 이름 · 소리 · 단어 듣기", c: "#15803d", f: "abCards()" },
+    { done: st.s2, t: only ? "🔁 짝 찾기" : "🔊 소리 고르기", d: only ? "대문자 ↔ 소문자 짝 찾기 — 10개 맞히면 완료" : "글자를 보고 무슨 소리인지 — 10개 맞히면 완료", c: "#0891b2", f: "abStart('snd')" },
+    { done: st.s3, t: "👂 듣고 고르기", d: only ? "이름을 듣고 글자 찾기 — 10개 맞히면 완료" : "이름·소리를 듣고 글자 찾기 — 10개 맞히면 완료", c: "#7c3aed", f: "abStart('hear')" },
     { done: st.s4, t: "✍️ 쓰기", d: "대문자 · 소문자 따라 쓰기", c: "#b45309", f: "abWrite()" },
     { done: passed, t: "📝 시험", d: b == null ? "10문제" : "최고 " + b + "점" + (passed ? " ✅ 통과" : ""), c: "#1d4ed8", f: "abStart('test')" }
   ];
@@ -85,12 +102,14 @@ function abRenderSteps(){
 // 한 글자 읽어 주기: 이름(영어) → "브 소리" → 단어(영어) → 뜻
 function abSay(a){
   stopAll();
+  if(AB.lv && AB.lv.only) return speakEn(a.L, 0.7).then(function(){ return wait(200); }).then(function(){ return speak(a.nm, 0.85); });
   return speakEn(a.L, 0.7).then(function(){ return wait(250); }).then(function(){ return speak(a.snd + " 소리", 0.85); })
     .then(function(){ return wait(250); }).then(function(){ return speakEn(a.ex, 0.75); }).then(function(){ return speak(a.exK, 0.9); });
 }
 function abCards(){
   $("acTitle").textContent = ME + " · " + AB.lv.t;
   $("acList").innerHTML = abcItems().map(function(a, i){
+    if(AB.lv.only) return '<div class="acard" onclick="abSay(abcItems()[' + i + '])"><span class="abig" style="font-size:60px">' + a.L + ' ' + a.l + '</span><span class="nm" style="font-size:18px">「' + a.nm + '」</span></div>';
     return '<div class="acard" onclick="abSay(abcItems()[' + i + '])"><span class="abig">' + a.L + ' ' + a.l + '</span><span class="nm">이름 「' + a.nm + '」</span><br><span class="sd">소리 「' + a.snd + '」 ' + esc(a.jamo) + '</span><br><span class="ex">' + a.em + ' <b>' + a.ex + '</b> ' + a.exK + '</span></div>';
   }).join("");
   go("vAbcCard");
@@ -111,15 +130,15 @@ async function abReadAll(){
 var AQ = null;
 function abStart(mode){
   var L = abcItems(), qs = [];
-  if(mode === "test") qs = shuffle(L).slice(0, Math.min(10, L.length)).map(function(a, i){ return { a: a, kind: ["snd", "hear", "low"][i % 3] }; });
+  if(mode === "test") qs = shuffle(L).slice(0, Math.min(10, L.length)).map(function(a, i){ return { a: a, kind: AB.lv.only ? ["low", "up", "hear"][i % 3] : ["snd", "hear", "low"][i % 3] }; });
   AQ = { mode: mode, qs: qs, idx: 0, ok: [], ans: [], right: 0, wrong: 0, miss: 0, t0: Date.now() };
-  $("aqTitle").textContent = ME + " · " + AB.lv.t + " · " + ({ snd: "🔊 소리 고르기", hear: "👂 듣고 고르기", test: "📝 시험" }[mode]);
+  $("aqTitle").textContent = ME + " · " + AB.lv.t + " · " + ({ snd: AB.lv.only ? "🔁 짝 찾기" : "🔊 소리 고르기", hear: "👂 듣고 고르기", test: "📝 시험" }[mode]);
   go("vAbcQuiz"); abNext();
 }
 function abNext(){
   var m = AQ, L = abcItems(), a, kind;
   if(m.mode === "test"){ a = m.qs[m.idx].a; kind = m.qs[m.idx].kind; }
-  else { a = L[RN(0, L.length - 1)]; if(m.cur && L.length > 1) while(a === m.cur) a = L[RN(0, L.length - 1)]; kind = m.mode; }
+  else { a = L[RN(0, L.length - 1)]; if(m.cur && L.length > 1) while(a === m.cur) a = L[RN(0, L.length - 1)]; kind = m.mode; if(AB.lv.only && kind === "snd") kind = RN(0, 1) ? "low" : "up"; }
   m.cur = a; m.kind = kind; m.miss = 0; m.busy = false; $("aqFb").textContent = "";
   var pool = L.length >= 4 ? L : ABC, others = shuffle(pool.filter(function(x){ return x !== a; })).slice(0, 3), opts = shuffle(others.concat([a]));
   if(kind === "snd"){
@@ -133,6 +152,10 @@ function abNext(){
     $("aqQ").innerHTML = '<span style="font-size:60px">👂</span>';
     $("aqOpts").innerHTML = opts.map(function(o){ return '<button class="wopt abig" style="font-size:40px" data-v="' + o.L + '" onclick="abPick(this)">' + o.L + ' ' + o.l + '</button>'; }).join("");
     abSay(a);
+  } else if(kind === "up"){   // up: 소문자 보고 대문자 고르기
+    $("aqAsk").textContent = "이 소문자의 대문자는?";
+    $("aqQ").innerHTML = '<span class="abig" style="font-size:96px;color:#7c3aed">' + a.l + '</span>';
+    $("aqOpts").innerHTML = opts.map(function(o){ return '<button class="wopt abig" style="font-size:44px" data-v="' + o.L + '" onclick="abPick(this)">' + o.L + '</button>'; }).join("");
   } else {   // low: 대문자 보고 소문자 고르기
     $("aqAsk").textContent = "이 대문자의 소문자는?";
     $("aqQ").innerHTML = '<span class="abig" style="font-size:96px;color:#1d4ed8">' + a.L + '</span>';
@@ -155,11 +178,11 @@ function abPick(btn){
   }
   if(ok){
     m.right++; m.busy = true; btn.style.background = "#15803d";
-    $("aqFb").innerHTML = '<span style="color:#15803d">⭕ 딩동댕! <span class="abig">' + a.L + a.l + '</span> = 「' + a.snd + '」 소리</span>';
-    speak(a.snd + " 소리", 0.9);
+    $("aqFb").innerHTML = '<span style="color:#15803d">⭕ 딩동댕! <span class="abig">' + a.L + ' ' + a.l + '</span> ' + (AB.lv.only ? '「' + a.nm + '」' : '= 「' + a.snd + '」 소리') + '</span>';
+    if(AB.lv.only) speakEn(a.L, 0.8); else speak(a.snd + " 소리", 0.9);
     gainXp(2, "연습", abcKey() + "|prac");
     setTimeout(function(){
-      if(m.right >= 10 && !m.doneShown){ m.doneShown = true; var st = stepsOf(ME, abcKey()), s = m.mode === "snd" ? "s2" : "s3"; if(!st[s]){ st[s] = true; save(); } alert((m.mode === "snd" ? "🔊 소리 고르기" : "👂 듣고 고르기") + " 10개 성공! (계속해도 돼요)"); }
+      if(m.right >= 10 && !m.doneShown){ m.doneShown = true; var st = stepsOf(ME, abcKey()), s = m.mode === "snd" ? "s2" : "s3"; if(!st[s]){ st[s] = true; save(); } alert((m.mode === "snd" ? (AB.lv.only ? "🔁 짝 찾기" : "🔊 소리 고르기") : "👂 듣고 고르기") + " 10개 성공! (계속해도 돼요)"); }
       abNext();
     }, 900);
   } else {
@@ -178,7 +201,7 @@ function abFinish(){
     score: sc, n: n, ok: ok, diff: "normal", where: "screen", sheet: ME, sec: sec, wrong: wrongTxt.map(function(t){ return "q:" + t; }),
     res: m.qs.map(function(q, i){ return [0, i + 1, m.ok[i] ? 1 : 0, q.a.L + q.a.l + " 「" + q.a.snd + "」" + (m.ok[i] ? "" : " (고른 것 " + m.ans[i] + ")")]; }) });
   save();
-  var lab = { snd: "소리", hear: "듣기", low: "소문자" };
+  var lab = { snd: "소리", hear: "듣기", low: "소문자", up: "대문자" };
   $("arTitle").textContent = "🎉 끝! " + arr.length + "회차";
   $("arScore").innerHTML = '<b style="color:' + (sc >= passScore() ? "#15803d" : "#b91c1c") + '">' + sc + '점</b>⭕ ' + ok + ' ❌ ' + (n - ok) + (sc === 100 ? " · 💯" : sc >= passScore() ? " · ✅ 통과!" : "");
   $("arList").innerHTML = m.qs.map(function(q, i){ return '<li>' + (m.ok[i] ? "⭕" : "❌") + ' <span style="color:#64748b;font-size:14px">' + lab[q.kind] + '</span> <b class="abig" style="font-size:24px">' + q.a.L + ' ' + q.a.l + '</b> 「' + q.a.snd + '」 소리 · ' + q.a.ex + (m.ok[i] ? '' : ' <span style="color:#b91c1c">(고른 것 ' + esc(m.ans[i]) + ')</span>') + '</li>'; }).join("");

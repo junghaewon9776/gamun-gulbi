@@ -75,104 +75,120 @@ function kdPrint(k){
     + '<h1>' + esc(x.name) + ' 시험 기록지</h1><div style="text-align:right;font-size:13px;margin-bottom:6px">🎖 ' + esc(x.rk || "") + ' · 경험치 ' + (x.xp || 0) + ' · ' + esc(todayKST ? todayKST() : "") + '</div>' + _kdRecHtml(k, true) + '</body></html>');
   w.document.close();
 }
-// 👦 아이 계정 (받아쓰기 로그인) — 계정관리 · 아이들 탭에 같이 나옴. 역할 "kid", 아이디 = 이름(성 붙여도 됨, 예: 정다원)
-//   nm = 성 뺀 이름(다원) — 받아쓰기 앱 안에서 급수표·학년·형제 순서를 이 이름으로 찾음
+// 👦 아이 계정 (받아쓰기 로그인) — 계정관리 · 아이들 탭에 같이 나옴. 역할 "kid"
+//   아이디 = "k" + 이름 UTF-8 16진수 (예: 정다원 → k1a2b…) — 로그인 도우미가 한글 아이디를 "??" 로 깨뜨려서 영문·숫자로만
+//   nm = 아이가 칠 이름 (예: 정다원) — 받아쓰기는 성을 빼고(다원) 급수표·학년·형제 순서를 찾음
 var KD_NAMES = ["다원", "라온", "은우", "도겸", "은교", "다윤"], KD_SURNAME = "정";
 function _kdShort(id){ id = String(id || ""); return KD_NAMES.indexOf(id) >= 0 ? id : (id.length >= 3 && KD_NAMES.indexOf(id.slice(1)) >= 0 ? id.slice(1) : id); }
-function _kdAcctList(){ var a = []; for(var k in US){ if(US[k] && US[k].r === "kid") a.push(k); } return a.sort(function(x, y){ var i = KD_NAMES.indexOf(_kdShort(x)), j = KD_NAMES.indexOf(_kdShort(y)); return (i < 0 ? 99 : i) - (j < 0 ? 99 : j) || x.localeCompare(y); }); }
+function _kdId(name){ return "k" + Array.prototype.map.call(new TextEncoder().encode(String(name).trim()), function(b){ return ("0" + b.toString(16)).slice(-2); }).join(""); }
+function _kdOk(id){ return /^k([0-9a-f]{2})+$/.test(String(id || "")); }
+function _kdNm(id){ return (US[id] && US[id].nm) || id; }
+function _kdAcctList(){ var a = []; for(var k in US){ if(US[k] && US[k].r === "kid") a.push(k); } return a.sort(function(x, y){ var i = KD_NAMES.indexOf(_kdShort(_kdNm(x))), j = KD_NAMES.indexOf(_kdShort(_kdNm(y))); return (i < 0 ? 99 : i) - (j < 0 ? 99 : j) || _kdNm(x).localeCompare(_kdNm(y)); }); }
 function _kdAcctCard(){
   if(typeof _isGlobalAdm !== "function" || !_isGlobalAdm()) return "";
-  var L = _kdAcctList(), have = L.map(_kdShort), miss = KD_NAMES.filter(function(n){ return have.indexOf(n) < 0; });
-  var noSur = L.filter(function(id){ return KD_NAMES.indexOf(id) >= 0; });
+  var L = _kdAcctList(), have = L.map(function(id){ return _kdShort(_kdNm(id)); }), miss = KD_NAMES.filter(function(n){ return have.indexOf(n) < 0; });
+  var bad = L.filter(function(id){ return !_kdOk(id); });
+  var noSur = L.filter(function(id){ return KD_NAMES.indexOf(_kdNm(id)) >= 0; });
   var h = '<div class="card" style="border:2px solid #16a34a;background:#f0fdf4"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px"><h3 style="margin:0;color:#14532d;font-weight:800">👦 아이 계정 (받아쓰기)</h3>';
   h += '<button class="btn btn-s" style="background:#16a34a;color:#fff;font-weight:700" onclick="kdAddKid()">+ 아이 추가</button></div>';
-  h += '<div style="font-size:12px;color:#166534;margin-bottom:8px">아이는 받아쓰기 첫 화면에서 <b>이름 + 비밀번호</b>로 들어가요 (처음 비밀번호 1234 · 들어가서 바꿀 수 있어요). 이 계정으로는 가문굴비 업무 화면은 못 봐요.</div>';
+  h += '<div style="font-size:12px;color:#166534;margin-bottom:8px">아이는 받아쓰기 첫 화면에서 <b>이름 + 비밀번호</b>로 들어가요 (처음 비밀번호 1234 · 들어가서 바꿀 수 있어요). 성 없이 이름만 쳐도 돼요. 이 계정으로는 가문굴비 업무 화면은 못 봐요.</div>';
+  if(bad.length) h += '<div style="margin-bottom:8px;padding:10px;background:#fef2f2;border:2px solid #dc2626;border-radius:8px;font-size:13px;color:#7f1d1d"><b>🔧 로그인하면 이름이 「??」로 나오는 계정 ' + bad.length + '개</b> (' + esc(bad.map(_kdNm).join(", ")) + ') — 한 번 고쳐 주세요. 비밀번호는 그대로예요.<br><button class="btn btn-s" style="background:#dc2626;color:#fff;margin-top:6px" onclick="kdFixIds()">🔧 지금 고치기</button>' + (noSur.length ? ' <label style="margin-left:6px"><input type="checkbox" id="kdFixSur" checked> 고치면서 이름 앞에 「' + KD_SURNAME + '」도 붙이기</label>' : '') + '</div>';
   if(miss.length) h += '<div style="margin-bottom:8px">' + miss.map(function(n){ return '<button class="btn btn-s" style="background:#15803d;color:#fff;margin:2px" onclick="kdAddKid(\'' + esc(KD_SURNAME + n) + '\')">+ ' + esc(KD_SURNAME + n) + '</button>'; }).join("") + '</div>';
-  if(noSur.length) h += '<div style="margin-bottom:8px;padding:8px 10px;background:#fefce8;border:1px solid #fde047;border-radius:8px;font-size:13px">성이 없는 아이디 ' + noSur.length + '개 (' + esc(noSur.join(", ")) + ') <button class="btn btn-s" style="background:#a16207;color:#fff;margin-left:6px" onclick="kdAddSurname()">🏷 모두 「' + KD_SURNAME + '」 붙이기</button> <span style="color:#713f12">공부 기록·비밀번호는 그대로 옮겨져요</span></div>';
-  h += '<div class="scrollx"><table><tr><th>아이디 (로그인 이름)</th><th>관리</th></tr>';
+  if(!bad.length && noSur.length) h += '<div style="margin-bottom:8px;padding:8px 10px;background:#fefce8;border:1px solid #fde047;border-radius:8px;font-size:13px">성이 없는 이름 ' + noSur.length + '개 (' + esc(noSur.map(_kdNm).join(", ")) + ') <button class="btn btn-s" style="background:#a16207;color:#fff;margin-left:6px" onclick="kdAddSurname()">🏷 모두 「' + KD_SURNAME + '」 붙이기</button> <span style="color:#713f12">공부 기록·비밀번호는 그대로 옮겨져요</span></div>';
+  h += '<div class="scrollx"><table><tr><th>이름 (로그인할 때 치는 이름)</th><th>관리</th></tr>';
   if(!L.length) h += '<tr><td colspan="2" style="text-align:center;color:#999;padding:14px">아직 아이 계정이 없어요 — 위 이름 버튼을 누르면 바로 만들어져요</td></tr>';
-  L.forEach(function(id){ h += '<tr><td style="font-weight:800;font-size:15px">' + esc(id) + '</td><td><button class="btn btn-b btn-s" onclick="kdEditKid(\'' + esc(id) + '\')">✏️ 수정</button> <button class="btn btn-s" style="background:#b45309;color:#fff" onclick="kdResetPw(\'' + esc(id) + '\')">🔑 비번 1234로</button> <button class="btn btn-r btn-s" onclick="kdDelKid(\'' + esc(id) + '\')">삭제</button></td></tr>'; });
+  L.forEach(function(id){ h += '<tr><td style="font-weight:800;font-size:15px">' + esc(_kdNm(id)) + (_kdOk(id) ? '' : ' <span style="color:#dc2626;font-size:12px">🔧 고치기 필요</span>') + '</td><td><button class="btn btn-b btn-s" onclick="kdEditKid(\'' + esc(id) + '\')">✏️ 수정</button> <button class="btn btn-s" style="background:#b45309;color:#fff" onclick="kdResetPw(\'' + esc(id) + '\')">🔑 비번 1234로</button> <button class="btn btn-r btn-s" onclick="kdDelKid(\'' + esc(id) + '\')">삭제</button></td></tr>'; });
   return h + '</table></div></div>';
 }
-// ✏️ 아이디·비밀번호 수정
+// ✏️ 이름·비밀번호 수정
 function kdEditKid(id){
-  openPopup('<h3>✏️ ' + esc(id) + ' 수정 <button class="close-x" onclick="closePopup()">&times;</button></h3>'
-    + '<div class="frow fr2"><div><label>아이디 (받아쓰기에서 칠 이름)</label><input type="text" id="kdEdId" value="' + esc(id) + '"></div>'
+  openPopup('<h3>✏️ ' + esc(_kdNm(id)) + ' 수정 <button class="close-x" onclick="closePopup()">&times;</button></h3>'
+    + '<div class="frow fr2"><div><label>이름 (받아쓰기에서 칠 이름)</label><input type="text" id="kdEdId" value="' + esc(_kdNm(id)) + '"></div>'
     + '<div><label>새 비밀번호 <span style="font-weight:400;color:#64748b">(비우면 그대로)</span></label><input type="text" id="kdEdPw" inputmode="numeric" placeholder="숫자 4개 이상"></div></div>'
-    + '<div style="font-size:12px;color:#475569;margin-top:6px">아이디를 바꿔도 <b>공부 기록·계급은 그대로</b> 따라가요.</div>'
+    + '<div style="font-size:12px;color:#475569;margin-top:6px">이름을 바꿔도 <b>공부 기록·계급은 그대로</b> 따라가요.</div>'
     + '<div style="text-align:right;margin-top:14px"><button class="btn" style="background:#16a34a;color:#fff" onclick="kdEditSave(\'' + esc(id) + '\')">💾 저장</button></div>');
 }
 async function kdEditSave(oldId){
-  var nid = document.getElementById("kdEdId").value.trim(), pw = document.getElementById("kdEdPw").value.trim();
-  if(!nid){ alert("아이디를 넣어 주세요"); return; }
+  var nm = document.getElementById("kdEdId").value.trim(), pw = document.getElementById("kdEdPw").value.trim();
+  if(!nm){ alert("이름을 넣어 주세요"); return; }
   if(pw && pw.length < 4){ alert("비밀번호는 4자 이상이에요"); return; }
+  var nid = _kdId(nm);
   showLoading("저장 중...");
-  var r = nid !== oldId ? await _kdRename(oldId, nid, pw) : (pw ? await secHelper({ action: "setPw", id: oldId, newPw: pw }) : { ok: true });
+  var r = nid !== oldId ? await _kdRename(oldId, nid, pw, nm) : (pw ? await secHelper({ action: "setPw", id: oldId, newPw: pw }) : { ok: true });
   hideLoading();
   if(!r || !r.ok){ alert("실패: " + ((r && r.err) || "")); return; }
-  closePopup(); toast("✏️ " + nid + " 저장했어요" + (pw ? " (비밀번호 바뀜)" : "")); draw();
+  closePopup(); toast("✏️ " + nm + " 저장했어요" + (pw ? " (비밀번호 바뀜)" : "")); draw();
 }
 // 아이디 바꾸기: 회원명단 + 비밀번호(도우미가 옮김) + 공부 기록(/kids/옛아이디 → /kids/새아이디)
-async function _kdRename(oldId, nid, pw){
-  if(US[nid]) return { ok: false, err: "이미 있는 아이디예요: " + nid };
+async function _kdRename(oldId, nid, pw, nm){
+  if(US[nid]) return { ok: false, err: "이미 있는 이름이에요: " + (nm || nid) };
   var users = (_cache.Users || []).slice(), idx = -1;
   for(var i = 0; i < users.length; i++) if(users[i] && users[i].id === oldId){ idx = i; break; }
   if(idx < 0) return { ok: false, err: "계정을 찾을 수 없어요" };
+  nm = nm || _kdNm(oldId);
   try {
     var rec = (await fbDb.ref("/kids/" + oldId).once("value")).val(), bd = (await fbDb.ref("/kids/_board/" + oldId).once("value")).val();
     // ① 공부 기록부터 새 아이디로 복사 (여기서 막히면 아무것도 안 바뀜)
     try { if(rec) await fbDb.ref("/kids/" + nid).set(rec); if(bd) await fbDb.ref("/kids/_board/" + nid).set(bd); }
     catch(e){ return { ok: false, err: "공부 기록을 옮길 권한이 없어요 (보안 규칙에 관리자 쓰기 필요) — 아무것도 안 바뀌었어요" }; }
     // ② 회원명단 + 비밀번호
-    users[idx] = Object.assign({}, users[idx], { id: nid, nm: _kdShort(nid) });
+    users[idx] = Object.assign({}, users[idx], { id: nid, nm: nm });
     await saveMainNode("Users", users); _cache.Users = users;
     var h = await secHelper({ action: "setPw", id: nid, newPw: pw || "", fromId: oldId });
     if(!h.ok) return { ok: false, err: "비밀번호 옮기기 실패: " + h.err };
     // ③ 옛 기록 정리
     if(rec) await fbDb.ref("/kids/" + oldId).remove().catch(function(){});
     if(bd) await fbDb.ref("/kids/_board/" + oldId).remove().catch(function(){});
-    US[nid] = Object.assign({}, US[oldId], { nm: _kdShort(nid) }); delete US[oldId];
+    US[nid] = Object.assign({}, US[oldId], { nm: nm }); delete US[oldId];
     if(KD){ if(KD[oldId]){ KD[nid] = KD[oldId]; delete KD[oldId]; } if(KD_SEL === oldId) KD_SEL = nid; }
     return { ok: true };
   } catch(e){ return { ok: false, err: (e && e.message) || String(e) }; }
 }
-// 🏷 성 없는 아이디에 모두 성 붙이기 (다원 → 정다원)
-async function kdAddSurname(){
-  var L = _kdAcctList().filter(function(id){ return KD_NAMES.indexOf(id) >= 0; });
-  if(!L.length) return;
-  if(!confirm(L.map(function(id){ return id + " → " + KD_SURNAME + id; }).join("\n") + "\n\n이렇게 바꿀까요? (공부 기록·비밀번호는 그대로 옮겨져요)\n아이들한테 새 아이디를 알려 주세요.")) return;
-  showLoading("바꾸는 중...");
+async function _kdRenameMany(list, title){
+  if(!list.length) return;
+  if(!confirm(list.map(function(x){ return x[1] === _kdNm(x[0]) ? x[1] : _kdNm(x[0]) + " → " + x[1]; }).join("\n") + "\n\n" + title + "\n(공부 기록·비밀번호는 그대로 옮겨져요)")) return;
+  showLoading("고치는 중...");
   var bad = [];
-  for(var i = 0; i < L.length; i++){ var r = await _kdRename(L[i], KD_SURNAME + L[i], ""); if(!r.ok) bad.push(L[i] + ": " + r.err); }
+  for(var i = 0; i < list.length; i++){ var r = await _kdRename(list[i][0], _kdId(list[i][1]), "", list[i][1]); if(!r.ok) bad.push(_kdNm(list[i][0]) + ": " + r.err); }
   hideLoading();
-  if(bad.length) alert("일부 실패:\n" + bad.join("\n")); else toast("🏷 모두 성을 붙였어요");
+  if(bad.length) alert("일부 실패:\n" + bad.join("\n")); else toast("✅ 다 고쳤어요");
   draw();
 }
+// 🔧 한글 아이디(로그인하면 ??) → 영문 아이디로 (성 붙이기 같이 선택)
+function kdFixIds(){
+  var sur = document.getElementById("kdFixSur"), addSur = sur ? sur.checked : false;
+  _kdRenameMany(_kdAcctList().filter(function(id){ return !_kdOk(id); }).map(function(id){ var n = _kdNm(id); return [id, addSur && KD_NAMES.indexOf(n) >= 0 ? KD_SURNAME + n : n]; }), "이렇게 고칠까요?");
+}
+// 🏷 성 없는 이름에 모두 성 붙이기 (다원 → 정다원)
+function kdAddSurname(){
+  _kdRenameMany(_kdAcctList().filter(function(id){ return KD_NAMES.indexOf(_kdNm(id)) >= 0; }).map(function(id){ return [id, KD_SURNAME + _kdNm(id)]; }), "이렇게 바꿀까요? 아이들은 성 없이 이름만 쳐도 들어가져요.");
+}
 async function kdAddKid(nm){
-  if(!nm){ nm = prompt("👦 아이 이름 (받아쓰기에서 칠 이름)"); if(nm === null) return; nm = nm.trim(); }
+  if(!nm){ nm = prompt("👦 아이 이름 (받아쓰기에서 칠 이름, 예: 정다원)"); if(nm === null) return; nm = nm.trim(); }
   if(!nm) return;
-  if(US[nm]){ alert("이미 있는 아이디예요: " + nm); return; }
+  var id = _kdId(nm);
+  if(US[id]){ alert("이미 있는 이름이에요: " + nm); return; }
   showLoading("만드는 중...");
-  var r = await api("addAcct", { id: nm, pw: "1234", r: "kid", ar: "", nm: _kdShort(nm), tel: "", _who: CID });
+  var r = await api("addAcct", { id: id, pw: "1234", r: "kid", ar: "", nm: nm, tel: "", _who: CID });
   hideLoading();
   if(!r.ok){ alert(r.err || "실패"); return; }
-  US[nm] = { r: "kid", ar: "", nm: _kdShort(nm), tel: "" };
+  US[id] = { r: "kid", ar: "", nm: nm, tel: "" };
   toast(r.warn ? r.warn : "👦 " + nm + " 계정 만들었어요 (비밀번호 1234)", !!r.warn); draw();
 }
 async function kdResetPw(id){
-  if(!confirm(id + " 비밀번호를 1234 로 되돌릴까요?")) return;
+  if(!confirm(_kdNm(id) + " 비밀번호를 1234 로 되돌릴까요?")) return;
   showLoading("바꾸는 중...");
-  var r = typeof secHelper === "function" ? await secHelper({ action: "setPw", id: id, newPw: "1234" }) : await api("updateAcct", { oldId: id, id: id, pw: "1234", r: "kid", ar: "", nm: id });
+  var r = typeof secHelper === "function" ? await secHelper({ action: "setPw", id: id, newPw: "1234" }) : await api("updateAcct", { oldId: id, id: id, pw: "1234", r: "kid", ar: "", nm: _kdNm(id) });
   hideLoading();
-  if(r && r.ok) toast("🔑 " + id + " 비밀번호 1234 로 바꿨어요"); else alert("실패: " + ((r && r.err) || ""));
+  if(r && r.ok) toast("🔑 " + _kdNm(id) + " 비밀번호 1234 로 바꿨어요"); else alert("실패: " + ((r && r.err) || ""));
 }
 async function kdDelKid(id){
-  if(!confirm(id + " 아이 계정을 지울까요?\n(공부 기록은 그대로 남아요)")) return;
+  if(!confirm(_kdNm(id) + " 아이 계정을 지울까요?\n(공부 기록은 그대로 남아요)")) return;
   showLoading("지우는 중...");
   var r = await api("deleteAcct", { id: id });
   hideLoading();
   if(!r.ok){ alert(r.err || "실패"); return; }
-  delete US[id]; toast(id + " 계정 지웠어요"); draw();
+  delete US[id]; toast("계정 지웠어요"); draw();
 }
 // 🔔 알림 설정 — 아이 앱이 /kids/_cfg 를 읽어 텔레그램으로 보냄
 function kdCfg(){
