@@ -149,7 +149,7 @@ mRenderLevels = function(){
 
 // ───────────────────────── ②③ 🈶 한자 · 🔤 영어 ─────────────────────────
 var HAN_GRADES = [["9", "9급 (처음 한자)", 10], ["8", "8급", 10], ["7.5", "7급Ⅱ", 10], ["7", "7급", 10], ["6.5", "6급Ⅱ", 15], ["6", "6급", 15], ["4.5", "준4급", 25]];
-var ENG_GRADES = [["0", 10], ["3", 10], ["4", 10], ["5", 10], ["6", 10]];
+var ENG_GRADES = [["p", 10], ["0", 10], ["3", 10], ["4", 10], ["5", 10], ["6", 10]];
 var CIRC = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
 function _circ(i){ return i < CIRC.length ? CIRC[i] : "(" + (i + 1) + ")"; }
 var WSL = { han: [], eng: [] };
@@ -160,11 +160,11 @@ var WSL = { han: [], eng: [] };
   });
   if(typeof ENGLISH !== "undefined") ENG_GRADES.forEach(function(g){
     var E = ENGLISH[g[0]]; if(!E) return; var L = E.w, n = g[1];
-    for(var i = 0; i * n < L.length; i++) WSL.eng.push({ id: "e" + g[0] + "-" + (i + 1), grade: g[0], gname: E.t, t: E.t + " " + _circ(i), items: L.slice(i * n, i * n + n).map(function(r){ return { q: r[0], a: r[1] }; }) });
+    for(var i = 0; i * n < L.length; i++) WSL.eng.push({ id: "e" + g[0] + "-" + (i + 1), grade: g[0], gname: E.t, t: E.t + " " + _circ(i), items: L.slice(i * n, i * n + n).map(function(r){ return { q: r[0], a: r[1], kr: r[2] || "" }; }) });
   });
 })();
 var WS_SUB = { han: { icon: "🈶", name: "한자", pre: "漢·", col: "#9a3412", rec: { "다원": ["8", "7.5"], "라온": ["9", "8"], "은우": ["9"] } },
-               eng: { icon: "🔤", name: "영어", pre: "英·", col: "#0f766e", rec: { "다원": ["3", "4"], "라온": ["0"], "은우": ["0"] } } };
+               eng: { icon: "🔤", name: "영어", pre: "英·", col: "#0f766e", rec: { "다원": ["p", "3"], "라온": ["p", "0"], "은우": ["p", "0"] } } };
 var WS = { sub: "han", lv: null };
 function wsLv(id){ var s = id.charAt(0) === "h" ? "han" : "eng"; return WSL[s].filter(function(x){ return x.id === id; })[0]; }
 function wsKey(){ return WS_SUB[WS.sub].pre + WS.lv.id; }
@@ -179,7 +179,8 @@ function speakEn(text, rate){
     u.onend = fin; u.onerror = fin; setTimeout(fin, 10000); synth.speak(u);
   });
 }
-function wsSay(it){ stopAll(); return WS.sub === "han" ? speak(it.a, 0.85) : speakEn(it.q).then(function(){ return wait(250); }).then(function(){ return speak(it.a, 0.9); }); }
+function wsSay(it){ stopAll(); if(WS.sub !== "han" && it.kr && typeof abcBlend === "function") return speak(abcBlend(it.q).split("·").join(", "), 0.8).then(function(){ return wait(250); }).then(function(){ return speakEn(it.q); }).then(function(){ return wait(250); }).then(function(){ return speak(it.a, 0.9); });
+  return WS.sub === "han" ? speak(it.a, 0.85) : speakEn(it.q).then(function(){ return wait(250); }).then(function(){ return speak(it.a, 0.9); }); }
 
 // 화면 만들기 (본문에 섹션 더하기)
 (function(){
@@ -232,7 +233,7 @@ function wsRenderLevels(){
   $("wsSubRow").innerHTML = '<button class="b-ok" style="font-size:19px" onclick="go(\'vLevel\')">✏️ 받아쓰기</button><button class="b-purple" style="font-size:19px" onclick="go(\'vMath\')">🔢 수학</button>'
     + '<button style="font-size:19px;background:#9a3412"' + (WS.sub === "han" ? " disabled" : "") + ' onclick="wsGo(\'han\')">🈶 한자</button><button style="font-size:19px;background:#0f766e"' + (WS.sub === "eng" ? " disabled" : "") + ' onclick="wsGo(\'eng\')">🔤 영어</button>';
   var nm = NAME_HANJA[ME];
-  $("wsName").innerHTML = WS.sub !== "han" ? "" : nm && nm.length
+  $("wsName").innerHTML = WS.sub !== "han" ? (typeof ABC !== "undefined" ? '<button class="big" style="background:#1d4ed8;margin-bottom:12px" onclick="go(\'vAbc\')">🔤 알파벳 기초부터 <small style="display:block;font-size:14px;font-weight:600">A a 읽기 · 소리(b = 브) · 쓰기 — 영어 처음이면 여기부터!</small></button>' : "") : nm && nm.length
     ? '<button class="big" style="background:#7c2d12;margin-bottom:12px" onclick="wwName()">✍️ 내 이름 한자 쓰기 <span class="hz" style="font-size:30px">' + esc(nm.map(function(r){ return r[0]; }).join("")) + '</span></button>'
     : '<div class="hint" style="margin-bottom:10px">✍️ 내 이름 한자 쓰기는 엄마·아빠가 이름 한자를 알려 주면 생겨요.</div>';
   $("wsH").innerHTML = S.icon + " 어느 단계를 할까요? <span style=\"font-size:13px;color:#64748b;font-weight:600\">👍 = 추천</span>";
@@ -272,7 +273,7 @@ function wsCards(){
   $("wcTitle").textContent = ME + " · " + x.t;
   $("wcList").className = "grid " + (han ? "g3" : "g2");
   $("wcList").innerHTML = x.items.map(function(it, i){
-    return '<div class="wcard' + (han ? "" : " en") + '" data-i="' + i + '" onclick="wsSay(WS.lv.items[' + i + ']);this.querySelector(\'.m\').style.color=\'\'"><span class="big' + (han ? " hz" : "") + '">' + esc(it.q) + '</span><span class="m">' + esc(it.a) + '</span></div>';
+    return '<div class="wcard' + (han ? "" : " en") + '" data-i="' + i + '" onclick="wsSay(WS.lv.items[' + i + ']);this.querySelector(\'.m\').style.color=\'\'"><span class="big' + (han ? " hz" : "") + '">' + esc(it.q) + '</span>' + (!han && it.kr && typeof abcBlend === "function" ? '<span style="display:block;font-size:14px;color:#b45309;font-weight:800">' + esc(abcBlend(it.q)) + ' → ' + esc(it.kr) + '</span>' : '') + '<span class="m">' + esc(it.a) + '</span></div>';
   }).join("");
   go("vWsCard");
 }

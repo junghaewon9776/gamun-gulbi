@@ -16,7 +16,7 @@ function _kdLoad(){
 function _kdKids(){ return Object.keys(KD || {}).filter(function(k){ return k.charAt(0) !== "_" && KD[k] && KD[k].name; }).sort(function(a, b){ return String(KD[a].name).localeCompare(String(KD[b].name)); }); }
 function _kdLogs(k){ var L = (KD[k] && KD[k].log) || {}; return Object.keys(L).map(function(i){ return L[i]; }).sort(function(a, b){ return String(b.t).localeCompare(String(a.t)); }); }
 function _kdTime(t){ try { return new Date(t).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch(e){ return t || ""; } }
-function _kdKeyName(k){ k = String(k); if(k.indexOf("漢·") === 0) return "🈶 한자 " + k.slice(2); if(k.indexOf("英·") === 0) return "🔤 영어 " + k.slice(2); if(k.indexOf("수·") === 0) return "🔢 수학 " + k.slice(2); if(k === "all") return "전체"; if(k === "wrong") return "틀린 것"; var m = k.split("·"); return m.length > 1 ? m[0] + " 급수표 " + _kdKeyName(m[1]) : k + "급"; }
+function _kdKeyName(k){ k = String(k); if(k.indexOf("漢·") === 0) return "🈶 한자 " + k.slice(2); if(k.indexOf("英·") === 0) return "🔤 영어 " + k.slice(2); if(k.indexOf("ABC·") === 0) return "🔤 알파벳 " + k.slice(4); if(k.indexOf("수·") === 0) return "🔢 수학 " + k.slice(2); if(k === "all") return "전체"; if(k === "wrong") return "틀린 것"; var m = k.split("·"); return m.length > 1 ? m[0] + " 급수표 " + _kdKeyName(m[1]) : k + "급"; }
 
 function dKids(){
   if(!KD){ _kdLoad(); return _kdAcctCard() + '<div class="card"><div class="mut">📡 아이들 기록 불러오는 중...</div></div>'; }
