@@ -75,7 +75,8 @@ function kLogin(){
   if(pin.length < 4){ er.textContent = "비밀번호는 4개 이상이에요"; return; }
   er.textContent = "확인 중...";
   // 아이디는 이름을 영문·숫자로 바꾼 것. 성 없이 쳐도(다원 → 정다원), 성까지 쳐도(정다원 → 다원 계정) 들어가게 차례로
-  var cands = [nm]; if(nm.charAt(0) !== KID_SURNAME) cands.push(KID_SURNAME + nm); else if(nm.length >= 3) cands.push(nm.slice(1));
+  // 계정이 「정○○」라서 성 없이 치면 성 붙인 것부터 (한 번에 찾게 — 도우미 왕복이 느려서)
+  var cands = nm.charAt(0) !== KID_SURNAME ? [KID_SURNAME + nm, nm] : (nm.length >= 3 ? [nm, nm.slice(1)] : [nm]);
   var tryOne = function(i){
     return _kHelper({ action: "login", id: _kIdOf(cands[i]), pw: pin }).then(function(r){
       if(r && !r.ok && /존재하지/.test(r.err || "") && i < cands.length - 1) return tryOne(i + 1);
@@ -87,14 +88,24 @@ function kLogin(){
     if(!r.me || r.me.r !== "kid") throw { kid: "아이 계정이 아니에요" };
     return KC.auth.signInWithCustomToken(r.token);
   }).then(function(c){
-    KC.uid = c.user.uid; KC.name = _kShort(_kNameOf(c.user.uid)); return kPull();
+    KC.uid = c.user.uid; KC.name = _kShort(_kNameOf(c.user.uid));   // 기록 불러오기는 kGo 가 한 번만
   }).then(function(){ er.textContent = ""; kGo(); })
     .catch(function(e){ er.textContent = (e && e.kid) || "연결이 안 돼요: " + ((e && e.message) || e); });
 }
 function kGo(){
   var i = DB.names.indexOf(KC.name);
-  if(i < 0){ DB.names.push(KC.name); save(); i = DB.names.length - 1; }
-  kPull().then(function(){ pickName(i); kDailyMark(); });
+  if(i < 0){ DB.names.push(KC.name); _save0(); i = DB.names.length - 1; }
+  if(KC.going) return; KC.going = true;
+  var nl = $("nameList"); if(nl && nl.insertAdjacentHTML) nl.insertAdjacentHTML("afterbegin", '<div id="kGoing" style="grid-column:1/-1;text-align:center;font-weight:800;color:#1d4ed8;padding:6px">📡 내 기록 불러오는 중...</div>');
+  var done = false, enter = function(err){
+    if(done) return; done = true; KC.going = false;
+    var g = document.getElementById("kGoing"); if(g && g.remove) g.remove();
+    // 서버가 안 돼도 공부는 하게 — 이 폰에 저장했다가 다음에 합쳐서 올라감
+    if(err) toast("⚠️ 서버 연결이 안 돼서 이 폰에만 저장해요 (" + String((err && (err.code || err.message)) || err).slice(0, 60) + ")");
+    try { pickName(i); kDailyMark(); } catch(e){ alert("화면을 못 열었어요: " + (e.message || e)); }
+  };
+  setTimeout(function(){ enter("시간 초과"); }, 8000);
+  kPull().then(function(){ enter(); }, function(e){ console.warn("[받아쓰기] 불러오기 실패", e); enter(e); });
 }
 function kOut(){ if(!confirm("로그아웃할까요?")) return; KC.auth.signOut(); ME = ""; renderNames(); }
 
