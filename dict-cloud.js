@@ -128,6 +128,7 @@ function kPull(){
   return Promise.all([KC.db.ref("/kids/" + KC.uid).once("value"), KC.db.ref("/kids/_board").once("value").catch(function(){ return null; }), KC.db.ref("/kids/_cfg").once("value").catch(function(){ return null; })]).then(function(r){
     var S = r[0].val() || {}; ["rec", "st", "speed"].forEach(function(k){ if(S[k]) S[k] = kKeys(S[k], false); });
     var has = S.rec || S.xp != null || S.st;
+    kAlias(n);   // 예전 버그로 「??」·영문 아이디·성 붙은 이름으로 이 폰에 쌓인 기록도 이 아이 이름으로 모음
     // 이 폰 기록(로그인 안 하고 QR 로 한 것 등)과 서버 기록을 합침 — 어느 쪽도 버리지 않음
     var localHad = !!((DB.rec || {})[n] || xpOf(n));
     if(has){ var mg = null; try { mg = kMerge(S, n); } catch(e){ console.warn("[받아쓰기] 합치기 실패 — 이 폰 기록을 그대로 씀", e); localHad = true; }
@@ -141,6 +142,26 @@ function kPull(){
   });
 }
 // 서버 기록 S + 이 폰 기록(이름 n) 합치기: 시험 기록은 같은 것(날짜·점수·맞은 수)만 빼고 다 모음, 경험치·기록은 큰 쪽
+// 이 폰에 다른 이름으로 쌓인 같은 아이 기록 모으기 — 「??」(한글 아이디가 깨졌던 때), 영문 아이디(k…), 성 붙은 이름(정라온)
+//   시험 기록은 합치고(같은 건 한 번), 경험치는 큰 쪽, 단계·속도·연속일도 합침. 모은 뒤 그 이름은 목록에서 지움
+function kAlias(n){
+  var al = ["??", KC.uid, KID_SURNAME + n].filter(function(a){ return a && a !== n; });
+  if(KC.uid) al.push(_kNameOf(KC.uid));
+  al = al.filter(function(a, i){ return a !== n && al.indexOf(a) === i; });
+  var moved = false;
+  al.forEach(function(a){
+    var has = (DB.rec && DB.rec[a]) || (DB.xp && DB.xp[a]) || (DB.st && DB.st[a]);
+    if(!has) return;
+    var tmp = { rec: (DB.rec || {})[a], st: (DB.st || {})[a], speed: (DB.speed || {})[a], day: (DB.day || {})[a], xp: (DB.xp || {})[a] };
+    var mg = kMerge(tmp, n);
+    DB.rec = DB.rec || {}; DB.st = DB.st || {}; DB.speed = DB.speed || {}; DB.day = DB.day || {};
+    DB.rec[n] = mg.rec; DB.st[n] = mg.st; DB.speed[n] = mg.speed; if(mg.day) DB.day[n] = mg.day; DB.xp[n] = mg.xp;
+    ["rec", "st", "speed", "day", "xp"].forEach(function(k){ if(DB[k]) delete DB[k][a]; });
+    var ix = DB.names.indexOf(a); if(ix >= 0) DB.names.splice(ix, 1);
+    moved = true;
+  });
+  if(moved) _save0();
+}
 // 서버(Firebase)는 키에 . $ # [ ] / 를 못 씀 — 한자 「7급Ⅱ」 같은 단계 이름(漢·h7.5-1)의 점을 ‧ 로 바꿔 올리고 받을 때 되돌림
 var K_BAD = { ".": "‧", "$": "＄", "#": "＃", "[": "［", "]": "］", "/": "∕" };
 function kKeys(o, up){
