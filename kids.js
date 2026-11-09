@@ -10,7 +10,7 @@ var KD_URL = "https://junghaewon9776.github.io/gamun-gulbi/dictation.html";
 
 function _kdLoad(){
   if(KD_LOADING) return; KD_LOADING = true;
-  fbDb.ref("/kids").once("value").then(function(s){ KD_LOADING = false; KD = s.val() || {}; if(CTAB === "kids") draw(); })
+  fbDb.ref("/kids").once("value").then(function(s){ KD_LOADING = false; KD = s.val() || {}; Object.keys(KD).forEach(function(k){ if(KD[k] && k.charAt(0) !== "_" && typeof US !== "undefined" && US[k] && US[k].nm) KD[k].name = US[k].nm; }); if(CTAB === "kids") draw(); })
     .catch(function(e){ KD_LOADING = false; KD = {}; toast("아이들 기록을 못 읽었어요: " + e.message, true); });
 }
 function _kdKids(){ return Object.keys(KD || {}).filter(function(k){ return k.charAt(0) !== "_" && KD[k] && KD[k].name; }).sort(function(a, b){ return String(KD[a].name).localeCompare(String(KD[b].name)); }); }
