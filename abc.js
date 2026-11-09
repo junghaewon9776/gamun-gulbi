@@ -93,7 +93,9 @@ function abRenderSteps(){
     { done: st.s4, t: "✍️ 쓰기", d: "대문자 · 소문자 따라 쓰기", c: "#b45309", f: "abWrite()" },
     { done: passed, t: "📝 시험", d: b == null ? "10문제" : "최고 " + b + "점" + (passed ? " ✅ 통과" : ""), c: "#1d4ed8", f: "abStart('test')" }
   ];
-  var nextI = steps.findIndex(function(s){ return !s.done; });
+  var wr = abWrongItems();
+  if(wr.length) steps.push({ done: false, opt: true, t: "❌ 틀린 것 다시 풀기 (" + wr.length + "개)", d: wr.map(function(a){ return a.L + a.l; }).join(" "), c: "#b91c1c", f: "abStart('wrong')" });
+  var nextI = steps.findIndex(function(s){ return !s.done && !s.opt; });
   $("abSteps").innerHTML = steps.map(function(s, i){
     return '<button class="step' + (i === nextI ? ' next' : '') + '" style="background:' + s.c + '" onclick="' + s.f + '"><span class="n">' + (i + 1) + '</span><span class="t">' + s.t + '<small>' + esc(s.d) + '</small></span><span class="ck">' + (s.done ? '✅' : (i === nextI ? '👈' : '')) + '</span></button>';
   }).join("");
@@ -128,9 +130,25 @@ async function abReadAll(){
 
 // ②③⑤ 문제 — snd: 글자 → 소리 고르기 · hear: 듣고 → 글자 고르기 · test: 섞어서
 var AQ = null;
+// 이 단계 지난 시험에서 틀린 글자 (기록의 wrong: "q:Bb 「브」" → B)
+function abWrongItems(){
+  var arr = ((DB.rec[ME] || {})[abcKey()]) || [], seen = {}, out = [];
+  (Array.isArray(arr) ? arr : []).forEach(function(r){ (r && r.wrong || []).forEach(function(w){
+    var c = String(w).replace(/^q:/, "").charAt(0).toUpperCase(), a = ABC.filter(function(x){ return x.L === c; })[0];
+    if(a && !seen[c]){ seen[c] = 1; out.push(a); }
+  }); });
+  return out;
+}
 function abStart(mode){
   var L = abcItems(), qs = [];
-  if(mode === "test") qs = shuffle(L).slice(0, Math.min(10, L.length)).map(function(a, i){ return { a: a, kind: AB.lv.only ? ["low", "up", "hear"][i % 3] : ["snd", "hear", "low"][i % 3] }; });
+  if(mode === "wrong"){
+    var wr = abWrongItems(); if(!wr.length){ alert("틀린 게 없어요! 👍"); return; }
+    qs = shuffle(wr).map(function(a, i){ return { a: a, kind: AB.lv.only ? ["low", "up", "hear"][i % 3] : ["snd", "hear", "low"][i % 3] }; });
+    AQ = { mode: "test", qs: qs, idx: 0, ok: [], ans: [], right: 0, wrong: 0, miss: 0, t0: Date.now(), retry: true };
+    $("aqTitle").textContent = ME + " · " + AB.lv.t + " · ❌ 틀린 것 다시 풀기";
+    go("vAbcQuiz"); abNext(); return;
+  }
+  if(mode === "test") qs = shuffle(L).map(function(a, i){ return { a: a, kind: AB.lv.only ? ["low", "up", "hear"][i % 3] : ["snd", "hear", "low"][i % 3] }; });
   AQ = { mode: mode, qs: qs, idx: 0, ok: [], ans: [], right: 0, wrong: 0, miss: 0, t0: Date.now() };
   $("aqTitle").textContent = ME + " · " + AB.lv.t + " · " + ({ snd: AB.lv.only ? "🔁 짝 찾기" : "🔊 소리 고르기", hear: "👂 듣고 고르기", test: "📝 시험" }[mode]);
   go("vAbcQuiz"); abNext();
@@ -194,6 +212,12 @@ function abPick(btn){
 function abQuit(){ stopAll(); if(AQ && AQ.mode === "test" && AQ.idx > 0 && !confirm("시험을 그만할까요? (점수는 안 남아요)")) return; AQ = null; go("vAbcMode"); }
 function abFinish(){
   var m = AQ, k = abcKey(), n = m.qs.length, ok = m.ok.filter(Boolean).length, sc = Math.round(ok / n * 100), sec = Math.round((Date.now() - m.t0) / 1000);
+  if(m.retry){   // ❌ 틀린 것 다시 풀기 — 기록엔 안 남기고 결과만
+    $("arTitle").textContent = "❌ 틀린 것 다시 풀기 끝!";
+    $("arScore").innerHTML = '<b style="color:#1d4ed8">' + ok + ' / ' + n + '</b>' + (ok === n ? "이제 다 맞혀요! 👍" : "한 번 더 해 봐요");
+    $("arList").innerHTML = m.qs.map(function(q, i){ return '<li>' + (m.ok[i] ? "⭕" : "❌") + ' <b class="abig" style="font-size:24px">' + q.a.L + ' ' + q.a.l + '</b> 「' + q.a.snd + '」</li>'; }).join("");
+    go("vAbcRes"); gainXp(ok * 2, "다시 풀기", k + "|prac"); return;
+  }
   var wasPassed = best(ME, k) != null && best(ME, k) >= passScore();
   var r = DB.rec[ME] = DB.rec[ME] || {}, arr = (r[k] = r[k] || []);
   var wrongTxt = m.qs.filter(function(q, i){ return !m.ok[i]; }).map(function(q){ return q.a.L + q.a.l + " 「" + q.a.snd + "」"; });

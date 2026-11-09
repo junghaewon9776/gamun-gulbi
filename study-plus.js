@@ -162,6 +162,20 @@ var WSL = { han: [], eng: [] };
     var E = ENGLISH[g[0]]; if(!E) return; var L = E.w, n = g[1];
     for(var i = 0; i * n < L.length; i++) WSL.eng.push({ id: "e" + g[0] + "-" + (i + 1), grade: g[0], gname: E.t, t: E.t + " " + _circ(i), items: L.slice(i * n, i * n + n).map(function(r){ return { q: r[0], a: r[1], kr: r[2] || "" }; }) });
   });
+  // 🏆 급 전체 — 단계가 여러 개인 급은 그 급 전부를 한 번에 (시험도 전부)
+  ["han", "eng"].forEach(function(sub){
+    var out = [], seen = {};
+    WSL[sub].forEach(function(x){
+      out.push(x);
+      var same = WSL[sub].filter(function(y){ return y.grade === x.grade; });
+      if(same.length > 1 && x === same[same.length - 1] && !seen[x.grade]){
+        seen[x.grade] = 1;
+        var all = []; same.forEach(function(y){ all = all.concat(y.items); });
+        out.push({ id: x.id.charAt(0) + x.grade + "-all", grade: x.grade, gname: x.gname, t: "🏆 " + x.gname + " 전체 (" + all.length + ")", items: all, whole: true });
+      }
+    });
+    WSL[sub] = out;
+  });
 })();
 var WS_SUB = { han: { icon: "🈶", name: "한자", pre: "漢·", col: "#9a3412", rec: { "다원": ["8", "7.5"], "라온": ["9", "8"], "은우": ["9"] } },
                eng: { icon: "🔤", name: "영어", pre: "英·", col: "#0f766e", rec: { "다원": ["p", "3"], "라온": ["p", "0"], "은우": ["p", "0"] } } };
@@ -259,7 +273,9 @@ function wsRenderSteps(){
     { done: st.s3, t: han ? "🔎 한자 찾기" : "⌨️ 철자 쓰기", d: han ? "뜻·소리 보고 한자 고르기 — 10개 맞히면 완료" : "듣고 영어로 쳐요 — 10개 맞히면 완료", c: "#7c3aed", f: "wsStart('rev')" }
   ];
   if(han) steps.push({ done: st.s4, t: "✍️ 쓰기", d: "획 순서대로 따라 쓰기", c: "#9a3412", f: "wwLevel()", opt: true });
-  steps.push({ done: passed, t: "📝 시험", d: b == null ? x.items.length + "문제" : "최고 " + b + "점" + (passed ? " ✅ 통과" : ""), c: "#1d4ed8", f: "wsStart('test')" });
+  steps.push({ done: passed, t: "📝 시험", d: (b == null ? "" : "최고 " + b + "점" + (passed ? " ✅ 통과" : "") + " · ") + "전부 " + x.items.length + "문제", c: "#1d4ed8", f: "wsStart('test')" });
+  var wr = wsWrongItems();
+  if(wr.length) steps.push({ done: false, t: "❌ 틀린 것 다시 풀기 (" + wr.length + "개)", d: wr.slice(0, 8).map(function(it){ return it.q; }).join(" · ") + (wr.length > 8 ? " …" : ""), c: "#b91c1c", f: "wsStart('wrong')", opt: true });
   var nextI = steps.findIndex(function(s){ return !s.done && !s.opt; });
   $("wsSteps").innerHTML = steps.map(function(s, i){
     return '<button class="step' + (i === nextI ? ' next' : '') + '" style="background:' + s.c + '" onclick="' + s.f + '"><span class="n">' + (i + 1) + '</span><span class="t">' + s.t + '<small>' + esc(s.d) + '</small></span><span class="ck">' + (s.done ? '✅' : (i === nextI ? '👈' : '')) + '</span></button>';
@@ -295,10 +311,27 @@ function _wsOpts(it, field, pool){
   var others = shuffle(pool.filter(function(o){ return o[field] !== it[field]; })).slice(0, 3);
   return shuffle(others.concat([it])).map(function(o){ return o[field]; });
 }
+// 이 단계 지난 시험들에서 틀린 것 (기록의 wrong: "q:日 날 일" → 日)
+function wsWrongItems(){
+  var arr = ((DB.rec[ME] || {})[wsKey()]) || [], seen = {}, out = [];
+  (Array.isArray(arr) ? arr : []).forEach(function(r){ (r && r.wrong || []).forEach(function(w){
+    var q = String(w).replace(/^q:/, "").split(" ")[0];
+    var it = WS.lv.items.filter(function(x){ return x.q === q; })[0];
+    if(it && !seen[q]){ seen[q] = 1; out.push(it); }
+  }); });
+  return out;
+}
 function wsStart(mode){
   var x = WS.lv, items = x.items, qs;
+  if(mode === "wrong"){
+    var wr = wsWrongItems(); if(!wr.length){ alert("틀린 게 없어요! 👍"); return; }
+    qs = shuffle(wr).map(function(it, i){ return { it: it, dir: WS.sub === "eng" ? (i % 2 ? "spell" : "fwd") : (i % 2 ? "rev" : "fwd") }; });
+    WQ = { mode: "test", qs: qs, idx: 0, ok: [], ans: [], right: 0, wrong: 0, miss: 0, t0: Date.now(), retry: true };
+    $("wqTitle").textContent = ME + " · " + x.t + " · ❌ 틀린 것 다시 풀기";
+    go("vWsQuiz"); wsNextQ(); return;
+  }
   if(mode === "test"){
-    var n = Math.min(items.length, 15);
+    var n = items.length;   // 전부 다 (예전엔 15개까지만)
     qs = shuffle(items).slice(0, n).map(function(it, i){ return { it: it, dir: WS.sub === "eng" ? (i % 2 ? "spell" : "fwd") : (i % 2 ? "rev" : "fwd") }; });
   } else qs = [];
   WQ = { mode: mode, qs: qs, idx: 0, ok: [], ans: [], right: 0, wrong: 0, miss: 0, t0: Date.now() };
@@ -443,3 +476,132 @@ lvName = function(k){
   if(k.indexOf("漢·") === 0 || k.indexOf("英·") === 0){ var x = wsLv(k.slice(2)); return (k.charAt(0) === "漢" ? "🈶 " : "🔤 ") + (x ? x.t : k.slice(2)); }
   return _lvName0(k);
 };
+
+// ❌ 수학 틀린 것 다시 풀기 — 기록의 wrong: "q:23 × 4 = 92" → 문제·답
+function mWrongItems(){
+  var arr = ((DB.rec[ME] || {})[mKey()]) || [], seen = {}, out = [];
+  (Array.isArray(arr) ? arr : []).forEach(function(r){ (r && r.wrong || []).forEach(function(w){
+    var m = String(w).replace(/^q:/, "").match(/^(.+) = (.+)$/); if(!m || seen[m[1]]) return;
+    seen[m[1]] = 1; var a = m[2].trim(); out.push({ q: m[1].trim(), a: (/^-?\d+$/.test(a) ? Number(a) : a) });
+  }); });
+  return out;
+}
+function mRetryWrongAll(){
+  var w = shuffle(mWrongItems()); if(!w.length){ alert("틀린 게 없어요! 👍"); return; }
+  MQ = { mode: "test", x: mLv(MLV), qs: w, idx: 0, ans: [], ok: [], cur: w[0], input: "", right: 0, wrong: 0, miss: 0, t0: Date.now(), end: 0, retry: true };
+  $("mqTitle").textContent = ME + " · " + mLv(MLV).t + " · ❌ 틀린 것 다시 풀기";
+  go("vMQuiz"); mShow();
+  clearInterval(_mqT); _mqT = setInterval(function(){ if(!MQ || $("vMQuiz").classList.contains("hidden")){ clearInterval(_mqT); return; } mInfo(); }, 250);
+}
+var _mRenderSteps0 = mRenderSteps;
+mRenderSteps = function(){
+  _mRenderSteps0();
+  var w = mWrongItems(); if(!w.length) return;
+  $("mSteps").insertAdjacentHTML("beforeend", '<button class="step" style="background:#b91c1c" onclick="mRetryWrongAll()"><span class="n">❌</span><span class="t">틀린 것 다시 풀기 (' + w.length + '개)<small>' + esc(w.slice(0, 5).map(function(x){ return x.q; }).join(" · ") + (w.length > 5 ? " …" : "")) + '</small></span><span class="ck"></span></button>');
+};
+
+// ───────── 🧩 구구단은 「몇 번 더하기」 (2026-11-09) ─────────
+//   3 × 5 = 3 × 4 + 3 — 앞의 답에 한 번 더 더하면 다음 답
+//   ① 구구단 급에 「🧩 더하기로 알아보기」 단계 (3×1부터 차례로, 힌트 보며 풀기)
+//   ② 외우기 표 각 줄 밑에 「12 + 3」 처럼 앞의 답 + 단
+//   ③ 연습에서 구구단 틀리면 「3 × 4 = 12 이니까 12 + 3 = ?」 힌트
+function _guDots(d, n, hi){   // 3×5 → ●●● ●●● ●●● ●●● ●●● (마지막 묶음은 노랑)
+  if(d * n > 45) return "";
+  var h = "";
+  for(var i = 0; i < n; i++) h += '<span style="display:inline-block;margin:0 4px 2px 0;padding:1px 3px;border-radius:6px;background:' + (hi && i === n - 1 ? "#fde68a" : "#ede9fe") + '">' + new Array(d + 1).join("●") + '</span>';
+  return '<div style="font-size:11px;line-height:1.6;color:#6d28d9;letter-spacing:-1px">' + h + '</div>';
+}
+// 풀이 힌트 — 답은 안 알려 주고, 틀릴 때마다 한 걸음씩 더 자세히
+//   1번째: 「3 × 5」는 3을 5번 더한 것
+//   2번째: 3 × 4 = 12 는 알죠? 3을 한 번 더 더하면?
+//   3번째부터: 12에서 3칸 세어 봐요 → 13, 14, ?
+function _guHint(q, step){
+  var m = String(q || "").match(/^(\d) × (\d)$/); if(!m) return "";
+  var d = +m[1], n = +m[2], p = d * (n - 1); step = step || 1;
+  if(n === 1) return "💡 " + d + " × 1 은 " + d + "을 딱 1번 — 그대로예요";
+  if(step <= 1) return "💡 " + d + " × " + n + " 은 " + d + "을 " + n + "번 더한 거예요 (" + new Array(n + 1).join(d + " + ").slice(0, -3) + ")";
+  if(step === 2) return "💡 " + d + " × " + (n - 1) + " = " + p + " 는 알죠? 거기에 " + d + "을 한 번 더 더하면 " + d + " × " + n + " 이에요. " + p + " + " + d + " 는?";
+  var c = []; for(var i = 1; i < d; i++) c.push(p + i);
+  return "💡 " + p + "에서 " + d + "칸 더 세어 봐요 → " + p + (c.length ? ", " + c.join(", ") : "") + ", ? (손가락 " + d + "개 펴고 하나씩)";
+}
+// ② 외우기 표: 각 줄 밑에 앞의 답 + 단
+var _mStudy0 = mStudy;
+mStudy = function(){
+  _mStudy0();
+  [].forEach.call(document.querySelectorAll("#mTable .mrow"), function(r){
+    var m = String(r.getAttribute("data-t") || "").match(/^(\d) 곱하기 (\d)은/); if(!m) return;
+    var d = +m[1], n = +m[2];
+    r.insertAdjacentHTML("beforeend", '<div style="font-size:12px;font-weight:600;color:#64748b">' + (n === 1 ? d + "을 1번" : d * (n - 1) + " + " + d + " <span style=\"color:#94a3b8\">(" + d + "을 " + n + "번)</span>") + '</div>');
+  });
+};
+// ③ 연습에서 틀리면 힌트
+var _mCheck0 = mCheck;
+mCheck = function(){
+  var m = MQ, q = m && m.cur && m.cur.q, a = m && m.cur && m.cur.a, w0 = m ? m.wrong : 0;
+  _mCheck0();
+  if(!m || m.mode === "test" || m.mode === "speed" || m.wrong === w0) return;
+  if(!_guHint(q)) return;
+  var x = String(q).match(/^(\d) × (\d)$/);
+  $("mqFb").innerHTML = '<span style="color:#b91c1c">❌ 다시 생각해 봐요!</span><div style="font-size:17px;color:#6d28d9;margin-top:6px">' + esc(_guHint(q, m.miss)) + '</div>' + _guDots(+x[1], +x[2], true);
+};
+// ① 🧩 더하기로 알아보기 — 단마다 1번부터 9번까지 차례로
+var GU = null;
+function guStart(){
+  var x = mLv(MLV); if(!x.dans) return;
+  GU = { dans: x.dans, di: 0, n: 1, input: "", miss: 0 };
+  var box = $("guBox");
+  if(!box){
+    box = document.createElement("div"); box.id = "guBox";
+    box.style.cssText = "position:fixed;inset:0;z-index:9000;background:#faf5ff;overflow:auto;padding:16px;font-family:inherit";
+    document.body.appendChild(box);
+  }
+  box.style.display = "block"; guDraw();
+}
+function guClose(){ GU = null; var b = $("guBox"); if(b) b.style.display = "none"; mRenderSteps(); }
+function guDraw(){
+  var g = GU, d = g.dans[g.di], n = g.n, h = "";
+  h += '<div style="max-width:560px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:20px">🧩 ' + d + '단 — 더하기로 알아보기</b><button onclick="guClose()" style="background:#475569;color:#fff;border:0;border-radius:10px;padding:8px 14px;font-weight:800">닫기</button></div>';
+  h += '<div style="margin:8px 0 12px;color:#475569">' + d + ' × 몇 = ' + d + '을 몇 번 더한 것. 앞의 답에 <b>' + d + '만 더하면</b> 다음 답!</div>';
+  for(var i = 1; i < n; i++) h += '<div style="background:#fff;border-radius:10px;padding:6px 10px;margin-bottom:4px;font-size:18px;font-weight:800">' + d + ' × ' + i + ' = <span style="color:#6d28d9">' + d * i + '</span> <span style="font-size:13px;color:#94a3b8;font-weight:600">' + (i === 1 ? "" : d * (i - 1) + " + " + d) + '</span></div>';
+  h += '<div style="background:#fff;border:3px solid #facc15;border-radius:12px;padding:12px;margin-top:8px;text-align:center">';
+  h += '<div style="font-size:34px;font-weight:900">' + d + ' × ' + n + ' = <span style="color:#1d4ed8;border-bottom:3px solid #1d4ed8;padding:0 10px">' + (g.input || "?") + '</span></div>';
+  h += '<div style="font-size:17px;color:#6d28d9;margin:6px 0">' + esc(_guHint(d + " × " + n, n > 1 ? Math.max(2, g.miss + 1) : 1)) + '</div>' + _guDots(d, n, true);
+  h += '<div id="guFb" style="min-height:26px;font-weight:800;font-size:18px"></div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:300px;margin:6px auto 0">' + ["1","2","3","4","5","6","7","8","9","⌫","0","✔"].map(function(k){ return '<button onclick="guKey(\'' + k + '\')" style="font-size:24px;font-weight:900;padding:12px 0;border:0;border-radius:10px;color:#fff;background:' + (k === "✔" ? "#15803d" : k === "⌫" ? "#b91c1c" : "#1e3a8a") + '">' + k + '</button>'; }).join("") + '</div>';
+  h += '</div></div>';
+  $("guBox").innerHTML = h;
+}
+function guKey(k){
+  var g = GU; if(!g || g.busy) return;
+  if(k === "⌫"){ g.input = g.input.slice(0, -1); guDraw(); return; }
+  if(k !== "✔"){ if(g.input.length < 3){ g.input += k; guDraw(); } return; }
+  if(g.input === "") return;
+  var d = g.dans[g.di], n = g.n;
+  if(+g.input === d * n){
+    g.busy = true; $("guFb").innerHTML = '<span style="color:#15803d">⭕ 맞아요! ' + (n > 1 ? d + " × " + (n - 1) + " 에 " + d + " 더해서 " + d * n : "") + '</span>';
+    gainXp(1, "더하기로 구구단", mKey() + "|prac");
+    setTimeout(function(){
+      g.busy = false; g.input = ""; g.miss = 0;
+      if(n < 9) g.n++;
+      else if(g.di < g.dans.length - 1){ g.di++; g.n = 1; alert("🎉 " + d + "단 끝! 다음은 " + g.dans[g.di] + "단이에요."); }
+      else { alert("🎉 다 했어요! 이제 ✏️ 연습이나 📝 시험을 해 봐요."); guClose(); return; }
+      guDraw();
+    }, 700);
+  } else {
+    g.miss++; g.input = ""; guDraw();
+    $("guFb").innerHTML = '<span style="color:#b91c1c">❌ 아까워요! 아래 힌트대로 다시 세어 봐요</span>';
+  }
+}
+// 단계 화면에 넣기 (외우기 다음)
+var _mRenderSteps1 = mRenderSteps;
+mRenderSteps = function(){
+  _mRenderSteps1();
+  var x = mLv(MLV); if(!x.dans) return;
+  var first = $("mSteps").querySelector(".step");
+  var html = '<button class="step" style="background:#7c3aed" onclick="guStart()"><span class="n">🧩</span><span class="t">더하기로 알아보기<small>' + x.dans[0] + ' × 5 = ' + x.dans[0] + ' × 4 + ' + x.dans[0] + ' — 앞의 답에 한 번 더!</small></span><span class="ck"></span></button>';
+  if(first) first.insertAdjacentHTML("afterend", html); else $("mSteps").insertAdjacentHTML("afterbegin", html);
+};
+document.addEventListener("keydown", function(e){
+  if(!GU || !$("guBox") || $("guBox").style.display === "none") return;
+  if(/^[0-9]$/.test(e.key)) guKey(e.key); else if(e.key === "Backspace") guKey("⌫"); else if(e.key === "Enter"){ e.preventDefault(); guKey("✔"); } else if(e.key === "Escape") guClose();
+});

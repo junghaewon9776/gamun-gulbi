@@ -55,7 +55,7 @@ var KD_ENG = { p: "파닉스", "0": "처음 영어", "3": "3학년", "4": "4학�
 var KD_ABC = { u1: "대·소문자 A~M", u2: "대·소문자 N~Z", u3: "대·소문자 전체", a1: "소리 A~I", a2: "소리 J~R", a3: "소리 S~Z", a4: "소리 전체" };
 function _kdKeyName(k){
   k = String(k);
-  var lv = function(id, map){ var m = String(id).match(/^.(.+)-(\d+)$/); return m ? (map[m[1]] || m[1]) + " " + (KD_CIRC[+m[2] - 1] || m[2]) : id; };
+  var lv = function(id, map){ var A = String(id).match(/^.(.+)-all$/); if(A) return "🏆 " + (map[A[1]] || A[1]) + " 전체"; var m = String(id).match(/^.(.+)-(\d+)$/); return m ? (map[m[1]] || m[1]) + " " + (KD_CIRC[+m[2] - 1] || m[2]) : id; };
   if(k.indexOf("漢·") === 0) return "🈶 한자 " + lv(k.slice(2), KD_HAN);
   if(k.indexOf("英·") === 0) return "🔤 영어 " + lv(k.slice(2), KD_ENG);
   if(k.indexOf("ABC·") === 0) return "🔤 알파벳 " + (KD_ABC[k.slice(4)] || k.slice(4));
@@ -66,7 +66,7 @@ function _kdKeyName(k){
 // 단계별 순서 — 과목(받아쓰기·수학·한자·영어·알파벳) → 그 과목 안의 단계 순서
 function _kdLvOrder(k){
   k = String(k);
-  var sub = function(id, keys){ var m = String(id).match(/^.(.+)-(\d+)$/); var gi = m ? keys.indexOf(m[1]) : -1; return (gi < 0 ? 99 : gi) * 100 + (m ? +m[2] : 0); };
+  var sub = function(id, keys){ var A = String(id).match(/^.(.+)-all$/); if(A){ var gA = keys.indexOf(A[1]); return (gA < 0 ? 99 : gA) * 100 + 99; } var m = String(id).match(/^.(.+)-(\d+)$/); var gi = m ? keys.indexOf(m[1]) : -1; return (gi < 0 ? 99 : gi) * 100 + (m ? +m[2] : 0); };
   if(k.indexOf("수·") === 0){ var id = k.slice(2), mk = Object.keys(KD_MATH), i = mk.indexOf(id), dm = id.match(/^d(\d)$/); return [1, i >= 0 ? i : (dm ? 100 + +dm[1] : 999)]; }
   if(k.indexOf("漢·") === 0) return [2, sub(k.slice(2), ["9", "8", "7.5", "7", "6.5", "6", "4.5"])];
   if(k.indexOf("英·") === 0) return [3, sub(k.slice(2), ["p", "0", "3", "4", "5", "6"])];
