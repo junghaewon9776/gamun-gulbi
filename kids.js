@@ -16,7 +16,6 @@ function _kdLoad(){
 function _kdKids(){ return Object.keys(KD || {}).filter(function(k){ return k.charAt(0) !== "_" && KD[k] && KD[k].name; }).sort(function(a, b){ return String(KD[a].name).localeCompare(String(KD[b].name)); }); }
 function _kdLogs(k){ var L = (KD[k] && KD[k].log) || {}; return Object.keys(L).map(function(i){ return L[i]; }).sort(function(a, b){ return String(b.t).localeCompare(String(a.t)); }); }
 function _kdTime(t){ try { return new Date(t).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch(e){ return t || ""; } }
-function _kdKeyName(k){ k = String(k); if(k.indexOf("漢·") === 0) return "🈶 한자 " + k.slice(2); if(k.indexOf("英·") === 0) return "🔤 영어 " + k.slice(2); if(k.indexOf("ABC·") === 0) return "🔤 알파벳 " + k.slice(4); if(k.indexOf("수·") === 0) return "🔢 수학 " + k.slice(2); if(k === "all") return "전체"; if(k === "wrong") return "틀린 것"; var m = k.split("·"); return m.length > 1 ? m[0] + " 급수표 " + _kdKeyName(m[1]) : k + "급"; }
 
 function dKids(){
   if(!KD){ _kdLoad(); return _kdAcctCard() + '<div class="card"><div class="mut">📡 아이들 기록 불러오는 중...</div></div>'; }
@@ -44,20 +43,65 @@ function dKids(){
   h += KD_TAB === "log" ? _kdLogHtml(KD_SEL) : _kdRecHtml(KD_SEL, false);
   return h + '</div>';
 }
+// 기록 이름 알아보기 쉽게 (수학 a10 → 10까지 덧셈, 漢·h8-1 → 한자 8급 ①)
+var KD_MATH = { a10: "10까지 덧셈", s10: "10까지 뺄셈", a20: "20까지 덧셈(받아올림)", s20: "20까지 뺄셈(받아내림)", m20: "덧셈·뺄셈 섞기(20까지)", a21: "두 자리 + 한 자리", s21: "두 자리 − 한 자리", a22: "두 자리 + 두 자리", s22: "두 자리 − 두 자리", a33: "세 자리 덧셈", s33: "세 자리 뺄셈",
+  g25: "구구단 2·5단", g34: "구구단 3·4단", g67: "구구단 6·7단", g89: "구구단 8·9단", gall: "구구단 전체", x21: "곱셈 두 자리 × 한 자리", x31: "곱셈 세 자리 × 한 자리", x22: "곱셈 두 자리 × 두 자리", x32: "곱셈 세 자리 × 두 자리",
+  v1: "나눗셈(구구단 거꾸로)", v21r: "두 자리 ÷ 한 자리(나머지)", v31: "세 자리 ÷ 한 자리", v31r: "세 자리 ÷ 한 자리(나머지)", v32: "세 자리 ÷ 두 자리", v32r: "세 자리 ÷ 두 자리(나머지)",
+  f4a: "분모 같은 분수 덧셈", f4s: "분모 같은 분수 뺄셈", c4a: "소수 덧셈(0.1)", c4s: "소수 뺄셈(0.1)", c4b: "소수 덧셈(0.01)", k5m: "혼합 계산", k5g: "최대공약수", k5l: "최소공배수", k5r: "약분", k5a: "분모 다른 분수 덧셈", k5s: "분모 다른 분수 뺄셈", k5x: "분수 × 자연수", k5d: "소수 × 자연수",
+  k6f: "분수 ÷ 자연수", k6F: "분수 ÷ 분수", k6d: "소수 ÷ 자연수", k6p: "백분율", k6r: "비례식" };
+var KD_CIRC = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
+var KD_HAN = { "9": "9급(처음)", "8": "8급", "7.5": "7급Ⅱ", "7": "7급", "6.5": "6급Ⅱ", "6": "6급", "4.5": "준4급" };
+var KD_ENG = { p: "파닉스", "0": "처음 영어", "3": "3학년", "4": "4학년", "5": "5학년", "6": "6학년" };
+var KD_ABC = { u1: "대·소문자 A~M", u2: "대·소문자 N~Z", u3: "대·소문자 전체", a1: "소리 A~I", a2: "소리 J~R", a3: "소리 S~Z", a4: "소리 전체" };
+function _kdKeyName(k){
+  k = String(k);
+  var lv = function(id, map){ var m = String(id).match(/^.(.+)-(\d+)$/); return m ? (map[m[1]] || m[1]) + " " + (KD_CIRC[+m[2] - 1] || m[2]) : id; };
+  if(k.indexOf("漢·") === 0) return "🈶 한자 " + lv(k.slice(2), KD_HAN);
+  if(k.indexOf("英·") === 0) return "🔤 영어 " + lv(k.slice(2), KD_ENG);
+  if(k.indexOf("ABC·") === 0) return "🔤 알파벳 " + (KD_ABC[k.slice(4)] || k.slice(4));
+  if(k.indexOf("수·") === 0){ var id = k.slice(2), dm = id.match(/^d(\d)$/); return "🔢 수학 " + (KD_MATH[id] || (dm ? "구구단 " + dm[1] + "단" : id)); }
+  if(k === "all") return "✏️ 받아쓰기 전체"; if(k === "wrong") return "✏️ 받아쓰기 틀린 것";
+  var m = k.split("·"); return m.length > 1 ? "✏️ " + m[0] + " 급수표 " + _kdKeyName(m[1]).replace(/^✏️ /, "") : "✏️ 받아쓰기 " + k + "급";
+}
+// "11. 3. 오후 07:08" → 비교용 숫자 (해는 없어서 월·일·시·분만)
+function _kdWhen(d){
+  var m = String(d || "").match(/(\d+)\.\s*(\d+)\.\s*(오전|오후)?\s*(\d+):(\d+)/); if(!m) return 0;
+  var h = +m[4] % 12 + (m[3] === "오후" ? 12 : 0);
+  return ((+m[1] * 100 + +m[2]) * 100 + h) * 100 + +m[5];
+}
 function _kdRecHtml(k, print){
-  var x = KD[k], keys = Object.keys(x.rec || {}).filter(function(key){ return (x.rec[key] || []).length; });
+  var x = KD[k], rec = x.rec || {};
+  var arrOf = function(a){ return (Array.isArray(a) ? a : Object.keys(a || {}).map(function(i){ return a[i]; })).filter(function(r){ return r && typeof r === "object"; }); };
+  var keys = Object.keys(rec).filter(function(key){ return arrOf(rec[key]).length; });
   if(!keys.length) return '<div style="padding:20px;text-align:center;color:#94a3b8">아직 본 시험이 없어요</div>';
   // 틀린 문장: 로그에 남긴 것(새 기록)에서 회차별로 찾기
   var wt = {}; _kdLogs(k).forEach(function(l){ if(l.type === "test" && l.key != null && l.no != null) wt[l.key + "#" + l.no] = l.wrongTxt || []; });
-  var S = print ? "" : "padding:6px;border-bottom:1px solid #f1f5f9;";
+  var wrongOf = function(key, r){ return (wt[key + "#" + r.no] || (r.wrong || []).map(function(q){ return String(q).replace(/^q:/, ""); })).join(" / "); };
+  var S = print ? "" : "padding:6px 8px;border-bottom:1px solid #f1f5f9;";
+  var scoreTd = function(r){ return '<td style="' + S + 'text-align:right;font-weight:900;color:' + ((r.score || 0) >= 90 ? "#15803d" : "#b91c1c") + '">' + (r.score || 0) + (r.score === 100 ? " 💯" : "") + '</td>'; };
+  var where = function(r){ return { screen: "폰 타자", hand: "폰 손글씨", paper: "종이" }[r.where] || r.where || ""; };
+  // 칸 너비 고정 — 어느 표든 같은 자리에 (왔다 갔다 안 하게)
+  var tbl = function(cols){ return '<table style="width:100%;max-width:980px;table-layout:fixed;border-collapse:collapse;font-size:13px"><colgroup>' + cols.map(function(w){ return '<col style="width:' + w + '">'; }).join("") + '</colgroup>'; };
+  var th = function(t, al){ return '<th style="' + S + 'text-align:' + (al || "left") + '">' + t + '</th>'; };
+  var all = [];
+  keys.forEach(function(key){ arrOf(rec[key]).forEach(function(r){ all.push({ key: key, r: r, w: _kdWhen(r.d) }); }); });
+  all.sort(function(a, b){ return b.w - a.w; });
   var h = '';
-  keys.sort().forEach(function(key){
-    var arr = x.rec[key];
+  // 🕘 최근 시험 10개 (어느 과목이든)
+  h += '<div style="font-weight:900;font-size:15px;margin:4px 0 6px">🕘 최근 시험</div>' + tbl(["120px", "auto", "60px", "64px", "38%"])
+    + '<thead><tr' + (print ? "" : ' style="background:#eff6ff"') + '>' + th("날짜") + th("무슨 시험") + th("점수", "right") + th("맞음", "center") + th("틀린 것") + '</tr></thead><tbody>'
+    + all.slice(0, 10).map(function(o){ return '<tr><td style="' + S + 'white-space:nowrap">' + esc(o.r.d || "") + '</td><td style="' + S + 'font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(_kdKeyName(o.key)) + ' <span style="color:#64748b;font-weight:400">' + (o.r.no || "") + '회</span></td>' + scoreTd(o.r) + '<td style="' + S + 'text-align:center">' + (o.r.ok || 0) + '/' + (o.r.n || 0) + '</td><td style="' + S + 'font-size:12px;color:#b91c1c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(wrongOf(o.key, o.r)) + '">' + esc(wrongOf(o.key, o.r)) + '</td></tr>'; }).join("")
+    + '</tbody></table>';
+  // 과목별 — 최근에 본 것부터
+  var last = {}; all.forEach(function(o){ if(!(o.key in last)) last[o.key] = o.w; });
+  keys.sort(function(a, b){ return (last[b] || 0) - (last[a] || 0); });
+  h += '<div style="font-weight:900;font-size:15px;margin:18px 0 2px">📚 과목별 기록 <span style="font-weight:400;color:#64748b;font-size:12px">— 최근에 본 것부터</span></div>';
+  keys.forEach(function(key){
+    var arr = arrOf(rec[key]).slice().sort(function(a, b){ return _kdWhen(b.d) - _kdWhen(a.d) || (b.no || 0) - (a.no || 0); });
     h += '<div style="font-weight:800;margin:12px 0 4px">' + esc(_kdKeyName(key)) + ' <span style="font-weight:400;color:#64748b;font-size:12px">' + arr.length + '회 · 최고 ' + Math.max.apply(null, arr.map(function(r){ return r.score || 0; })) + '점</span></div>';
-    h += '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr' + (print ? "" : ' style="background:#f8fafc"') + '><th style="' + S + 'text-align:left">회차</th><th style="' + S + 'text-align:left">날짜</th><th style="' + S + 'text-align:right">점수</th><th style="' + S + 'text-align:center">맞음</th><th style="' + S + 'text-align:left">어디에</th><th style="' + S + 'text-align:left">틀린 것</th></tr></thead><tbody>';
-    arr.slice().reverse().forEach(function(r){
-      var w = wt[key + "#" + r.no] || (r.wrong || []).map(function(q){ return String(q).replace(/^q:/, ""); });
-      h += '<tr><td style="' + S + '">' + (r.no || "") + '회</td><td style="' + S + '">' + esc(r.d || "") + '</td><td style="' + S + 'text-align:right;font-weight:900;color:' + ((r.score || 0) >= 90 ? "#15803d" : "#b91c1c") + '">' + (r.score || 0) + (r.score === 100 ? " 💯" : "") + '</td><td style="' + S + 'text-align:center">' + (r.ok || 0) + '/' + (r.n || 0) + '</td><td style="' + S + 'font-size:12px">' + esc({ screen: "폰 타자", hand: "폰 손글씨", paper: "종이" }[r.where] || r.where || "") + '</td><td style="' + S + 'font-size:12px;color:#b91c1c">' + esc(w.join(" / ")) + '</td></tr>';
+    h += tbl(["60px", "120px", "60px", "64px", "84px", "auto"]) + '<thead><tr' + (print ? "" : ' style="background:#f8fafc"') + '>' + th("회차") + th("날짜") + th("점수", "right") + th("맞음", "center") + th("어디에") + th("틀린 것") + '</tr></thead><tbody>';
+    arr.forEach(function(r){
+      h += '<tr><td style="' + S + '">' + (r.no || "") + '회</td><td style="' + S + 'white-space:nowrap">' + esc(r.d || "") + '</td>' + scoreTd(r) + '<td style="' + S + 'text-align:center">' + (r.ok || 0) + '/' + (r.n || 0) + '</td><td style="' + S + 'font-size:12px">' + esc(where(r)) + '</td><td style="' + S + 'font-size:12px;color:#b91c1c">' + esc(wrongOf(key, r)) + '</td></tr>';
     });
     h += '</tbody></table>';
   });
