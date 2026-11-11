@@ -26311,6 +26311,7 @@ function dShipData(){
   h+='</div>';
   h+='<div class="tbgrp"><span class="tblbl">🛠 관리</span>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff" onclick="loadShipData();renderShip();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="강제 새로고침">🔄 새로고침</button>';
+  if(isA()) h+='<button class="btn" style="background:#15803d;color:#fff" onclick="shipBackupDownload()" title="접수데이터·주문히스토리·일별수량 지금 상태를 파일로 받기 (읽기만 함)">💾 백업 받기</button>';
   h+='<button class="btn" style="background:#d97706;color:#fff" onclick="shipRecalc()">📨 재계산 텔레그램</button>';
   h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="shipSmsHistory()">📋 문자내역</button>';
   h+='<button class="btn" style="background:#334155;color:#fff" onclick="carrierModal()" title="택배사별 파일명 키워드·조회주소 설정">⚙ 택배사설정</button>';
@@ -26452,6 +26453,21 @@ function shipJijeomsOf(co){ var s={}; shipFlat().forEach(function(x){ if(co==='(
 function shipSelect(co,ji){
   SHIP_DATA={}; SHIP_PATH={};
   shipFlat().forEach(function(x){ if(co&&co!=='(전체)'&&x.co!==co) return; if(ji&&ji!=='(전체)'&&x.ji!==ji) return; SHIP_DATA[x.k]=x.rec; SHIP_PATH[x.k]=x.path; });
+}
+// 💾 백업 받기 — 주문 데이터 지금 상태를 JSON 파일로 내려받기 (DB는 읽기만)
+//   (매일 12:30·21:00 사무실 PC 자동백업도 따로 돌아요: 가문굴비-firebase\백업\자동백업)
+async function shipBackupDownload(){
+  try{
+    toast('💾 백업 파일 만드는 중...');
+    var out={_백업시각:new Date().toLocaleString('ko-KR')}, nodes=['excel_ship','excel_orders','excel_daily'];
+    for(var i=0;i<nodes.length;i++){ out[nodes[i]]=(await fbDb.ref('/'+nodes[i]).once('value')).val()||{}; }
+    var d=new Date(), p=function(n){return String(n).padStart(2,'0');};
+    var fn='가문굴비_주문데이터백업_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+'.json';
+    var b=new Blob([JSON.stringify(out)],{type:'application/json'}), a=document.createElement('a');
+    a.href=URL.createObjectURL(b); a.download=fn; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},5000);
+    toast('✅ 백업 파일 받음: '+fn);
+  }catch(e){ alert('백업 실패: '+e.message); }
 }
 // 선택 업체 통째 삭제 (접수/주문/수량) — 깨진/잘못된 업체 정리용
 function shipDelCompany(){
