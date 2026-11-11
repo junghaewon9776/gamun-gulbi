@@ -26311,6 +26311,7 @@ function dShipData(){
   h+='</div>';
   h+='<div class="tbgrp"><span class="tblbl">🛠 관리</span>';
   h+='<button class="btn" style="background:#0ea5e9;color:#fff" onclick="loadShipData();renderShip();toast(\'🔄 최신 상태 (올리면 자동 반영돼요)\')" title="강제 새로고침">🔄 새로고침</button>';
+  if(isA()) h+='<button class="btn" style="background:#1e3a8a;color:#fff" onclick="window.open(\'https://script.google.com/macros/s/AKfycbz_uWiQRaAZTjsZmm9sOdT56gsdkjuK0IChaLHl09LoA_WY-_hiBbCeYNr1RiwYCrKf/exec\',\'_blank\')" title="구글 드라이브 백업·시점 복원 (내 구글 로그인 필요)">🗂 백업·복원</button>';
   if(isA()) h+='<button class="btn" style="background:#15803d;color:#fff" onclick="shipBackupDownload()" title="접수데이터·주문히스토리·일별수량 지금 상태를 파일로 받기 (읽기만 함)">💾 백업 받기</button>';
   h+='<button class="btn" style="background:#d97706;color:#fff" onclick="shipRecalc()">📨 재계산 텔레그램</button>';
   h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="shipSmsHistory()">📋 문자내역</button>';
@@ -28170,6 +28171,7 @@ function dOrderHist(){
   h+='<button class="btn" style="background:#ea580c;color:#fff" onclick="document.getElementById(\'ordh_addrlog\').click()" title="택배 출력 로그(.log)로 바뀐 주소 자동 감지">📍 주소로그</button>';
   h+='<input type="file" id="ordh_addrlog" accept=".log,.txt,.csv" multiple style="display:none" onchange="ordhAddrLogUpload(this.files);this.value=\'\'">';
   h+='<button class="btn" style="background:#15803d;color:#fff" onclick="ordhExportData()" title="지금 보이는(필터된) 주문 엑셀 저장(체크시 선택만)">📥 엑셀다운</button>';
+  if(isA()) h+='<button class="btn" style="background:#1e3a8a;color:#fff" onclick="window.open(\'https://script.google.com/macros/s/AKfycbz_uWiQRaAZTjsZmm9sOdT56gsdkjuK0IChaLHl09LoA_WY-_hiBbCeYNr1RiwYCrKf/exec\',\'_blank\')" title="구글 드라이브 백업·시점 복원 (내 구글 로그인 필요)">🗂 백업·복원</button>';
   h+='<button class="btn" style="background:#e2e8f0;color:#334155" onclick="ordhColReset()" title="표 열너비 기본값 복구(PC)">↔ 열너비</button>';
   h+='</div>';
   // 📢 전체 문자
