@@ -239,7 +239,33 @@ recordScore = function(){
   var wrongTxt = T.qs.filter(function(q, k){ return MARK[k] === false; }).map(function(q){ return q.s; });
   kLog("test", "받아쓰기 " + lvName(T.key) + " " + x.no + "회차 " + x.score + "점 (" + x.ok + "/" + x.n + ")" + (wrongTxt.length ? "\n❌ " + wrongTxt.slice(0, 5).join(" / ") + (wrongTxt.length > 5 ? " 외 " + (wrongTxt.length - 5) + "개" : "") : " 💯"),
     { key: T.key, no: x.no, score: x.score, ok: x.ok, n: x.n, wrongTxt: wrongTxt, where: x.where });
+  kPaper(x);
 };
+// 📝 시험지 남기기 — 문제마다 정답 · 아이가 쓴 것(타자 글자 / 손글씨 그림) · ⭕❌ → /kids/{uid}/paper/{id}
+//   가문굴비 👦 아이들 → 시험 기록지에서 회차를 누르면 보여요. 손글씨는 작게 줄인 그림(JPEG)으로
+function _kShrink(u){
+  return new Promise(function(ok){
+    if(!u) return ok("");
+    var im = new Image();
+    im.onload = function(){ try {
+      var w = Math.min(420, im.width), h = Math.round(im.height * w / im.width), c = document.createElement("canvas");
+      c.width = w; c.height = h; var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); g.drawImage(im, 0, 0, w, h);
+      ok(c.toDataURL("image/jpeg", 0.55));
+    } catch(e){ ok(""); } };
+    im.onerror = function(){ ok(""); }; im.src = u;
+  });
+}
+function kPaper(x){
+  if(!KC.uid || !x || !x.id || !T || !T.qs) return;
+  var uid = KC.uid, o = { key: T.key, no: x.no, d: x.d, where: T.where, score: x.score,
+    q: T.qs.map(function(q){ return q.s; }), m: MARK.map(function(v){ return v ? 1 : 0; }) };
+  if(T.where === "screen") o.a = T.qs.map(function(q, k){ return T.ans[k] || ""; });
+  var draws = T.where === "hand" ? (T.draw || []).slice() : [];
+  Promise.all(draws.map(_kShrink)).then(function(img){
+    if(img.length) o.img = img.map(function(v){ return v || ""; });
+    return KC.db.ref("/kids/" + uid + "/paper/" + x.id).set(JSON.parse(JSON.stringify(o)));
+  }).catch(function(e){ console.warn("[받아쓰기] 시험지 저장 실패", e); });
+}
 // 시험 끝 (수학)
 var _mFinish0 = mFinish;
 mFinish = function(){

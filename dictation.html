@@ -1004,6 +1004,7 @@ function recordScore(){
   var wasPassed = T.key!=="wrong" && best(ME, T.key)!=null && best(ME, T.key)>=passScore();
   var r = DB.rec[ME] = DB.rec[ME] || {}, arr = (r[T.key] = r[T.key] || []);
   arr.push({
+    id: Date.now().toString(36),   // 시험지(쓴 답·손글씨) 찾는 번호 — 서버 /kids/{uid}/paper/{id}
     no: arr.length+1,   // 이 급 몇 회차
     d: new Date().toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}),
     score: sc, n: T.qs.length, ok: ok, diff: T.diff, where: T.where, sheet: SHEET||ME,
@@ -1381,7 +1382,7 @@ function mRetryWrong(){
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="dict-cloud.js?v=20261109g"></script>
+<script src="dict-cloud.js?v=20261111a"></script>
 <script src="battle.js?v=20261110a"></script>
 </body>
 </html>

@@ -10,8 +10,56 @@ var KD_URL = "https://junghaewon9776.github.io/gamun-gulbi/dictation.html";
 
 function _kdLoad(){
   if(KD_LOADING) return; KD_LOADING = true;
-  fbDb.ref("/kids").once("value").then(function(s){ KD_LOADING = false; KD = s.val() || {}; Object.keys(KD).forEach(function(k){ if(KD[k] && k.charAt(0) !== "_" && typeof US !== "undefined" && US[k] && US[k].nm) KD[k].name = US[k].nm; }); if(CTAB === "kids") draw(); })
+  // /kids 통째로 읽으면 손글씨 시험지(paper)까지 다 받아 와서 느려짐 → 아이마다 필요한 칸만. 시험지는 누를 때 따로
+  var F = ["name", "rec", "log", "xp", "rk", "day", "at"], G = function(p){ return fbDb.ref(p).once("value").then(function(s){ return s.val(); }); };
+  Promise.all([G("/kids/_board"), G("/kids/_cfg").catch(function(){ return null; })]).then(function(r){
+    var ids = {}; Object.keys(r[0] || {}).forEach(function(k){ ids[k] = 1; });
+    if(typeof US !== "undefined") Object.keys(US).forEach(function(k){ if(US[k] && US[k].r === "kid") ids[k] = 1; });
+    var out = {}; if(r[1]) out._cfg = r[1];
+    return Promise.all(Object.keys(ids).map(function(k){
+      return Promise.all(F.map(function(f){ return G("/kids/" + k + "/" + f); })).then(function(v){
+        var x = {}, any = false; F.forEach(function(f, i){ if(v[i] != null){ x[f] = v[i]; any = true; } }); if(any) out[k] = x;
+      });
+    })).then(function(){ return out; });
+  }).then(function(o){ KD_LOADING = false; KD = o; Object.keys(KD).forEach(function(k){ if(KD[k] && k.charAt(0) !== "_" && typeof US !== "undefined" && US[k] && US[k].nm) KD[k].name = US[k].nm; }); if(CTAB === "kids") draw(); })
     .catch(function(e){ KD_LOADING = false; KD = {}; toast("아이들 기록을 못 읽었어요: " + e.message, true); });
+}
+// 📝 시험지 보기 — 회차를 누르면: 문제마다 정답 · 아이가 쓴 것(타자 글자 / 손글씨) · ⭕❌
+var KD_RIX = [];   // 기록지 표의 줄 → { k, key, r }
+function _kdRowAttr(k, key, r){ var i = KD_RIX.push({ k: k, key: key, r: r }) - 1; return ' onclick="kdPaper(' + i + ')" style="cursor:pointer" title="눌러서 쓴 것 보기"'; }
+function _kdDiff(ans, mine){
+  // 정답과 다른 글자는 빨간색 (앞에서부터 같은 글자, 뒤에서부터 같은 글자 빼고 가운데)
+  ans = String(ans || ""); mine = String(mine || "");
+  var a = 0; while(a < ans.length && a < mine.length && ans[a] === mine[a]) a++;
+  var b = 0; while(b < ans.length - a && b < mine.length - a && ans[ans.length - 1 - b] === mine[mine.length - 1 - b]) b++;
+  var mid = mine.slice(a, mine.length - b), miss = ans.slice(a, ans.length - b);
+  return esc(mine.slice(0, a)) + (mid ? '<span style="background:#fee2e2;color:#b91c1c;font-weight:900">' + esc(mid).replace(/ /g, "␣") + '</span>' : (miss ? '<span style="background:#fef9c3;color:#a16207">[' + esc(miss).replace(/ /g, "␣") + ' 빠짐]</span>' : '')) + esc(mine.slice(mine.length - b));
+}
+function kdPaper(i){
+  var o = KD_RIX[i]; if(!o) return; var r = o.r, nm = (KD[o.k] && KD[o.k].name) || "";
+  var head = '<h3>📝 ' + esc(nm) + ' · ' + esc(_kdKeyName(o.key)) + ' ' + (r.no || "") + '회 <span style="font-weight:400;font-size:13px;color:#64748b">' + esc(r.d || "") + ' · ' + (r.score || 0) + '점</span> <button class="close-x" onclick="closePopup()">&times;</button></h3>';
+  var row = function(n, m, q, body){ return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:8px;background:' + (m ? "#fff" : "#fff7f7") + '"><div style="display:flex;gap:8px;align-items:center"><b style="font-size:20px;color:' + (m ? "#15803d" : "#b91c1c") + '">' + (m ? "⭕" : "❌") + '</b><span style="color:#64748b">' + n + '번</span><span style="font-weight:800">' + q + '</span></div>' + (body || "") + '</div>'; };
+  // 수학은 기록에 「내 답」이 이미 들어 있음
+  var res = Array.isArray(r.res) ? r.res : Object.keys(r.res || {}).map(function(j){ return r.res[j]; });
+  if(!r.id && res.length && res[0] && res[0][3] != null){
+    openPopup(head + '<div style="max-height:70vh;overflow:auto">' + res.map(function(q){ return row(q[1], q[2], esc(q[3])); }).join("") + '</div>'); return;
+  }
+  if(!r.id){ openPopup(head + '<div style="padding:24px;text-align:center;color:#64748b">이 시험은 「쓴 것 저장」 기능이 생기기 전에 본 거라<br>쓴 글씨·답이 안 남아 있어요.<br><br>지금부터 보는 시험은 여기서 볼 수 있어요.</div>'); return; }
+  openPopup(head + '<div id="kdPaperBox" style="padding:20px;text-align:center;color:#64748b">📡 시험지 불러오는 중...</div>');
+  fbDb.ref("/kids/" + o.k + "/paper/" + r.id).once("value").then(function(s){
+    var p = s.val(), box = document.getElementById("kdPaperBox"); if(!box) return;
+    if(!p){ box.innerHTML = '시험지가 서버에 없어요 (인터넷이 끊겼을 때 본 시험일 수 있어요)'; return; }
+    var q = p.q || [], m = p.m || [], a = p.a || [], img = p.img || [];
+    var wh = { screen: "폰으로 타자", hand: "폰에 손글씨", paper: "종이에 씀 (폰엔 안 남아요)" }[p.where] || "";
+    box.style.cssText = "max-height:70vh;overflow:auto;text-align:left";
+    box.innerHTML = '<div style="font-size:12.5px;color:#475569;margin-bottom:8px">✍️ ' + wh + (p.where === "screen" ? ' · 빨간 글자 = 틀리게 쓴 곳, 노란 칸 = 빠진 것 (␣ = 띄어쓰기)' : '') + '</div>'
+      + q.map(function(t, j){
+        var body = "";
+        if(p.where === "screen") body = '<div style="margin-top:4px;font-size:17px">쓴 것: ' + (a[j] ? (m[j] ? esc(a[j]) : _kdDiff(t, a[j])) : '<span style="color:#94a3b8">(안 썼어요)</span>') + '</div>';
+        else if(p.where === "hand") body = '<div style="margin-top:6px">' + (img[j] ? '<img src="' + img[j] + '" alt="쓴 글씨" style="width:100%;max-width:420px;border:2px solid #fbbf24;border-radius:8px;background:#fff">' : '<span style="color:#94a3b8">(안 썼어요)</span>') + '</div>';
+        return row(j + 1, m[j], esc(t), body);
+      }).join("");
+  }).catch(function(e){ var box = document.getElementById("kdPaperBox"); if(box) box.innerHTML = "못 불러왔어요: " + esc(e.message); });
 }
 function _kdKids(){ return Object.keys(KD || {}).filter(function(k){ return k.charAt(0) !== "_" && KD[k] && KD[k].name; }).sort(function(a, b){ return String(KD[a].name).localeCompare(String(KD[b].name)); }); }
 function _kdLogs(k){ var L = (KD[k] && KD[k].log) || {}; return Object.keys(L).map(function(i){ return L[i]; }).sort(function(a, b){ return String(b.t).localeCompare(String(a.t)); }); }
@@ -82,6 +130,7 @@ function _kdWhen(d){
 }
 function _kdRecHtml(k, print){
   var x = KD[k], rec = x.rec || {};
+  if(!print) KD_RIX = [];
   var arrOf = function(a){ return (Array.isArray(a) ? a : Object.keys(a || {}).map(function(i){ return a[i]; })).filter(function(r){ return r && typeof r === "object"; }); };
   var keys = Object.keys(rec).filter(function(key){ return arrOf(rec[key]).length; });
   if(!keys.length) return '<div style="padding:20px;text-align:center;color:#94a3b8">아직 본 시험이 없어요</div>';
@@ -98,13 +147,13 @@ function _kdRecHtml(k, print){
   keys.forEach(function(key){ arrOf(rec[key]).forEach(function(r){ all.push({ key: key, r: r, w: _kdWhen(r.d) }); }); });
   all.sort(function(a, b){ return b.w - a.w; });
   var h = '';
-  if(!print) h += '<div style="display:flex;gap:6px;margin:2px 0 10px">' + [["new", "🕘 최신순 (위가 최근)"], ["lv", "📚 단계별 (과목·단계 순서)"]].map(function(v){ var on = KD_RECVIEW === v[0]; return '<button class="btn" style="background:' + (on ? "#1e3a8a" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#1e293b") + ';font-weight:800" onclick="KD_RECVIEW=\'' + v[0] + '\';draw()">' + v[1] + '</button>'; }).join("") + '</div>';
+  if(!print) h += '<div style="font-size:12.5px;color:#475569;margin:0 0 6px">👆 줄을 누르면 그 시험에서 <b>아이가 쓴 글씨·답</b>을 볼 수 있어요</div><div style="display:flex;gap:6px;margin:2px 0 10px">' + [["new", "🕘 최신순 (위가 최근)"], ["lv", "📚 단계별 (과목·단계 순서)"]].map(function(v){ var on = KD_RECVIEW === v[0]; return '<button class="btn" style="background:' + (on ? "#1e3a8a" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#1e293b") + ';font-weight:800" onclick="KD_RECVIEW=\'' + v[0] + '\';draw()">' + v[1] + '</button>'; }).join("") + '</div>';
   var view = print ? "lv" : KD_RECVIEW;
   if(view === "new"){
   // 🕘 최신순 — 어느 과목이든 본 시험 전부, 위가 가장 최근
   h += tbl(["120px", "auto", "60px", "64px", "38%"])
     + '<thead><tr' + (print ? "" : ' style="background:#eff6ff"') + '>' + th("날짜") + th("무슨 시험") + th("점수", "right") + th("맞음", "center") + th("틀린 것") + '</tr></thead><tbody>'
-    + all.map(function(o){ return '<tr><td style="' + S + 'white-space:nowrap">' + esc(o.r.d || "") + '</td><td style="' + S + 'font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(_kdKeyName(o.key)) + ' <span style="color:#64748b;font-weight:400">' + (o.r.no || "") + '회</span></td>' + scoreTd(o.r) + '<td style="' + S + 'text-align:center">' + (o.r.ok || 0) + '/' + (o.r.n || 0) + '</td><td style="' + S + 'font-size:12px;color:#b91c1c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(wrongOf(o.key, o.r)) + '">' + esc(wrongOf(o.key, o.r)) + '</td></tr>'; }).join("")
+    + all.map(function(o){ return '<tr' + (print ? '' : _kdRowAttr(k, o.key, o.r)) + '><td style="' + S + 'white-space:nowrap">' + esc(o.r.d || "") + '</td><td style="' + S + 'font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(_kdKeyName(o.key)) + ' <span style="color:#64748b;font-weight:400">' + (o.r.no || "") + '회</span></td>' + scoreTd(o.r) + '<td style="' + S + 'text-align:center">' + (o.r.ok || 0) + '/' + (o.r.n || 0) + '</td><td style="' + S + 'font-size:12px;color:#b91c1c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(wrongOf(o.key, o.r)) + '">' + esc(wrongOf(o.key, o.r)) + '</td></tr>'; }).join("")
     + '</tbody></table>';
   return h;
   }
@@ -118,7 +167,7 @@ function _kdRecHtml(k, print){
     h += '<div style="font-weight:800;margin:12px 0 4px">' + esc(_kdKeyName(key)) + ' <span style="font-weight:400;color:#64748b;font-size:12px">' + arr.length + '회 · 최고 ' + Math.max.apply(null, arr.map(function(r){ return r.score || 0; })) + '점</span></div>';
     h += tbl(["60px", "120px", "60px", "64px", "84px", "auto"]) + '<thead><tr' + (print ? "" : ' style="background:#f8fafc"') + '>' + th("회차") + th("날짜") + th("점수", "right") + th("맞음", "center") + th("어디에") + th("틀린 것") + '</tr></thead><tbody>';
     arr.forEach(function(r){
-      h += '<tr><td style="' + S + '">' + (r.no || "") + '회</td><td style="' + S + 'white-space:nowrap">' + esc(r.d || "") + '</td>' + scoreTd(r) + '<td style="' + S + 'text-align:center">' + (r.ok || 0) + '/' + (r.n || 0) + '</td><td style="' + S + 'font-size:12px">' + esc(where(r)) + '</td><td style="' + S + 'font-size:12px;color:#b91c1c">' + esc(wrongOf(key, r)) + '</td></tr>';
+      h += '<tr' + (print ? '' : _kdRowAttr(k, key, r)) + '><td style="' + S + '">' + (r.no || "") + '회</td><td style="' + S + 'white-space:nowrap">' + esc(r.d || "") + '</td>' + scoreTd(r) + '<td style="' + S + 'text-align:center">' + (r.ok || 0) + '/' + (r.n || 0) + '</td><td style="' + S + 'font-size:12px">' + esc(where(r)) + '</td><td style="' + S + 'font-size:12px;color:#b91c1c">' + esc(wrongOf(key, r)) + '</td></tr>';
     });
     h += '</tbody></table>';
   });
