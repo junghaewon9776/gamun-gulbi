@@ -28210,6 +28210,18 @@ function dOrderHist(){
   h+='<div class="tbgrp"><span class="tblbl" style="background:#fef3c7;color:#b45309">⏱ 방금</span>'+_rb(30,'30분')+_rb(60,'1시간')+_rb(180,'3시간')+_rb(360,'6시간')+'</div>';
   h+='</div>';
   h+='<div class="card"><div id="ordh_list" class="muted" style="overflow:auto;max-height:66vh">불러오는 중...</div></div>';
+  // ☑ 선택하면 화면 아래에 뜨는 버튼줄 — 위로 안 올라가도 바로 문자·삭제 (2026-11-11)
+  h+='<div id="ordh_selbar" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:900;max-width:calc(100vw - 24px);background:#1e293b;color:#fff;border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.35);padding:8px 10px;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center">';
+  h+='<b id="ordh_selbar_n" style="font-size:13px;margin:0 6px;color:#fde68a"></b>';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="ordhSms(\'접수\',true)">📩 접수문자</button>';
+  h+='<button class="btn" style="background:#16a34a;color:#fff" onclick="ordhSmsChoose(true)">🚚 송장문자</button>';
+  h+='<button class="btn" style="background:#0ea5e9;color:#fff" onclick="ordhSms(\'받는분\',true)">🎁 받는분문자</button>';
+  h+='<button class="btn" style="background:#0d9488;color:#fff" onclick="ordhBulkShipDate()">📅 발송일자</button>';
+  h+='<button class="btn" style="background:#b45309;color:#fff" onclick="ordhBulkInsert(true)">🎴 체크</button>';
+  h+='<button class="btn" style="background:#15803d;color:#fff" onclick="ordhExportSelected()">📥 파일변환</button>';
+  h+='<button class="btn" style="background:#dc2626;color:#fff" onclick="ordhDelSelected()">🗑 삭제</button>';
+  h+='<button class="btn" style="background:#475569;color:#fff" onclick="ordhSelClear()">✕ 선택해제</button>';
+  h+='</div>';
   return h;
 }
 
@@ -28412,7 +28424,8 @@ function ordhCkClick(cb, ev){
 function ordhCheckAll(on){ document.querySelectorAll('.ordh_ck').forEach(function(c){ c.checked=on; if(on) ORDH_SEL[c.value]=1; else delete ORDH_SEL[c.value]; }); ordhSelCount(); }   // 지금 화면에 보이는 행만
 function ordhSelectedKeys(){ return Object.keys(ORDH_SEL).filter(function(k){return ORDH_DATA[k];}); }
 function ordhSelClear(){ ORDH_SEL={}; document.querySelectorAll('.ordh_ck').forEach(function(c){c.checked=false;}); var a=document.getElementById('ordh_all'); if(a)a.checked=false; ordhSelCount(); }
-function ordhSelCount(){ var n=ordhSelectedKeys().length; var el=document.getElementById('ordh_seln'); if(el) el.textContent=n?('✓ '+n+'개 선택됨 (검색 바꿔도 유지)'):''; }
+function ordhSelCount(){ var n=ordhSelectedKeys().length; var el=document.getElementById('ordh_seln'); if(el) el.textContent=n?('✓ '+n+'개 선택됨 (검색 바꿔도 유지)'):'';
+  var bar=document.getElementById('ordh_selbar'); if(bar){ bar.style.display=n?'flex':'none'; var bn=document.getElementById('ordh_selbar_n'); if(bn) bn.textContent='☑ '+n+'개 선택'; } }
 document.addEventListener('change', function(e){ if(e.target && e.target.classList && e.target.classList.contains('ordh_ck')) ordhSelCount(); });
 
 function ordhDelSelected(){
