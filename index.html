@@ -26669,6 +26669,7 @@ async function shipOpen(k){
           var pno=String(v['상품주문번호']||'');
           if(pno && pno!==ono && !byNo[pno]) byNo[pno]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), path:p, no:pno};
           if(ono) byNo[ono]={trk:v['송장번호']||'', car:v['택배사']||'', del:!!v['del'], sd:String(v['발송일자']||''), ins:String(v['인사말']||''), chg:String(v['변경주소']||''), btel:String(v['구매자전화']||''), bname:String(v['구매자명']||''), no:ono, path:p};
+          var fk0=String(v['파일순번']||''); if(fk0 && ono && fk0!==ono) byNo[fk0]=byNo[ono];   // 새 와꾸: 파일명-순번은 「파일순번」 칸
           if(v['송장번호']){ (idx[key]=idx[key]||[]).push({trk:v['송장번호'], car:v['택배사']||'', dt:String(v['등록일시']||'')}); }
           if(v['del'] && _fileNm && ono.indexOf(_fileNm+'-')===0) delSet[key]=1;
         }
@@ -27079,7 +27080,7 @@ function shipTrackUpload(k, file){
       // 주문히스토리 (송장 없는 것) — 주문번호로 찾는 표 + 이름|전화 표(이 파일 날짜 근처만)
       var oidx={}, onoIdx={}, fileDay=String(d.t||''), oci=_shipNoCol(heads), _fileNm=String(d.file||'');
       Object.keys(ORDH_DATA).forEach(function(key){ var o=ORDH_DATA[key]||{}; if(o['송장번호']) return;
-        [o['주문번호'], o['상품주문번호']].forEach(function(no){ no=String(no||'').trim(); if(no) onoIdx[no]=key; });
+        [o['파일순번'], o['주문번호'], o['상품주문번호']].forEach(function(no){ no=String(no||'').trim(); if(no) onoIdx[no]=key; });
         if(!_shipNear(o['등록일시'], fileDay)) return;
         var tl=_trkTail(o['수취인전화']); if(!tl) return;
         var kk=_trkNrm(o['수취인명'])+'|'+tl; (oidx[kk]=oidx[kk]||[]).push(key); });
@@ -27354,7 +27355,7 @@ async function shipDel(k){
       var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
       (function walk(o,path){ Object.keys(o||{}).forEach(function(kk){ var v=o[kk]; if(!v||typeof v!=='object') return;
         var p=path+'/'+kk;
-        if(v['수취인명']||v['주문번호']||v['등록일시']){ if(String(v['주문번호']||'').indexOf(fileName+'-')===0) okeys.push(p); }
+        if(v['수취인명']||v['주문번호']||v['등록일시']){ if(_ordFk(v).indexOf(fileName+'-')===0) okeys.push(p); }
         else walk(v,p);
       }); })(ORD,'/excel_orders');
     }catch(e){}
@@ -27384,7 +27385,7 @@ async function shipPurge(k){
       var ORD=(await fbDb.ref('/excel_orders').once('value')).val()||{};
       (function walk(o,path){ Object.keys(o||{}).forEach(function(kk){ var v=o[kk]; if(!v||typeof v!=='object') return;
         var p=path+'/'+kk;
-        if(v['수취인명']||v['주문번호']||v['등록일시']){ if(String(v['주문번호']||'').indexOf(fileName+'-')===0) okeys.push(p); }
+        if(v['수취인명']||v['주문번호']||v['등록일시']){ if(_ordFk(v).indexOf(fileName+'-')===0) okeys.push(p); }
         else walk(v,p);
       }); })(ORD,'/excel_orders');
     }catch(e){}
@@ -28340,7 +28341,7 @@ function ordhExportData(){
   var aoa=[head];
   list.forEach(function(d){
     var no=String(d['주문번호']||'');
-    var fn=(String(d['플랫폼']||'')==='와꾸')?no.replace(/-\d+$/,''):'';   // 와꾸는 주문번호에서 파일명 추출
+    var fn=(String(d['플랫폼']||'')==='와꾸')?_ordFk(d).replace(/-\d+$/,''):'';   // 와꾸는 파일순번(예전 건은 주문번호)에서 파일명 추출
     aoa.push([ fn, no, d['등록일시']||'', _shipDateOf(d)||'', d['플랫폼']||'', d['수취인명']||'', d['수취인전화']||'', d['주소']||'', d['변경주소']||'', d['구매자명']||'', d['구매자전화']||'', d['상품명']||'', d['수량']||'', d['옵션']||'', d['배송메시지']||'', d['택배사']||'', d['송장번호']||'', d['주소확인']?'확인':'', (_hasInsert(d)?(_insOf(d)||'있음'):'') ]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -28429,10 +28430,15 @@ function ordhInsertOk(k,on){
 }
 // 📄 주문번호(와꾸는 파일명) 보기 — 길어서 눌러서 확인·복사
 // 진짜 주문번호 — 스마트스토어 등은 상품주문번호(없으면 주문번호), 와꾸는 파일명-순번이라 빈칸
-function _ordhRealNo(d){ d=d||{}; if(d['플랫폼']==='와꾸') return String(d['상품주문번호']||'').trim(); return String(d['상품주문번호']||d['주문번호']||'').trim(); }
+// 와꾸 파일 연결 키 — 새 와꾸는 「파일순번」 칸, 예전 와꾸는 주문번호 칸에 「파일명-순번」
+function _ordFk(d){ d=d||{}; return String(d['파일순번']||d['주문번호']||''); }
+// 진짜 주문번호 — 상품주문번호 우선, 와꾸는 파일명-순번이면 빈칸
+function _ordhRealNo(d){ d=d||{}; var fk=String(d['파일순번']||''), no=String(d['주문번호']||'').trim(), pno=String(d['상품주문번호']||'').trim();
+  if(d['플랫폼']==='와꾸'){ if(pno) return pno; return (fk && no && no!==fk) ? no : ''; }
+  return pno||no; }
 function ordhShowNo(k){
   var d=ORDH_DATA[k]||{};
-  var no=String(d['주문번호']||'(주문번호 없음)');
+  var no=String(d['주문번호']||'(주문번호 없음)'); if(d['파일순번'] && d['파일순번']!==d['주문번호']) no=no+'\n📄 '+d['파일순번'];
   var h='<div style="max-width:560px"><h3 style="margin:0 0 6px">📄 주문번호 / 파일명</h3>';
   h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px">'+esc(d['수취인명']||'')+' · '+esc(d['플랫폼']||'')+' · '+esc(d['상품명']||'')+'</div>';
   h+='<textarea id="_onoTa" readonly onclick="this.focus();this.select()" style="width:100%;box-sizing:border-box;height:74px;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:13px">'+esc(no)+'</textarea>';
