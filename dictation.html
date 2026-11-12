@@ -360,6 +360,7 @@
       <select id="setPass"><option value="100">100점 (다 맞아야)</option><option value="90">90점 이상</option><option value="80">80점 이상</option><option value="70">70점 이상</option></select>
       <label>🗣 목소리</label>
       <select id="setVoice"></select>
+      <button class="b-purple" style="margin-top:6px" onclick="ttsTest()">🔊 소리 시험</button>
       <div class="hint" id="voiceHint"></div>
       <button class="big b-ok" style="margin-top:12px" onclick="saveSettings()">💾 저장</button>
       <div class="row" style="margin-top:12px">
@@ -593,10 +594,37 @@ function speak(text, rate){
     var u = new SpeechSynthesisUtterance(String(text).replace(/[‘’“”'"]/g,""));
     u.lang = "ko-KR"; u.rate = rate || 0.9;
     var v = voices.filter(function(x){ return x.name===DB.opt.voice; })[0]; if(v) u.voice = v;
-    var done=false, fin=function(){ if(!done){ done=true; res(); } };
+    var done=false, started=false, fin=function(){ if(!done){ done=true; res(); } };
+    u.onstart = function(){ started = true; _ttsOk = true; };
     u.onend = fin; u.onerror = fin; setTimeout(fin, 15000);
-    synth.speak(u);
+    window._ttsU = u;   // 안드로이드 크롬: 참조 안 잡아 두면 중간에 사라져 소리가 끊김
+    // 폰에서 읽기가 멈춰(일시정지·대기열 막힘) 있으면 소리 없이 넘어감 → 풀고 말하기
+    var go = function(){ try{ synth.resume(); }catch(e){} synth.speak(u); };
+    if(synth.speaking || synth.pending || synth.paused){ synth.cancel(); setTimeout(go, 120); } else go();
+    var rid = runId;
+    setTimeout(function(){   // 2.5초 지나도 시작을 안 하면 새로 만들어 한 번 더 (그사이 「그만」 눌렀으면 안 함)
+      if(started || done || rid !== runId) return;
+      u.onend = u.onerror = u.onstart = null; try{ synth.cancel(); synth.resume(); }catch(e){}
+      var u2 = new SpeechSynthesisUtterance(u.text); u2.lang = u.lang; u2.rate = u.rate; if(u.voice) u2.voice = u.voice;
+      u2.onstart = function(){ started = true; _ttsOk = true; }; u2.onend = fin; u2.onerror = fin; window._ttsU = u2;
+      setTimeout(function(){ if(!done && rid === runId) synth.speak(u2); }, 120);
+    }, 2500);
+    setTimeout(function(){ if(!started && !_ttsOk && !_ttsWarned){ _ttsWarned = true; toast("🔇 소리가 안 나요 — 폰 볼륨(미디어)·무음 모드를 확인하고, 안 되면 ⚙ 설정의 「🔊 소리 시험」을 눌러 보세요"); } }, 5000);
   });
+}
+var _ttsOk = false, _ttsWarned = false;
+// 다른 앱 갔다 오면 읽기 엔진이 멈춰 있는 경우가 많음 → 돌아올 때 풀어 주기
+document.addEventListener("visibilitychange", function(){ if(!document.hidden && synth){ try{ synth.resume(); }catch(e){} } });
+function ttsTest(){
+  var h = $("voiceHint"); h.textContent = "🔊 「안녕하세요, 받아쓰기 시작합니다」 소리가 나야 해요...";
+  if(!synth){ h.textContent = "이 브라우저는 읽어 주기를 못 해요. 크롬으로 열어 주세요."; return; }
+  synth.cancel(); loadVoices();
+  var ok = false, u = new SpeechSynthesisUtterance("안녕하세요, 받아쓰기 시작합니다"); u.lang = "ko-KR"; u.rate = 0.9;
+  var v = voices.filter(function(x){ return x.name===$("setVoice").value; })[0]; if(v) u.voice = v;
+  u.onstart = function(){ ok = true; h.textContent = "✅ 읽기는 되고 있어요. 소리가 안 들리면 폰 옆 볼륨 버튼(미디어 소리)을 올리고 무음·방해금지를 꺼 주세요."; };
+  u.onerror = function(e){ h.textContent = "❌ 읽기 오류: " + (e.error||"") + " — 폰 설정 › 텍스트 음성 변환(TTS)에서 「Google 음성 인식 및 합성」·한국어를 골라 주세요."; };
+  window._ttsU = u; setTimeout(function(){ try{ synth.resume(); }catch(e){} synth.speak(u); }, 120);
+  setTimeout(function(){ if(!ok) h.textContent = "❌ 읽기 엔진이 반응이 없어요 (목소리 " + voices.length + "개). 앱을 완전히 껐다 켜 보고, 그래도 안 되면 폰 설정 › 텍스트 음성 변환(TTS)에서 Google 엔진·한국어 음성 데이터를 설치해 주세요. 목소리를 「기본」으로 바꿔 보는 것도 방법이에요."; }, 3000);
 }
 var runId = 0;
 function stopAll(){ runId++; if(synth) synth.cancel(); }
