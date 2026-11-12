@@ -622,6 +622,9 @@ function openInChrome(){
   toast("오른쪽 위 ⋯ 메뉴에서 「다른 브라우저로 열기」(사파리/크롬)를 눌러 주세요");
 }
 (function(){ var n = inAppName(); if(!n && synth) return;
+  // 카톡에서 열리면 바로 크롬(기본 브라우저)으로 넘기기 — 한 번만 (안 넘어가면 아래 빨간 안내 버튼)
+  if(n === "카카오톡"){ var t = 0; try{ t = +sessionStorage.getItem("dictKakaoOut") || 0; }catch(e){}
+    if(Date.now() - t > 60000){ try{ sessionStorage.setItem("dictKakaoOut", String(Date.now())); }catch(e){} openInChrome(); } }
   var d = document.createElement("div");
   d.style.cssText = "position:sticky;top:0;z-index:9999;background:#b91c1c;color:#fff;padding:10px 12px;font-size:15px;line-height:1.45;display:flex;gap:8px;align-items:center;flex-wrap:wrap";
   d.innerHTML = '<span style="flex:1;min-width:200px">🔇 지금 <b>' + (n || "이 브라우저") + '</b> 안에서 열려 있어서 <b>읽어주는 소리가 안 날 수 있어요</b>. 크롬으로 열어 주세요.</span><button onclick="openInChrome()" style="background:#fff;color:#b91c1c;font-weight:900;border:0;border-radius:8px;padding:8px 12px;font-size:15px">크롬으로 열기</button>';
