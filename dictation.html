@@ -614,7 +614,7 @@ function speak(text, rate){
 }
 var _ttsOk = false, _ttsWarned = false;
 // 카톡·네이버 등 앱 안에서 열면(인앱 브라우저) 읽어주기 소리가 안 나는 경우가 많음 → 크롬으로 열기 안내
-function inAppName(){ var u = navigator.userAgent || ""; return /KAKAOTALK/i.test(u) ? "카카오톡" : /NAVER\(inapp|NAVER/i.test(u) ? "네이버 앱" : /Instagram/i.test(u) ? "인스타그램" : /FBAN|FBAV/i.test(u) ? "페이스북" : /Line\//i.test(u) ? "라인" : /DaumApps/i.test(u) ? "다음 앱" : /; wv\)/.test(u) ? "앱 안 화면" : ""; }
+function inAppName(){ var u = navigator.userAgent || ""; return /KAKAOTALK/i.test(u) ? "카카오톡" : /NAVER\(inapp|NAVER/i.test(u) ? "네이버 앱" : /Instagram/i.test(u) ? "인스타그램" : /FBAN|FBAV/i.test(u) ? "페이스북" : /\bLine\//i.test(u) ? "라인" : /DaumApps/i.test(u) ? "다음 앱" : /; wv\)/.test(u) ? "앱 안 화면" : ""; }
 function openInChrome(){
   var url = location.href, u = navigator.userAgent || "";
   if(/KAKAOTALK/i.test(u)){ location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(url); return; }
