@@ -332,6 +332,7 @@ var KD_LIVE = {}, KD_LIVE_ON = {}, KD_LIVE_T = null, KD_LIVE_BIG = "";
 function _kdLiveOn(ids){
   ids.forEach(function(k){ if(KD_LIVE_ON[k]) return; KD_LIVE_ON[k] = 1;
     fbDb.ref("/kids/" + k + "/live").on("value", function(s){ KD_LIVE[k] = s.val(); _kdLivePaint(); }, function(){}); });
+  if(!KD_BT_ON){ KD_BT_ON = 1; fbDb.ref("/kids/_battle").on("value", function(s){ KD_BT = s.val() || {}; _kdLivePaint(); }, function(){}); }
   if(!KD_LIVE_T) KD_LIVE_T = setInterval(function(){ if(CTAB === "kids") _kdLivePaint(); }, 5000);
 }
 function _kdLivePaint(){ var el = document.getElementById("kdLiveCard"); if(el) el.innerHTML = _kdLiveInner(); }
@@ -359,5 +360,32 @@ function _kdLiveInner(){
     }
     h += '</div>';
   });
-  return h + '</div>';
+  h += '</div>';
+  return h + _kdBattleHtml();
+}
+// ⚔️ 대결 관전 — 열린 대결방마다: 점수판 · 지금 문제 · 보기 · 누가 뭘 골랐는지
+var KD_BT = {}, KD_BT_ON = 0;
+function _kdBattleHtml(){
+  var now = Date.now(), ids = Object.keys(KD_BT || {}).filter(function(id){ var R = KD_BT[id]; return R && R.st && now - (R.qt || R.ct || 0) < 3 * 3600000; });
+  if(!ids.length) return '<div class="mut" style="font-size:12.5px;margin-top:8px">⚔️ 지금 열린 대결방은 없어요 (방이 열리면 여기서 같이 볼 수 있어요)</div>';
+  return ids.map(function(id){
+    var R = KD_BT[id], ps = R.p || {}, us = Object.keys(ps), nm = function(u){ return esc((ps[u] || {}).nm || "?"); }, qs = R.qs || [], A = R.a || {};
+    var ok = {}; us.forEach(function(u){ ok[u] = 0; });
+    qs.forEach(function(q, i){ var a = A["q" + i] || {}; Object.keys(a).forEach(function(u){ if(a[u] && a[u].c === q.k && (i < R.cur || R.ph === "rv" || R.st === "end")) ok[u] = (ok[u] || 0) + 1; }); });
+    var st = R.st === "wait" ? "⏳ 시작 기다리는 중" : R.st === "end" ? "🏁 끝남" : (R.ph === "rv" ? "✅ 정답 공개" : "🤔 푸는 중");
+    var h = '<div style="margin-top:10px;border:3px solid #dc2626;border-radius:12px;padding:10px 12px;background:#fff7f7">';
+    h += '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><b style="font-size:17px">⚔️ ' + esc(R.title || "대결") + '</b><span style="font-weight:800;color:#b91c1c">' + st + (R.st === "play" ? ' · ' + (R.cur + 1) + ' / ' + R.n + '번' : '') + '</span></div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0">' + us.sort(function(x, y){ return ok[y] - ok[x]; }).map(function(u){ return '<span style="background:#fff;border:1px solid #fecaca;border-radius:8px;padding:3px 9px;font-weight:800">' + (u === R.host ? "👑 " : "") + nm(u) + ' <b style="color:#b91c1c">' + ok[u] + '개 맞힘</b></span>'; }).join("") + '</div>';
+    if(R.st === "play" && qs[R.cur]){
+      var Q = qs[R.cur], a = A["q" + R.cur] || {}, rv = R.ph === "rv";
+      h += '<div style="font-size:22px;font-weight:900;text-align:center;background:#fff;border-radius:10px;padding:8px">' + esc(Q.q) + (Q.say ? '<div style="font-size:14px;color:#0f766e">🔊 들려준 것: ' + esc(Q.say.map(function(x){ return x.t; }).join(" ")) + '</div>' : '') + '</div>';
+      h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">' + (Q.c || []).map(function(c, j){
+        var who = us.filter(function(u){ return a[u] && a[u].c === j; }).map(nm).join(", ");
+        return '<div style="border-radius:10px;padding:8px;font-weight:900;color:#fff;background:' + (j === Q.k ? "#15803d" : "#1e3a8a") + '">' + (j === Q.k ? "⭕ " : "") + esc(c) + (who ? '<div style="font-size:12.5px;font-weight:700;background:rgba(255,255,255,.2);border-radius:6px;padding:2px 6px;margin-top:4px">✋ ' + who + '</div>' : '') + '</div>';
+      }).join("") + '</div>';
+      var notYet = us.filter(function(u){ return !a[u]; }).map(nm);
+      if(!rv && notYet.length) h += '<div style="font-size:12.5px;color:#64748b;margin-top:4px">아직 안 고름: ' + notYet.join(", ") + '</div>';
+    }
+    return h + '</div>';
+  }).join("");
 }

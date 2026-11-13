@@ -7,7 +7,7 @@
 //                               p:{uid:{nm}}, a:{q0:{uid:{c,t}}}, bz:{q0:{uid:t}} }
 //   방장 폰이 문제 넘기기(cur·ph)를 맡고, 점수는 모두가 a·bz 를 보고 똑같이 계산
 // ============================================================================
-var BT = { room: null, R: null, ref: null, lob: null, off: 0, tick: null, act: "", pick: { sub: "m", lv: "", mode: "speed", n: 10 } };
+var BT = { said: "", sayN: 0, room: null, R: null, ref: null, lob: null, off: 0, tick: null, act: "", pick: { sub: "m", lv: "", mode: "speed", n: 10, how: "listen" } };
 var BT_LIMIT = { speed: 15000, buzz: 25000 }, BT_RV = 3500;
 
 function _btTS(){ return firebase.database.ServerValue.TIMESTAMP; }
@@ -80,6 +80,7 @@ function btMake(){
   b.innerHTML = '<div style="max-width:620px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:22px">➕ 방 만들기</b>' + BT_B("#475569", "btLobby()", "◀ 뒤로") + '</div>'
     + '<div style="font-weight:900;margin:8px 0 6px">① 과목</div><div style="display:flex;gap:6px">' + tab("m", "🔢 수학") + tab("h", "🈶 한자") + tab("e", "🔤 영어") + tab("a", "🔤 ABC") + '</div>'
     + '<div style="font-weight:900;margin:14px 0 6px">② 주제</div><select id="btLv" onchange="BT.pick.lv=this.value" style="width:100%;font-size:18px;padding:10px;border-radius:10px">' + L.map(function(x){ return '<option value="' + esc(x.id) + '"' + (x.id === P.lv ? " selected" : "") + '>' + esc(x.t) + '</option>'; }).join("") + '</select>'
+    + (P.sub === "a" ? '<div style="font-weight:900;margin:14px 0 6px">🔊 문제 내는 법</div><div style="display:flex;gap:6px">' + opt("how", "listen", "🔊 듣고 고르기<br><small>소리만 듣고 글자 찾기</small>") + opt("how", "see", "👀 보고 고르기<br><small>글자 보고 소문자·소리 찾기</small>") + '</div>' : '')
     + '<div style="font-weight:900;margin:14px 0 6px">③ 놀이 방식</div><div style="display:flex;gap:6px">' + opt("mode", "speed", "⚡ 스피드<br><small>다 같이 풀고 빠른 순서로 점수</small>") + opt("mode", "buzz", "🔔 먼저 누르기<br><small>먼저 누른 사람이 답하기</small>") + '</div>'
     + '<div style="font-weight:900;margin:14px 0 6px">④ 문제 수</div><div style="display:flex;gap:6px">' + [5, 10, 15, 20].map(function(n){ return opt("n", n, n + "문제"); }).join("") + '</div>'
     + BT_B("#15803d", "btCreate()", "✅ 방 열기", "width:100%;margin-top:18px;font-size:22px;padding:16px") + '</div>';
@@ -92,7 +93,7 @@ function _btPick3(right, pool, same){
   return out;
 }
 function _btQ(q, right, wrong){ var c = shuffle([String(right)].concat(wrong)); return { q: String(q), c: c, k: c.indexOf(String(right)) }; }
-function btMakeQs(sub, lvId, n){
+function btMakeQs(sub, lvId, n, how){
   var qs = [];
   if(sub === "m"){
     var x = mLv(lvId); if(!x) return [];
@@ -115,26 +116,32 @@ function btMakeQs(sub, lvId, n){
     var items = shuffle(lv.items), i = 0;
     while(qs.length < n && items.length){ var it = items[i % items.length]; i++;
       var w2 = _btPick3(it.a, (lv.items.length >= 6 ? lv.items : gp).map(function(z){ return z.a; }));
-      if(w2.length === 3) qs.push(_btQ(it.q, it.a, w2));
+      if(w2.length === 3){ var Q2 = _btQ(it.q, it.a, w2); if(sub === "e"){ var en = /[A-Za-z]/.test(it.q) ? it.q : /[A-Za-z]/.test(it.a) ? it.a : ""; if(en){ Q2.say = [{ t: en, en: 1 }]; Q2.rs = [{ t: en, en: 1 }]; } } qs.push(Q2); }
       if(i > n * 4) break;
     }
     return qs;
   }
   var A = ABC_LV.filter(function(y){ return y.id === lvId; })[0] || ABC_LV[0], letters = ABC.slice(A.from, A.to), j = 0;
   letters = shuffle(letters);
+  var Ln = function(z){ return z.L + " " + z.l; }, Q;
   while(qs.length < n && j < n * 4){ var r = letters[j % letters.length]; j++;
-    if(A.only) qs.push(_btQ(r.L + "  — 소문자는?", r.l, _btPick3(r.l, ABC.map(function(z){ return z.l; }))));
-    else qs.push(_btQ(r.L + " " + r.l + "  — 무슨 소리?", r.snd, _btPick3(r.snd, ABC.map(function(z){ return z.snd; }))));
+    if(how === "listen"){
+      // 🔊 듣고 고르기 — 글자는 안 보여 주고 소리만 → 들리는 글자를 고르기 (읽을 줄 알아야 맞힘)
+      if(A.only || j % 2){ Q = _btQ("🔊 이 글자는?", Ln(r), _btPick3(Ln(r), ABC.map(Ln))); Q.say = [{ t: r.L, en: 1 }]; Q.rs = [{ t: r.L, en: 1 }, { t: r.nm }]; }
+      else { Q = _btQ("🔊 이 소리 나는 글자는?", Ln(r), _btPick3(Ln(r), ABC.filter(function(z){ return z.snd !== r.snd; }).map(Ln))); Q.say = [{ t: r.snd + " 소리" }]; Q.rs = [{ t: r.L, en: 1 }, { t: r.snd + " 소리" }, { t: r.ex, en: 1 }]; }
+    } else if(A.only){ Q = _btQ(r.L + "  — 소문자는?", r.l, _btPick3(r.l, ABC.map(function(z){ return z.l; }))); Q.rs = [{ t: r.L, en: 1 }, { t: r.nm }]; }
+    else { Q = _btQ(r.L + " " + r.l + "  — 무슨 소리?", r.snd, _btPick3(r.snd, ABC.map(function(z){ return z.snd; }))); Q.rs = [{ t: r.L, en: 1 }, { t: r.snd + " 소리" }, { t: r.ex, en: 1 }]; }
+    qs.push(Q);
   }
   return qs;
 }
 function btCreate(){
   var P = BT.pick, sel = document.getElementById("btLv"); if(sel) P.lv = sel.value;
-  var qs = btMakeQs(P.sub, P.lv, P.n);
+  var qs = btMakeQs(P.sub, P.lv, P.n, P.sub === "a" ? P.how : "");
   if(qs.length < 3){ alert("이 주제로는 문제를 만들기 어려워요. 다른 주제를 골라 주세요."); return; }
   var lvT = (_btLvs(P.sub).filter(function(x){ return x.id === P.lv; })[0] || {}).t || "";
-  var title = { m: "🔢 ", h: "🈶 ", e: "🔤 ", a: "🔤 ABC " }[P.sub] + lvT;
-  var R = { host: KC.uid, hostNm: KC.name, ct: _btTS(), title: title, sub: P.sub, lv: P.lv, mode: P.mode, n: qs.length, qs: qs, st: "wait", cur: 0, ph: "q", qt: 0, p: {} };
+  var title = { m: "🔢 ", h: "🈶 ", e: "🔤 ", a: "🔤 ABC " }[P.sub] + lvT + (P.sub === "a" && P.how === "listen" ? " · 🔊 듣고 고르기" : "");
+  var R = { host: KC.uid, hostNm: KC.name, ct: _btTS(), title: title, sub: P.sub, lv: P.lv, how: P.sub === "a" ? (P.how || "see") : "", mode: P.mode, n: qs.length, qs: qs, st: "wait", cur: 0, ph: "q", qt: 0, p: {} };
   R.p[KC.uid] = { nm: KC.name };
   // 내가 예전에 만든 방은 정리
   KC.db.ref("/kids/_battle").once("value").then(function(s){ var all = s.val() || {}; Object.keys(all).forEach(function(id){ if(all[id] && all[id].host === KC.uid) KC.db.ref("/kids/_battle/" + id).remove().catch(function(){}); }); }).catch(function(){})
@@ -170,7 +177,7 @@ function btStart(){
 }
 function btAgain(){
   var R = BT.R; if(!R || R.host !== KC.uid) return;
-  var qs = btMakeQs(R.sub, R.lv, R.n);
+  var qs = btMakeQs(R.sub, R.lv, R.n, R.how || "");
   BT.ref.update({ st: "wait", cur: 0, ph: "q", qt: 0, a: null, bz: null, qs: qs, saved: null });
 }
 
@@ -207,7 +214,7 @@ function btTick(){
   if(R.ph === "q"){
     var s = _btState(R, R.cur);
     if((s.allIn || now - R.qt > BT_LIMIT[R.mode]) && BT.act !== key){ BT.act = key; BT.ref.update({ ph: "rv", rt: _btTS() }); }
-  } else if(R.ph === "rv" && R.rt && now - R.rt > BT_RV && BT.act !== key){
+  } else if(R.ph === "rv" && R.rt && now - R.rt > ((R.qs[R.cur] || {}).rs ? 5500 : BT_RV) && BT.act !== key){   // 정답 읽어 주는 문제는 조금 더 길게
     BT.act = key;
     if(R.cur >= R.n - 1) BT.ref.update({ st: "end" });
     else BT.ref.update({ cur: R.cur + 1, ph: "q", qt: _btTS() });
@@ -241,7 +248,7 @@ function btDraw(){
   } else if(R.st === "play"){
     var i = R.cur, Q = R.qs[i], s = _btState(R, i), mine = s.A[me], rv = R.ph === "rv";
     h += board + '<div style="display:flex;justify-content:space-between;color:#475569;font-weight:800"><span>' + (i + 1) + ' / ' + R.n + '번</span>' + (rv ? '' : '<span>⏱ <b id="btTime" style="font-size:22px">' + Math.ceil(BT_LIMIT[R.mode] / 1000) + '</b>초</span>') + '</div>';
-    h += '<div style="background:#fff;border-radius:16px;padding:22px 10px;text-align:center;font-size:' + (Q.q.length > 12 ? 30 : 46) + 'px;font-weight:900;margin:8px 0 12px" class="' + (R.sub === "h" ? "hz" : "") + '">' + esc(Q.q) + '</div>';
+    h += '<div style="background:#fff;border-radius:16px;padding:22px 10px;text-align:center;font-size:' + (Q.q.length > 12 ? 30 : 46) + 'px;font-weight:900;margin:8px 0 12px" class="' + (R.sub === "h" ? "hz" : "") + '">' + esc(Q.q) + (Q.say && !rv ? '<div><button onclick="btSay(true)" style="margin-top:10px;border:0;border-radius:12px;padding:10px 18px;font-size:20px;font-weight:900;background:#0f766e;color:#fff">🔊 다시 듣기</button></div>' : '') + '</div>';
     var canPick = !rv && !mine && (R.mode === "speed" || s.holder === me);
     if(R.mode === "buzz" && !rv){
       if(s.holder === me && !mine) h += '<div style="text-align:center;font-size:22px;font-weight:900;color:#b45309;margin-bottom:8px">🔔 내 차례! 답을 골라요</div>';
@@ -272,6 +279,18 @@ function btDraw(){
     btReward(R, sc, rank);
   }
   b.innerHTML = h + '</div>';
+  if(R.st === "play") btSay(false);
+}
+// 🔊 문제가 나오면 읽어 주고(say), 정답 공개 때 정답을 읽어 줌(rs) — 한 번씩만
+function btSay(again){
+  var R = BT.R; if(!R || R.st !== "play" || !R.qs) return;
+  var Q = R.qs[R.cur]; if(!Q) return;
+  var L = R.ph === "rv" ? Q.rs : Q.say, key = BT.room + "|" + R.cur + "|" + R.ph + "|" + R.qt;
+  if(!L || !L.length || (!again && BT.said === key)) return;
+  BT.said = key;
+  try { if(synth) synth.cancel(); } catch(e){}
+  var my = ++BT.sayN;
+  L.reduce(function(p, x){ return p.then(function(){ if(my !== BT.sayN) return; return (x.en && typeof speakEn === "function" ? speakEn(x.t, 0.75) : speak(x.t, 0.9)).then(function(){ return wait(200); }); }); }, wait(150));
 }
 // 끝나면 경험치 — 한 판에 한 번 (맞힌 점수 + 1등 보너스), 하루 상한은 gainXp 가 막음
 function btReward(R, sc, rank){

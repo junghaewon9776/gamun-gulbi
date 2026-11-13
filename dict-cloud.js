@@ -329,6 +329,7 @@ function _kLiveSnap(){
     else if(v === "vResult") o.fb = tx("rScore");
     else if(v === "vMQuiz" && MQ){ o.q = tx("mqQ"); o.a = MQ.input || ""; o.fb = tx("mqFb"); o.info = tx("mqInfo"); }
     else if(v === "vMResult") o.fb = tx("mrScore");
+    if(typeof BT !== "undefined" && BT.room && BT.R){ o.v = "battle"; o.nm = "⚔️ 대결 중 — " + (BT.R.title || ""); if(BT.R.st === "play" && BT.R.qs && BT.R.qs[BT.R.cur]){ o.n = BT.R.cur + 1; o.of = BT.R.n; o.q = BT.R.qs[BT.R.cur].q; } delete o.a; pad = null; }
   } catch(e){}
   return { o: o, pad: pad };
 }
