@@ -380,9 +380,10 @@ function _kdBattleHtml(){
       var Q = qs[R.cur], a = A["q" + R.cur] || {}, rv = R.ph === "rv";
       h += '<div style="font-size:22px;font-weight:900;text-align:center;background:#fff;border-radius:10px;padding:8px">' + esc(Q.q) + (Q.say ? '<div style="font-size:14px;color:#0f766e">🔊 들려준 것: ' + esc(Q.say.map(function(x){ return x.t; }).join(" ")) + '</div>' : '') + '</div>';
       h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">' + (Q.c || []).map(function(c, j){
-        var who = us.filter(function(u){ return a[u] && a[u].c === j; }).map(function(u){ return nm(u) + (a[u].s != null ? " " + a[u].s + "초" : ""); }).join(", ");
+        var who = us.filter(function(u){ return a[u] && a[u].c === j; }).map(function(u){ return nm(u) + _kdSec(a[u], R); }).join(", ");
         return '<div style="border-radius:10px;padding:8px;font-weight:900;color:#fff;background:' + (j === Q.k ? "#15803d" : "#1e3a8a") + '">' + (j === Q.k ? "⭕ " : "") + esc(c) + (who ? '<div style="font-size:12.5px;font-weight:700;background:rgba(255,255,255,.2);border-radius:6px;padding:2px 6px;margin-top:4px">✋ ' + who + '</div>' : '') + '</div>';
       }).join("") + '</div>';
+      if(Q.ty) h += '<div style="margin-top:6px;font-size:14px">' + us.filter(function(u){ return a[u]; }).map(function(u){ return '<div>' + (a[u].c === Q.k ? "⭕" : "❌") + ' <b>' + nm(u) + '</b> 쓴 답: <b>' + esc(a[u].v || "") + '</b>' + _kdSec(a[u], R) + '</div>'; }).join("") + '</div>';
       var notYet = us.filter(function(u){ return !a[u]; }).map(nm);
       if(!rv && notYet.length) h += '<div style="font-size:12.5px;color:#64748b;margin-top:4px">아직 안 고름: ' + notYet.join(", ") + '</div>';
     }
@@ -428,3 +429,6 @@ function kdBtShow(i){
       + (q.w && q.w.length ? '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:5px">' + q.w.map(function(x){ var first = x.o && q.w.filter(function(y){ return y.o; })[0] === x; return '<tr style="border-top:1px solid #f1f5f9"><td style="padding:3px 4px;width:30px">' + (x.o ? "⭕" : x.m ? "❌" : "⏰") + '</td><td style="padding:3px 4px;font-weight:800">' + esc(x.nm) + (first ? ' <span style="background:#fef3c7;border-radius:6px;padding:0 5px">🥇 제일 먼저</span>' : '') + '</td><td style="padding:3px 4px">' + (x.m ? esc(x.m) : '<span class="mut">안 고름</span>') + '</td><td style="padding:3px 4px;text-align:right;color:#475569;white-space:nowrap">' + (x.s !== "" && x.s != null ? x.s + "초" : "") + '</td></tr>'; }).join("") + '</table>' : '')
       + '</div>'; }).join("") + '</div>');
 }
+
+// 고른 데 걸린 초 — 새 앱은 s 를 같이 보냄, 예전 앱이면 고른 시각 − 문제 나온 시각
+function _kdSec(a, R){ var v = a && a.s != null ? a.s : (a && a.t && R && R.qt ? Math.max(0, Math.round((a.t - R.qt) / 100) / 10) : null); return v != null ? " " + v + "초" : ""; }

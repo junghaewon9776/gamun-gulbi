@@ -7,7 +7,7 @@
 //                               p:{uid:{nm}}, a:{q0:{uid:{c,t}}}, bz:{q0:{uid:t}} }
 //   방장 폰이 문제 넘기기(cur·ph)를 맡고, 점수는 모두가 a·bz 를 보고 똑같이 계산
 // ============================================================================
-var BT = { said: "", sayN: 0, room: null, R: null, ref: null, lob: null, off: 0, tick: null, act: "", pick: { sub: "m", lv: "", mode: "speed", n: 10, how: "listen" } };
+var BT = { said: "", sayN: 0, room: null, R: null, ref: null, lob: null, off: 0, tick: null, act: "", pick: { sub: "m", lv: "", mode: "speed", n: 10, how: "mix" } };
 var BT_LIMIT = { speed: 15000, buzz: 25000 }, BT_RV = 3500;
 
 function _btTS(){ return firebase.database.ServerValue.TIMESTAMP; }
@@ -35,7 +35,7 @@ function btLeave(quiet){
   clearInterval(BT.tick); BT.tick = null;
   if(BT.ref){ BT.ref.off(); }
   var R = BT.R, id = BT.room;
-  if(id && R){
+  if(id && R && !BT.watch){
     if(R.host === KC.uid && R.st !== "end") KC.db.ref("/kids/_battle/" + id).remove().catch(function(){});
     else if(R.st === "wait") KC.db.ref("/kids/_battle/" + id + "/p/" + KC.uid).remove().catch(function(){});
   }
@@ -57,9 +57,9 @@ function btLobby(){
       var R = all[id]; if(!R || !R.host) return;
       if(now - (R.ct || 0) > 3 * 3600000) return;   // 3시간 지난 방은 안 보임
       var ps = R.p || {}, n = Object.keys(ps).length, mine = !!ps[KC.uid];
-      if(R.st !== "wait" && !mine) return;
+      var watchB = BT_B("#0f766e", "btWatch('" + id + "')", "👀 관전");
       h += '<div style="background:#fff;border-radius:14px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;border:2px solid ' + (mine ? "#f59e0b" : "#e2e8f0") + '"><div style="flex:1"><b style="font-size:19px">' + (R.mode === "buzz" ? "🔔 " : "⚡ ") + esc(R.title || "") + '</b><div style="color:#64748b;font-size:14px">👑 ' + esc(R.hostNm || "") + ' · ' + R.n + '문제 · 👦 ' + n + '명' + (R.st !== "wait" ? " · 하는 중" : "") + '</div></div>'
-        + BT_B(mine ? "#b45309" : "#1d4ed8", "btJoin('" + id + "')", mine ? "다시 들어가기" : "들어가기") + '</div>';
+        + '<div style="display:flex;flex-direction:column;gap:6px">' + (R.st === "wait" || mine ? BT_B(mine ? "#b45309" : "#1d4ed8", "btJoin('" + id + "')", mine ? "다시 들어가기" : "들어가기") : "") + (mine ? "" : watchB) + '</div></div>';
     });
     var el = document.getElementById("btRooms"); if(el) el.innerHTML = h || '<div style="text-align:center;color:#94a3b8;padding:24px">아직 열린 방이 없어요. 방을 만들어 봐요!</div>';
   }, function(e){ var el = document.getElementById("btRooms"); if(el) el.innerHTML = '<div style="color:#b91c1c;padding:12px">대결방에 연결이 안 돼요 (' + esc(e && e.code || e) + ')</div>'; });
@@ -80,7 +80,7 @@ function btMake(){
   b.innerHTML = '<div style="max-width:620px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:22px">➕ 방 만들기</b>' + BT_B("#475569", "btLobby()", "◀ 뒤로") + '</div>'
     + '<div style="font-weight:900;margin:8px 0 6px">① 과목</div><div style="display:flex;gap:6px">' + tab("m", "🔢 수학") + tab("h", "🈶 한자") + tab("e", "🔤 영어") + tab("a", "🔤 ABC") + '</div>'
     + '<div style="font-weight:900;margin:14px 0 6px">② 주제</div><select id="btLv" onchange="BT.pick.lv=this.value" style="width:100%;font-size:18px;padding:10px;border-radius:10px">' + L.map(function(x){ return '<option value="' + esc(x.id) + '"' + (x.id === P.lv ? " selected" : "") + '>' + esc(x.t) + '</option>'; }).join("") + '</select>'
-    + (P.sub === "a" ? '<div style="font-weight:900;margin:14px 0 6px">🔊 문제 내는 법</div><div style="display:flex;gap:6px">' + opt("how", "listen", "🔊 듣고 고르기<br><small>소리만 듣고 글자 찾기</small>") + opt("how", "see", "👀 보고 고르기<br><small>글자 보고 소문자·소리 찾기</small>") + '</div>' : '')
+    + (P.sub === "a" ? '<div style="font-weight:900;margin:14px 0 6px">🔊 문제 내는 법</div><div style="display:flex;gap:6px">' + opt("how", "mix", "🔀 섞어서<br><small>아래 셋이 골고루</small>") + opt("how", "listen", "🔊 듣고 고르기<br><small>소리 듣고 글자 찾기</small>") + '</div><div style="display:flex;gap:6px;margin-top:6px">' + opt("how", "type", "✍️ 듣고 쓰기<br><small>들은 글자를 직접 쳐요</small>") + opt("how", "see", "👀 보고 고르기<br><small>소문자·소리 찾기</small>") + '</div>' : '')
     + '<div style="font-weight:900;margin:14px 0 6px">③ 놀이 방식</div><div style="display:flex;gap:6px">' + opt("mode", "speed", "⚡ 스피드<br><small>다 같이 풀고 빠른 순서로 점수</small>") + opt("mode", "buzz", "🔔 먼저 누르기<br><small>먼저 누른 사람이 답하기</small>") + '</div>'
     + '<div style="font-weight:900;margin:14px 0 6px">④ 문제 수</div><div style="display:flex;gap:6px">' + [5, 10, 15, 20].map(function(n){ return opt("n", n, n + "문제"); }).join("") + '</div>'
     + BT_B("#15803d", "btCreate()", "✅ 방 열기", "width:100%;margin-top:18px;font-size:22px;padding:16px") + '</div>';
@@ -123,13 +123,21 @@ function btMakeQs(sub, lvId, n, how){
   }
   var A = ABC_LV.filter(function(y){ return y.id === lvId; })[0] || ABC_LV[0], letters = ABC.slice(A.from, A.to), j = 0;
   letters = shuffle(letters);
-  var Ln = function(z){ return z.L + " " + z.l; }, Q;
+  var Ln = function(z){ return z.L + " " + z.l; }, Q, kinds = ["pick", "type", "see"], k0 = Math.floor(Math.random() * 3);
   while(qs.length < n && j < n * 4){ var r = letters[j % letters.length]; j++;
-    if(how === "listen"){
+    var kd = how === "mix" ? kinds[(j + k0) % 3] : how === "type" ? "type" : how === "listen" ? "pick" : "see";
+    if(kd === "type"){
+      // ✍️ 듣고 쓰기 — 소리만 듣고 그 글자를 직접 쳐서 냄 (대·소문자 아무거나, 소리가 같은 글자도 정답)
+      var bySnd = !A.only && j % 2 === 0;
+      Q = { q: bySnd ? "✍️ 이 소리 나는 글자를 써요" : "✍️ 들리는 글자를 써요", c: [r.L + " " + r.l], k: 0, ty: 1,
+        ok: bySnd ? ABC.filter(function(z){ return z.snd === r.snd; }).map(function(z){ return z.l; }) : [r.l] };
+      Q.say = bySnd ? [{ t: r.snd + " 소리" }] : [{ t: r.L, en: 1 }];
+      Q.rs = bySnd ? [{ t: r.L, en: 1 }, { t: r.snd + " 소리" }, { t: r.ex, en: 1 }] : [{ t: r.L, en: 1 }, { t: r.nm }];
+    } else if(kd === "pick"){
       // 🔊 듣고 고르기 — 글자는 안 보여 주고 소리만 → 들리는 글자를 고르기 (읽을 줄 알아야 맞힘)
       if(A.only || j % 2){ Q = _btQ("🔊 이 글자는?", Ln(r), _btPick3(Ln(r), ABC.map(Ln))); Q.say = [{ t: r.L, en: 1 }]; Q.rs = [{ t: r.L, en: 1 }, { t: r.nm }]; }
       else { Q = _btQ("🔊 이 소리 나는 글자는?", Ln(r), _btPick3(Ln(r), ABC.filter(function(z){ return z.snd !== r.snd; }).map(Ln))); Q.say = [{ t: r.snd + " 소리" }]; Q.rs = [{ t: r.L, en: 1 }, { t: r.snd + " 소리" }, { t: r.ex, en: 1 }]; }
-    } else if(A.only){ Q = _btQ(r.L + "  — 소문자는?", r.l, _btPick3(r.l, ABC.map(function(z){ return z.l; }))); Q.rs = [{ t: r.L, en: 1 }, { t: r.nm }]; }
+    } else if(A.only || (how === "mix" && j % 2)){ Q = _btQ(r.L + "  — 소문자는?", r.l, _btPick3(r.l, ABC.map(function(z){ return z.l; }))); Q.rs = [{ t: r.L, en: 1 }, { t: r.nm }]; }
     else { Q = _btQ(r.L + " " + r.l + "  — 무슨 소리?", r.snd, _btPick3(r.snd, ABC.map(function(z){ return z.snd; }))); Q.rs = [{ t: r.L, en: 1 }, { t: r.snd + " 소리" }, { t: r.ex, en: 1 }]; }
     qs.push(Q);
   }
@@ -140,8 +148,8 @@ function btCreate(){
   var qs = btMakeQs(P.sub, P.lv, P.n, P.sub === "a" ? P.how : "");
   if(qs.length < 3){ alert("이 주제로는 문제를 만들기 어려워요. 다른 주제를 골라 주세요."); return; }
   var lvT = (_btLvs(P.sub).filter(function(x){ return x.id === P.lv; })[0] || {}).t || "";
-  var title = { m: "🔢 ", h: "🈶 ", e: "🔤 ", a: "🔤 ABC " }[P.sub] + lvT + (P.sub === "a" && P.how === "listen" ? " · 🔊 듣고 고르기" : "");
-  var R = { host: KC.uid, hostNm: KC.name, ct: _btTS(), title: title, sub: P.sub, lv: P.lv, how: P.sub === "a" ? (P.how || "see") : "", mode: P.mode, n: qs.length, qs: qs, st: "wait", cur: 0, ph: "q", qt: 0, p: {} };
+  var title = { m: "🔢 ", h: "🈶 ", e: "🔤 ", a: "🔤 ABC " }[P.sub] + lvT + (P.sub === "a" ? ({ listen: " · 🔊 듣고 고르기", type: " · ✍️ 듣고 쓰기", mix: " · 🔀 섞어서" }[P.how] || "") : "");
+  var R = { host: KC.uid, hostNm: KC.name, ct: _btTS(), title: title, sub: P.sub, lv: P.lv, how: P.sub === "a" ? (P.how || "mix") : "", mode: P.mode, n: qs.length, qs: qs, st: "wait", cur: 0, ph: "q", qt: 0, p: {} };
   R.p[KC.uid] = { nm: KC.name };
   // 내가 예전에 만든 방은 정리
   KC.db.ref("/kids/_battle").once("value").then(function(s){ var all = s.val() || {}; Object.keys(all).forEach(function(id){ if(all[id] && all[id].host === KC.uid) KC.db.ref("/kids/_battle/" + id).remove().catch(function(){}); }); }).catch(function(){})
@@ -150,8 +158,10 @@ function btCreate(){
 }
 
 // ── 방 안 ──
-function btJoin(id, mine){
+function btWatch(id){ btJoin(id, true, true); }
+function btJoin(id, mine, watch){
   if(BT.lob){ BT.lob.off(); BT.lob = null; }
+  BT.watch = !!watch;
   var go2 = function(){
     BT.room = id; BT.ref = KC.db.ref("/kids/_battle/" + id); BT.act = "";
     BT.ref.on("value", function(s){
@@ -221,16 +231,25 @@ function btTick(){
   }
 }
 function btAns(c){
-  var R = BT.R; if(!R || R.st !== "play" || R.ph !== "q") return;
+  var R = BT.R; if(BT.watch || !R || R.st !== "play" || R.ph !== "q") return;
   var s = _btState(R, R.cur);
   if(s.A[KC.uid]) return;
   if(R.mode === "buzz" && s.holder !== KC.uid) return;
   BT.ref.child("a/q" + R.cur + "/" + KC.uid).set({ c: c, t: _btTS(), s: Math.max(0, Math.round((_btNow() - (R.qt || _btNow())) / 100) / 10) }).catch(function(){});
   if(typeof speak === "function"){ try { speechSynthesis.cancel(); } catch(e){} }
 }
+function btAnsT(){
+  var R = BT.R; if(BT.watch || !R || R.st !== "play" || R.ph !== "q") return;
+  var Q = R.qs[R.cur], s = _btState(R, R.cur); if(!Q || !Q.ty || s.A[KC.uid]) return;
+  if(R.mode === "buzz" && s.holder !== KC.uid) return;
+  var el = document.getElementById("btTy"), v = el ? String(el.value).trim() : ""; if(!v){ if(el) el.focus(); return; }
+  var nv = v.toLowerCase().replace(/\s+/g, ""), ok = (Q.ok || [String(Q.c[0]).toLowerCase()]).some(function(x){ return String(x).toLowerCase().replace(/\s+/g, "") === nv; });
+  BT.ref.child("a/q" + R.cur + "/" + KC.uid).set({ c: ok ? Q.k : -1, v: v.slice(0, 20), t: _btTS(), s: Math.max(0, Math.round((_btNow() - (R.qt || _btNow())) / 100) / 10) }).catch(function(){});
+  try { speechSynthesis.cancel(); } catch(e){}
+}
 function btBuzz(){
   var R = BT.R; if(!R || R.st !== "play" || R.ph !== "q") return;
-  var s = _btState(R, R.cur); if(s.Z[KC.uid] || s.A[KC.uid] || s.solved) return;
+  var s = _btState(R, R.cur); if(BT.watch || s.Z[KC.uid] || s.A[KC.uid] || s.solved) return;
   BT.ref.child("bz/q" + R.cur + "/" + KC.uid).set(_btTS()).catch(function(){});
 }
 
@@ -240,7 +259,7 @@ function btDraw(){
   var nm = function(u){ return esc((ps[u] || {}).nm || "?"); };
   var head = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:19px">' + (R.mode === "buzz" ? "🔔 " : "⚡ ") + esc(R.title) + '</b>' + BT_B("#475569", "if(confirm('방에서 나갈까요?'" + (host ? "+'\\n(방장이 나가면 방이 닫혀요)'" : "") + ")) btLobby()", "나가기", "font-size:15px;padding:8px 12px") + '</div>';
   var board = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + uids.slice().sort(function(x, y){ return (sc[y] || 0) - (sc[x] || 0); }).map(function(u){ return '<div style="background:' + (u === me ? "#fef3c7" : "#fff") + ';border-radius:10px;padding:6px 10px;font-weight:800;border:1px solid #e2e8f0">' + (u === R.host ? "👑" : "👦") + ' ' + nm(u) + ' <span style="color:#1d4ed8">' + (sc[u] || 0) + '점</span></div>'; }).join("") + '</div>';
-  var h = '<div style="max-width:620px;margin:0 auto">' + head;
+  var h = '<div style="max-width:620px;margin:0 auto">' + head + (BT.watch ? '<div style="background:#0f766e;color:#fff;border-radius:10px;padding:6px 10px;margin-bottom:8px;font-weight:800;text-align:center">👀 관전 중 — 보기만 해요 (점수엔 안 들어가요)</div>' : '');
   if(R.st === "wait"){
     h += '<div style="background:#fff;border-radius:14px;padding:14px;text-align:center"><div style="font-size:18px;color:#475569">' + R.n + '문제 · ' + (R.mode === "buzz" ? "🔔 먼저 누른 사람이 답하기 (맞으면 +2, 틀리면 −1)" : "⚡ 다 같이 풀기 (빨리 맞힌 순서로 3·2·1점)") + '</div>'
       + '<div style="font-size:20px;font-weight:900;margin:14px 0 6px">모인 친구 ' + uids.length + '명</div><div style="font-size:22px;line-height:1.7">' + uids.map(function(u){ return (u === R.host ? "👑 " : "👦 ") + nm(u); }).join("<br>") + '</div>'
@@ -249,14 +268,20 @@ function btDraw(){
     var i = R.cur, Q = R.qs[i], s = _btState(R, i), mine = s.A[me], rv = R.ph === "rv";
     h += board + '<div style="display:flex;justify-content:space-between;color:#475569;font-weight:800"><span>' + (i + 1) + ' / ' + R.n + '번</span>' + (rv ? '' : '<span>⏱ <b id="btTime" style="font-size:22px">' + Math.ceil(BT_LIMIT[R.mode] / 1000) + '</b>초</span>') + '</div>';
     h += '<div style="background:#fff;border-radius:16px;padding:22px 10px;text-align:center;font-size:' + (Q.q.length > 12 ? 30 : 46) + 'px;font-weight:900;margin:8px 0 12px" class="' + (R.sub === "h" ? "hz" : "") + '">' + esc(Q.q) + (Q.say && !rv ? '<div><button onclick="btSay(true)" style="margin-top:10px;border:0;border-radius:12px;padding:10px 18px;font-size:20px;font-weight:900;background:#0f766e;color:#fff">🔊 다시 듣기</button></div>' : '') + '</div>';
-    var canPick = !rv && !mine && (R.mode === "speed" || s.holder === me);
+    var canPick = !BT.watch && !rv && !mine && (R.mode === "speed" || s.holder === me);
     if(R.mode === "buzz" && !rv){
       if(s.holder === me && !mine) h += '<div style="text-align:center;font-size:22px;font-weight:900;color:#b45309;margin-bottom:8px">🔔 내 차례! 답을 골라요</div>';
       else if(s.holder) h += '<div style="text-align:center;font-size:20px;font-weight:900;color:#7c3aed;margin-bottom:8px">🔔 ' + nm(s.holder) + ' 차례 — 답 고르는 중...</div>';
-      if(!s.Z[me] && !mine && !s.solved) h += BT_B("#dc2626", "btBuzz()", "🔔 내가 알아요!", "width:100%;font-size:30px;padding:22px;margin-bottom:10px");
+      if(!BT.watch && !s.Z[me] && !mine && !s.solved) h += BT_B("#dc2626", "btBuzz()", "🔔 내가 알아요!", "width:100%;font-size:30px;padding:22px;margin-bottom:10px");
       else if(s.Z[me] && s.holder !== me && !mine) h += '<div style="text-align:center;color:#64748b;margin-bottom:8px">🔔 눌렀어요 — 앞사람이 틀리면 내 차례</div>';
     }
-    if(R.mode === "speed" || rv || s.holder === me || mine){
+    if(Q.ty){
+      // ✍️ 쓰기 문제: 입력칸 / 낸 답 / 정답 공개 때 모두의 답
+      if(canPick) h += '<div style="display:flex;gap:8px"><input id="btTy" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="10" placeholder="여기에 써요" onkeydown="if(event.key===\'Enter\'){event.preventDefault();btAnsT();}" style="flex:1;min-width:0;font-size:34px;padding:12px;border-radius:14px;border:3px solid #1e3a8a;text-align:center;font-weight:900"><button onclick="btAnsT()" style="border:0;border-radius:14px;padding:12px 18px;font-size:22px;font-weight:900;color:#fff;background:#15803d">✅ 내기</button></div>';
+      else if(mine && !rv) h += '<div style="text-align:center;font-size:24px;font-weight:900;color:#b45309">✍️ 낸 답: ' + esc(mine.v || "") + '</div>';
+      if(rv) h += '<div style="text-align:center;font-size:30px;font-weight:900;color:#15803d;background:#dcfce7;border-radius:14px;padding:10px">정답: ' + esc(Q.c[0]) + '</div>'
+        + uids.filter(function(u){ return s.A[u]; }).map(function(u){ var a = s.A[u]; return '<div style="text-align:center;font-size:18px">' + (a.c === Q.k ? "⭕" : "❌") + ' ' + nm(u) + ': <b>' + esc(a.v || "") + '</b></div>'; }).join("");
+    } else if(R.mode === "speed" || rv || s.holder === me || mine){
       h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + Q.c.map(function(c, j){
         var bg = "#1e3a8a";
         if(rv){ bg = j === Q.k ? "#15803d" : (mine && mine.c === j ? "#b91c1c" : "#94a3b8"); }
@@ -278,7 +303,10 @@ function btDraw(){
     h += '<div style="display:flex;gap:8px;margin-top:12px">' + (host ? BT_B("#15803d", "btAgain()", "🔁 한 판 더", "flex:1") : "") + BT_B("#1d4ed8", "btLobby()", "🚪 대결방 목록", "flex:1") + '</div>';
     btReward(R, sc, rank);
   }
+  var ty0 = document.getElementById("btTy"), keep = ty0 ? ty0.value : "", foc = ty0 && document.activeElement === ty0, qid = R.cur + "|" + R.qt;
   b.innerHTML = h + '</div>';
+  var ty1 = document.getElementById("btTy");   // 다른 친구가 답해서 화면이 다시 그려져도 쓰던 글자는 그대로
+  if(ty1){ if(BT.tyQ === qid) ty1.value = keep; BT.tyQ = qid; if(foc || !keep) try { ty1.focus(); } catch(e){} }
   if(R.st === "play") btSay(false);
 }
 // 🔊 문제가 나오면 읽어 주고(say), 정답 공개 때 정답을 읽어 줌(rs) — 한 번씩만
@@ -304,9 +332,9 @@ function btReward(R, sc, rank){
   try {
     var me = KC.uid, ps = R.p || {}, nm = function(u){ return (ps[u] || {}).nm || "?"; }, okN = 0;
     var qs = (R.qs || []).slice(0, R.n).map(function(q, i){ var a = ((R.a || {})["q" + i] || {})[me], o = a && a.c === q.k ? 1 : 0; okN += o; var all = (R.a || {})["q" + i] || {}, us = Object.keys(all).sort(function(x, y){ return (all[x].t || 0) - (all[y].t || 0); });
-      var w = us.map(function(u){ var b = all[u]; return { nm: nm(u), m: q.c[b.c], o: b.c === q.k ? 1 : 0, s: b.s != null ? b.s : "" }; });
+      var w = us.map(function(u){ var b = all[u]; return { nm: nm(u), m: b.v != null ? b.v : (q.c[b.c] || ""), o: b.c === q.k ? 1 : 0, s: b.s != null ? b.s : (b.t && R.qt && i === R.cur ? Math.round((b.t - R.qt) / 100) / 10 : "") }; });
       Object.keys(ps).forEach(function(u){ if(!all[u]) w.push({ nm: nm(u), m: "", o: 0, s: "" }); });
-      return { q: q.q + (q.say ? " (" + q.say.map(function(x){ return x.t; }).join(" ") + ")" : ""), a: q.c[q.k], m: a ? q.c[a.c] : "", o: o, w: w }; });
+      return { q: q.q + (q.say ? " (" + q.say.map(function(x){ return x.t; }).join(" ") + ")" : ""), a: q.c[q.k], m: a ? (a.v != null ? a.v : (q.c[a.c] || "")) : "", o: o, w: w }; });
     var j = rank.indexOf(me), rec = { t: new Date().toISOString(), title: R.title || "", mode: R.mode, n: R.n, rank: j + 1, of: rank.length, sc: sc[me] || 0, ok: okN, win: win ? 1 : 0,
       pl: rank.map(function(u){ return { nm: nm(u), sc: sc[u] || 0 }; }), qs: qs };
     KC.db.ref("/kids/" + me + "/bt").push(JSON.parse(JSON.stringify(rec))).catch(function(){});
