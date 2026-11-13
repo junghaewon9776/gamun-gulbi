@@ -188,7 +188,7 @@ function speakEn(text, rate){
   return new Promise(function(res){
     if(!synth){ res(); return; }
     var u = new SpeechSynthesisUtterance(String(text)); u.lang = "en-US"; u.rate = rate || 0.8;
-    var v = (voices || []).filter(function(x){ return x.lang && x.lang.toLowerCase().indexOf("en") === 0; })[0]; if(v) u.voice = v;
+    var v = typeof bestVoice === "function" ? bestVoice("en") : (voices || []).filter(function(x){ return x.lang && x.lang.toLowerCase().indexOf("en") === 0; })[0]; if(v) u.voice = v;   // 아이폰 장난 목소리 피하기
     var done = false, fin = function(){ if(!done){ done = true; res(); } };
     u.onend = fin; u.onerror = fin; setTimeout(fin, 10000); synth.speak(u);
   });

@@ -581,19 +581,32 @@ function renderRanks(){
 var synth = window.speechSynthesis, voices = [];
 function loadVoices(){
   voices = synth ? synth.getVoices() : [];
-  var ko = voices.filter(function(v){ return v.lang && v.lang.toLowerCase().indexOf("ko")===0; });
+  var ko = voices.filter(function(v){ return v.lang && v.lang.toLowerCase().indexOf("ko")===0 && !(typeof VOICE_FUNNY !== "undefined" && VOICE_FUNNY.test(v.name)); });
   var sel = $("setVoice"); sel.innerHTML = '<option value="">기본 (한국어)</option>';
   ko.forEach(function(v){ var o=document.createElement("option"); o.value=v.name; o.textContent=v.name; sel.appendChild(o); });
   sel.value = DB.opt.voice || "";
   $("voiceHint").textContent = ko.length ? "" : "이 기기에 한국어 목소리가 안 보여요. 소리가 안 나면 기기 설정에서 한국어 음성(TTS)을 켜 주세요.";
 }
 if(synth){ loadVoices(); if(synth.onvoiceschanged!==undefined) synth.onvoiceschanged = loadVoices; }
+// 🗣 목소리 고르기 — 아이폰은 목록 맨 앞에 장난 목소리(Albert·Bad News·Bubbles·Zarvox…)가 있어서 그걸 잡으면 이상하게 들림 → 보통 목소리 우선
+var VOICE_FUNNY = /Albert|Bad ?News|Bahh|Bells|Boing|Bubbles|Cellos|Deranged|Good ?News|Hysterical|Jester|Junior|Kathy|Organ|Princess|Ralph|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Grandma|Grandpa|Eddy|Flo\b|Reed|Rocko|Sandy|Shelley|Novelty/i;
+var VOICE_GOOD = { en: /Samantha|Google US English|Aria|Jenny|Zira|Karen|Daniel|Moira|Tessa|Allison|Ava|Susan|Google UK English Female/i, ko: /Yuna|Google 한국|Heami|SunHi|InJoon|유나|Sora|Minsu/i };
+var _vBest = {};
+function bestVoice(lg){
+  var all = (voices && voices.length ? voices : (synth ? synth.getVoices() : [])) || [];
+  if(_vBest[lg] && all.indexOf(_vBest[lg]) >= 0) return _vBest[lg];
+  var L = all.filter(function(v){ return v.lang && v.lang.toLowerCase().replace("_", "-").indexOf(lg) === 0 && !VOICE_FUNNY.test(v.name); });
+  if(lg === "en"){ var us = L.filter(function(v){ return /en-us/i.test(v.lang.replace("_", "-")); }); if(us.length) L = us; }
+  var sc = function(v){ return (VOICE_GOOD[lg] && VOICE_GOOD[lg].test(v.name) ? 4 : 0) + (/enhanced|premium|natural|neural/i.test(v.name + v.voiceURI) ? 2 : 0) + (v.localService ? 1 : 0) + (v["default"] ? 1 : 0); };
+  L.sort(function(a, b){ return sc(b) - sc(a); });
+  return (_vBest[lg] = L[0] || null);
+}
 function speak(text, rate){
   return new Promise(function(res){
     if(!synth){ res(); return; }
     var u = new SpeechSynthesisUtterance(String(text).replace(/[‘’“”'"]/g,""));
     u.lang = "ko-KR"; u.rate = rate || 0.9;
-    var v = voices.filter(function(x){ return x.name===DB.opt.voice; })[0]; if(v) u.voice = v;
+    var v = voices.filter(function(x){ return x.name===DB.opt.voice; })[0] || bestVoice("ko"); if(v) u.voice = v;
     var done=false, started=false, fin=function(){ if(!done){ done=true; res(); } };
     u.onstart = function(){ started = true; _ttsOk = true; };
     u.onend = fin; u.onerror = fin; setTimeout(fin, 15000);
@@ -1421,7 +1434,7 @@ function mRetryWrong(){
 <!-- ☁️ 로그인 · 서버 저장 · 알림 (아이 계정은 가문굴비 업무 데이터와 따로) -->
 <script src="hanja-data.js?v=20261103a"></script>
 <script src="english-data.js?v=20261109a"></script>
-<script src="study-plus.js?v=20261109b"></script>
+<script src="study-plus.js?v=20261113a"></script>
 <script src="abc.js?v=20261109c"></script>
 <script src="simple-lv.js?v=20261109a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
