@@ -309,3 +309,45 @@ function kChangePw(){
   bar.innerHTML = '<button class="b-dark" style="font-size:15px" onclick="kChangePw()">🔑 비밀번호 바꾸기</button><button class="b-dark" style="font-size:15px;background:#64748b" onclick="kOut();go(\'vName\')">🚪 로그아웃</button>';
   lv.insertBefore(bar, lv.firstChild);
 })();
+
+// ───────── 👀 관전: 지금 보는 화면·쓰는 답을 /kids/{uid}/live 로 (가문굴비 👦 아이들 탭에서 실시간으로 봄) ─────────
+var KLIVE = { last: "", lastAt: 0, imgAt: 0, img: "", busy: false };
+var KLIVE_NM = { vName: "들어가는 화면", vLevel: "급 고르는 중", vMode: "단계 고르는 중", vStudy: "1단계 전체 듣기", vType: "2단계 따라 치기", vPrac: "3단계 듣고 써 보기",
+  vOpt: "시험 준비", vTest: "📝 4단계 시험 보는 중", vResult: "시험 결과", vMine: "내 기록 보는 중", vRanks: "계급표 보는 중", vBoard: "형제 계급 보는 중", vSet: "설정",
+  vMath: "🔢 수학 고르는 중", vMMode: "🔢 수학 단계 고르는 중", vMStudy: "🔢 수학 공부", vMQuiz: "🔢 수학 문제 푸는 중", vMResult: "🔢 수학 결과" };
+function _kLiveSnap(){
+  var v = (typeof VIEWS !== "undefined" ? VIEWS : []).filter(function(id){ var e = $(id); return e && !e.classList.contains("hidden"); })[0] || "";
+  var tx = function(id){ var e = $(id); return e ? String(e.textContent || "").trim().slice(0, 200) : ""; };
+  var val = function(id){ var e = $(id); return e ? String(e.value || "") : ""; };
+  var vis = function(id){ var e = $(id); return !!(e && !e.classList.contains("hidden") && e.offsetParent !== null); };
+  var o = { v: v, nm: KLIVE_NM[v] || v, lv: (ME && typeof lvName === "function") ? (function(){ try { return lvName(); } catch(e){ return ""; } })() : "" }, pad = null;
+  try {
+    if(v === "vType" && KT){ o.n = KT.idx + 1; o.of = KT.qs.length; o.q = KT.qs[KT.idx]; o.a = val("kAns"); o.fb = tx("kFb"); if(vis("kPadBox")) pad = PADK; }
+    else if(v === "vPrac" && PT){ o.n = PT.idx + 1; o.of = PT.qs.length; o.q = PT.qs[PT.idx]; o.a = val("pAns"); o.fb = tx("pFb"); if(vis("pPadBox")) pad = PADP; }
+    else if(v === "vTest" && T){ o.n = T.idx + 1; o.of = T.qs.length; o.q = T.qs[T.idx]; o.where = T.where; o.heard = T.heard[T.idx]; o.max = T.max;
+      if(T.where === "screen") o.a = val("tAns"); if(T.where === "hand") pad = PADT; o.fb = tx("tStatus"); }
+    else if(v === "vResult") o.fb = tx("rScore");
+    else if(v === "vMQuiz" && MQ){ o.q = tx("mqQ"); o.a = MQ.input || ""; o.fb = tx("mqFb"); o.info = tx("mqInfo"); }
+    else if(v === "vMResult") o.fb = tx("mrScore");
+  } catch(e){}
+  return { o: o, pad: pad };
+}
+function _kLiveTick(force){
+  if(!KC.uid || !KC.db || KLIVE.busy) return;
+  if(document.hidden){ if(KLIVE.last !== "off"){ KLIVE.last = "off"; KC.db.ref("/kids/" + KC.uid + "/live").set({ off: true, ts: Date.now() }).catch(function(){}); } return; }
+  var s = _kLiveSnap(), now = Date.now();
+  var withImg = function(img){
+    s.o.img = img || "";
+    var key = JSON.stringify(s.o);
+    if(!force && key === KLIVE.last && now - KLIVE.lastAt < 20000) return;   // 바뀐 게 없으면 20초에 한 번만 (살아 있다는 표시)
+    KLIVE.last = key; KLIVE.lastAt = now; s.o.ts = now;
+    KC.db.ref("/kids/" + KC.uid + "/live").set(s.o).catch(function(){});
+  };
+  if(s.pad && !s.pad.empty()){
+    if(now - KLIVE.imgAt < 1500) return withImg(KLIVE.img);   // 손글씨 그림은 1.5초에 한 번만 새로
+    KLIVE.busy = true; KLIVE.imgAt = now;
+    _kShrink(s.pad.url()).then(function(u){ KLIVE.busy = false; KLIVE.img = u; withImg(u); }, function(){ KLIVE.busy = false; });
+  } else { KLIVE.img = ""; withImg(""); }
+}
+setInterval(_kLiveTick, 1000);
+document.addEventListener("visibilitychange", function(){ _kLiveTick(true); });

@@ -71,6 +71,7 @@ function dKids(){
   var h = '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><strong style="font-size:18px">👦 아이들 공부 기록</strong><div style="display:flex;gap:6px;flex-wrap:wrap">' + B("#475569", "🔄 새로", "KD=null;draw()") + B("#2563eb", "✏️ 받아쓰기 열기", "window.open(KD_URL,'_blank')") + B("#7c3aed", "🔔 알림 설정", "kdCfg()") + '</div></div>';
   h += '<div class="mut" style="font-size:12.5px;margin-top:4px">아이가 받아쓰기에서 <b>이름 + 비밀번호</b>로 들어가면 여기 기록이 쌓여요. 시험을 보거나 진급하면 텔레그램으로 알려요.</div></div>';
   h += _kdAcctCard();
+  if(ids.length){ _kdLiveOn(ids); h += '<div class="card" id="kdLiveCard" style="margin-bottom:10px">' + _kdLiveInner() + '</div>'; }
   if(!ids.length) return h + '<div class="card" style="padding:30px;text-align:center;color:#94a3b8">아직 로그인해서 공부한 아이가 없어요</div>';
   // 아이 카드
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px">';
@@ -324,4 +325,39 @@ function kdCfgSave(){
   showLoading("저장 중...");
   fbDb.ref("/kids/_cfg").set(o).then(function(){ hideLoading(); KD._cfg = o; closePopup(); toast("🔔 알림 설정 저장했어요"); })
     .catch(function(e){ hideLoading(); toast("저장 실패: " + e.message, true); });
+}
+
+// ───────── 👀 관전 — 아이 폰 화면을 실시간으로 (/kids/{uid}/live, 아이 앱이 1초마다 바뀐 것만 올림) ─────────
+var KD_LIVE = {}, KD_LIVE_ON = {}, KD_LIVE_T = null, KD_LIVE_BIG = "";
+function _kdLiveOn(ids){
+  ids.forEach(function(k){ if(KD_LIVE_ON[k]) return; KD_LIVE_ON[k] = 1;
+    fbDb.ref("/kids/" + k + "/live").on("value", function(s){ KD_LIVE[k] = s.val(); _kdLivePaint(); }, function(){}); });
+  if(!KD_LIVE_T) KD_LIVE_T = setInterval(function(){ if(CTAB === "kids") _kdLivePaint(); }, 5000);
+}
+function _kdLivePaint(){ var el = document.getElementById("kdLiveCard"); if(el) el.innerHTML = _kdLiveInner(); }
+function _kdLiveAgo(ts){ var s = Math.round((Date.now() - ts) / 1000); return s < 60 ? s + "초 전" : s < 3600 ? Math.round(s / 60) + "분 전" : _kdTime(new Date(ts).toISOString()); }
+function kdLiveBig(k){ KD_LIVE_BIG = KD_LIVE_BIG === k ? "" : k; _kdLivePaint(); }
+function _kdLiveInner(){
+  var ids = _kdKids(), now = Date.now();
+  var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><strong style="font-size:17px">👀 지금 뭐 하나 보기</strong><span class="mut" style="font-size:12px">아이 폰 화면이 몇 초 안에 그대로 보여요 · 칸을 누르면 크게</span></div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(' + (KD_LIVE_BIG ? "100%" : "260px") + ',1fr));gap:10px">';
+  ids.forEach(function(k){
+    if(KD_LIVE_BIG && KD_LIVE_BIG !== k) return;
+    var L = KD_LIVE[k], nm = esc((KD[k] && KD[k].name) || k), on = L && !L.off && L.ts && now - L.ts < 45000;
+    h += '<div onclick="kdLiveBig(\'' + k + '\')" style="cursor:pointer;border:3px solid ' + (on ? "#16a34a" : "#e5e7eb") + ';border-radius:12px;padding:10px 12px;background:' + (on ? "#f0fdf4" : "#f8fafc") + '">';
+    h += '<div style="display:flex;justify-content:space-between;gap:6px;align-items:center"><b style="font-size:18px">' + nm + '</b>'
+      + (on ? '<span style="background:#16a34a;color:#fff;border-radius:99px;padding:2px 9px;font-size:12px;font-weight:800">🟢 지금 하는 중</span>' : '<span style="color:#64748b;font-size:12px">⚪ ' + (L && L.ts ? "쉬는 중 · 마지막 " + _kdLiveAgo(L.ts) : "아직 기록 없음") + '</span>') + '</div>';
+    if(L && !L.off && L.v){
+      h += '<div style="margin-top:4px;font-weight:800;color:#1e3a8a">' + esc(L.nm || "") + (L.lv ? ' <span style="font-weight:600;color:#475569">· ' + esc(L.lv) + '</span>' : '') + (L.n ? ' <span style="color:#475569">· ' + L.n + ' / ' + L.of + '번</span>' : '') + '</div>';
+      if(L.q) h += '<div style="margin-top:6px;font-size:' + (KD_LIVE_BIG ? 24 : 17) + 'px">📖 문제: <b>' + esc(L.q) + '</b></div>';
+      if(L.heard != null) h += '<div style="font-size:12.5px;color:#475569">🔊 들은 횟수 ' + L.heard + (L.max < 99 ? ' / ' + L.max : '') + ' · ' + ({ screen: "타자로 쓰는 중", hand: "손글씨로 쓰는 중", paper: "종이에 쓰는 중" }[L.where] || "") + '</div>';
+      if(L.a != null && L.v !== "vMQuiz") h += '<div style="margin-top:4px;font-size:' + (KD_LIVE_BIG ? 26 : 18) + 'px;background:#fff;border:2px solid #93c5fd;border-radius:8px;padding:6px 8px;min-height:1.6em">✍️ ' + (L.a ? (L.q ? _kdDiff(L.q, L.a) : esc(L.a)) : '<span style="color:#94a3b8">(아직 안 씀)</span>') + '</div>';
+      if(L.v === "vMQuiz") h += '<div style="margin-top:4px;font-size:' + (KD_LIVE_BIG ? 26 : 18) + 'px">✍️ 쓰는 답: <b>' + esc(L.a || "…") + '</b></div>' + (L.info ? '<div style="font-size:12px;color:#475569">' + esc(L.info) + '</div>' : '');
+      if(L.img) h += '<img src="' + L.img + '" alt="쓰는 글씨" style="margin-top:6px;width:100%;max-width:' + (KD_LIVE_BIG ? 700 : 420) + 'px;border:2px solid #fbbf24;border-radius:8px;background:#fff">';
+      if(L.fb) h += '<div style="margin-top:4px;font-size:13px;color:#334155">💬 ' + esc(L.fb) + '</div>';
+      if(on) h += '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + _kdLiveAgo(L.ts) + ' 화면</div>';
+    }
+    h += '</div>';
+  });
+  return h + '</div>';
 }
