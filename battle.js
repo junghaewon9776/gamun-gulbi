@@ -225,7 +225,7 @@ function btAns(c){
   var s = _btState(R, R.cur);
   if(s.A[KC.uid]) return;
   if(R.mode === "buzz" && s.holder !== KC.uid) return;
-  BT.ref.child("a/q" + R.cur + "/" + KC.uid).set({ c: c, t: _btTS() }).catch(function(){});
+  BT.ref.child("a/q" + R.cur + "/" + KC.uid).set({ c: c, t: _btTS(), s: Math.max(0, Math.round((_btNow() - (R.qt || _btNow())) / 100) / 10) }).catch(function(){});
   if(typeof speak === "function"){ try { speechSynthesis.cancel(); } catch(e){} }
 }
 function btBuzz(){
@@ -300,6 +300,18 @@ function btReward(R, sc, rank){
   var my = Math.max(0, sc[KC.uid] || 0), win = rank[0] === KC.uid && rank.length > 1 && sc[rank[0]] > (sc[rank[1]] || 0);
   var got = gainXp(Math.max(1, my) + (win ? 10 : 0), win ? "⚔️ 대결 우승!" : "⚔️ 대결", "battle");
   if(got) setTimeout(function(){ try { if(typeof kPush === "function") kPush(); } catch(e){} }, 500);
+  // 📜 대결 기록 남기기 — /kids/{uid}/bt (가문굴비 👦 아이들 › ⚔️ 대결 기록에서 봄) + 공부한 일
+  try {
+    var me = KC.uid, ps = R.p || {}, nm = function(u){ return (ps[u] || {}).nm || "?"; }, okN = 0;
+    var qs = (R.qs || []).slice(0, R.n).map(function(q, i){ var a = ((R.a || {})["q" + i] || {})[me], o = a && a.c === q.k ? 1 : 0; okN += o; var all = (R.a || {})["q" + i] || {}, us = Object.keys(all).sort(function(x, y){ return (all[x].t || 0) - (all[y].t || 0); });
+      var w = us.map(function(u){ var b = all[u]; return { nm: nm(u), m: q.c[b.c], o: b.c === q.k ? 1 : 0, s: b.s != null ? b.s : "" }; });
+      Object.keys(ps).forEach(function(u){ if(!all[u]) w.push({ nm: nm(u), m: "", o: 0, s: "" }); });
+      return { q: q.q + (q.say ? " (" + q.say.map(function(x){ return x.t; }).join(" ") + ")" : ""), a: q.c[q.k], m: a ? q.c[a.c] : "", o: o, w: w }; });
+    var j = rank.indexOf(me), rec = { t: new Date().toISOString(), title: R.title || "", mode: R.mode, n: R.n, rank: j + 1, of: rank.length, sc: sc[me] || 0, ok: okN, win: win ? 1 : 0,
+      pl: rank.map(function(u){ return { nm: nm(u), sc: sc[u] || 0 }; }), qs: qs };
+    KC.db.ref("/kids/" + me + "/bt").push(JSON.parse(JSON.stringify(rec))).catch(function(){});
+    if(typeof kLog === "function") kLog("battle", "⚔️ 대결 " + (R.title || "") + " — " + (j + 1) + "등 / " + rank.length + "명 · " + (sc[me] || 0) + "점 · " + okN + "/" + R.n + " 맞힘" + (rank.length > 1 ? " (함께: " + rank.filter(function(u){ return u !== me; }).map(nm).join(", ") + ")" : ""));
+  } catch(e){ console.warn("[대결] 기록 저장 실패", e); }
 }
 
 // 과목 단추줄에 ⚔️ 대결 단추

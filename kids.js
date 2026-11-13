@@ -87,9 +87,9 @@ function dKids(){
   if(!KD_SEL || !KD[KD_SEL]) KD_SEL = ids[0];
   var x = KD[KD_SEL];
   h += '<div class="card"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><strong style="font-size:17px;margin-right:8px">' + esc(x.name) + '</strong>';
-  [["rec", "📝 시험 기록지"], ["log", "📚 공부한 일"]].forEach(function(v){ var on = KD_TAB === v[0]; h += '<button class="btn" style="background:' + (on ? "#1e293b" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#1e293b") + '" onclick="KD_TAB=\'' + v[0] + '\';draw()">' + v[1] + '</button>'; });
+  [["rec", "📝 시험 기록지"], ["bt", "⚔️ 대결 기록"], ["log", "📚 공부한 일"]].forEach(function(v){ var on = KD_TAB === v[0]; h += '<button class="btn" style="background:' + (on ? "#1e293b" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#1e293b") + '" onclick="KD_TAB=\'' + v[0] + '\';draw()">' + v[1] + '</button>'; });
   h += '<span style="margin-left:auto">' + B("#7c4a21", "🖨️ 기록지 인쇄", "kdPrint('" + KD_SEL + "')") + '</span></div>';
-  h += KD_TAB === "log" ? _kdLogHtml(KD_SEL) : _kdRecHtml(KD_SEL, false);
+  h += KD_TAB === "log" ? _kdLogHtml(KD_SEL) : KD_TAB === "bt" ? _kdBtHtml(KD_SEL) : _kdRecHtml(KD_SEL, false);
   return h + '</div>';
 }
 // 기록 이름 알아보기 쉽게 (수학 a10 → 10까지 덧셈, 漢·h8-1 → 한자 8급 ①)
@@ -177,7 +177,7 @@ function _kdRecHtml(k, print){
 function _kdLogHtml(k){
   var L = _kdLogs(k).slice(0, 200);
   if(!L.length) return '<div style="padding:20px;text-align:center;color:#94a3b8">아직 기록이 없어요</div>';
-  var ic = { test: "📝", rank: "🎖", daily: "📚" };
+  var ic = { test: "📝", rank: "🎖", daily: "📚", battle: "⚔️" };
   return '<table style="width:100%;border-collapse:collapse;font-size:13px">' + L.map(function(l){ return '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px;white-space:nowrap;color:#64748b">' + _kdTime(l.t) + '</td><td style="padding:6px">' + (ic[l.type] || "✏️") + '</td><td style="padding:6px;white-space:pre-wrap">' + esc(l.txt || "") + '</td></tr>'; }).join("") + '</table>';
 }
 function kdPrint(k){
@@ -380,7 +380,7 @@ function _kdBattleHtml(){
       var Q = qs[R.cur], a = A["q" + R.cur] || {}, rv = R.ph === "rv";
       h += '<div style="font-size:22px;font-weight:900;text-align:center;background:#fff;border-radius:10px;padding:8px">' + esc(Q.q) + (Q.say ? '<div style="font-size:14px;color:#0f766e">🔊 들려준 것: ' + esc(Q.say.map(function(x){ return x.t; }).join(" ")) + '</div>' : '') + '</div>';
       h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">' + (Q.c || []).map(function(c, j){
-        var who = us.filter(function(u){ return a[u] && a[u].c === j; }).map(nm).join(", ");
+        var who = us.filter(function(u){ return a[u] && a[u].c === j; }).map(function(u){ return nm(u) + (a[u].s != null ? " " + a[u].s + "초" : ""); }).join(", ");
         return '<div style="border-radius:10px;padding:8px;font-weight:900;color:#fff;background:' + (j === Q.k ? "#15803d" : "#1e3a8a") + '">' + (j === Q.k ? "⭕ " : "") + esc(c) + (who ? '<div style="font-size:12.5px;font-weight:700;background:rgba(255,255,255,.2);border-radius:6px;padding:2px 6px;margin-top:4px">✋ ' + who + '</div>' : '') + '</div>';
       }).join("") + '</div>';
       var notYet = us.filter(function(u){ return !a[u]; }).map(nm);
@@ -388,4 +388,28 @@ function _kdBattleHtml(){
     }
     return h + '</div>';
   }).join("");
+}
+
+// ⚔️ 대결 기록 — /kids/{k}/bt (누를 때 불러옴). 줄을 누르면 문제마다 정답·고른 답
+var KD_BTREC = {}, KD_BTROWS = [];
+function _kdBtHtml(k){
+  if(!KD_BTREC[k]){ KD_BTREC[k] = "loading"; fbDb.ref("/kids/" + k + "/bt").once("value").then(function(s){ var v = s.val() || {}; KD_BTREC[k] = Object.keys(v).map(function(i){ return v[i]; }).sort(function(a, b){ return String(b.t).localeCompare(String(a.t)); }); if(CTAB === "kids") draw(); }).catch(function(e){ KD_BTREC[k] = { err: e.message }; if(CTAB === "kids") draw(); }); }
+  var L = KD_BTREC[k];
+  if(L === "loading") return '<div style="padding:20px;text-align:center;color:#64748b">📡 대결 기록 불러오는 중...</div>';
+  if(L.err) return '<div style="padding:20px;color:#b91c1c">못 불러왔어요: ' + esc(L.err) + '</div>';
+  var hd = '<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="btn" style="background:#1e293b;color:#fff" onclick="delete KD_BTREC[\'' + k + '\'];draw()">🔄 새로 불러오기</button></div>';
+  if(!L.length) return hd + '<div style="padding:20px;text-align:center;color:#94a3b8">아직 대결 기록이 없어요<br><span style="font-size:12px">(오늘 이후 끝까지 한 대결부터 남아요)</span></div>';
+  KD_BTROWS = L; var S = 'padding:6px;border-bottom:1px solid #f1f5f9;';
+  var win = L.filter(function(r){ return r.rank === 1 && r.of > 1; }).length, ok = 0, n = 0; L.forEach(function(r){ ok += r.ok || 0; n += r.n || 0; });
+  return hd + '<div style="font-size:13px;margin-bottom:6px">총 <b>' + L.length + '판</b> · 🥇 1등 <b>' + win + '번</b> · 맞힌 비율 <b>' + (n ? Math.round(ok / n * 100) : 0) + '%</b> <span class="mut">· 줄을 누르면 문제마다 뭘 골랐는지 보여요</span></div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#f1f5f9"><th style="' + S + '">언제</th><th style="' + S + '">대결</th><th style="' + S + '">등수</th><th style="' + S + '">점수</th><th style="' + S + '">맞힘</th><th style="' + S + '">함께한 아이</th></tr>'
+    + L.map(function(r, i){ var md = ["🥇", "🥈", "🥉"][r.rank - 1] || ""; return '<tr onclick="kdBtShow(' + i + ')" style="cursor:pointer"><td style="' + S + 'white-space:nowrap;color:#64748b">' + _kdTime(r.t) + '</td><td style="' + S + '">' + esc(r.title || "") + ' <span class="mut">' + (r.mode === "buzz" ? "🔔" : "⚡") + '</span></td><td style="' + S + 'text-align:center;font-weight:800">' + md + ' ' + r.rank + ' / ' + r.of + '</td><td style="' + S + 'text-align:center">' + (r.sc || 0) + '</td><td style="' + S + 'text-align:center">' + (r.ok || 0) + ' / ' + (r.n || 0) + '</td><td style="' + S + '">' + esc((r.pl || []).map(function(p){ return p.nm + " " + p.sc; }).join(" · ")) + '</td></tr>'; }).join("") + '</table>';
+}
+function kdBtShow(i){
+  var r = KD_BTROWS[i]; if(!r) return;
+  openPopup('<h3>⚔️ ' + esc(r.title || "대결") + ' <span style="font-weight:400;font-size:13px;color:#64748b">' + _kdTime(r.t) + ' · ' + r.rank + '등 / ' + r.of + '명 · ' + (r.sc || 0) + '점</span> <button class="close-x" onclick="closePopup()">&times;</button></h3>'
+    + '<div style="font-size:13px;margin-bottom:8px">🏆 ' + esc((r.pl || []).map(function(p, j){ return (j + 1) + "등 " + p.nm + " " + p.sc + "점"; }).join(" · ")) + '</div>'
+    + '<div style="max-height:65vh;overflow:auto">' + (r.qs || []).map(function(q, j){ return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px;background:' + (q.o ? "#fff" : "#fff7f7") + '"><b style="color:' + (q.o ? "#15803d" : "#b91c1c") + '">' + (q.o ? "⭕" : q.m ? "❌" : "⏰") + '</b> <span class="mut">' + (j + 1) + '번</span> <b>' + esc(q.q) + '</b><div style="margin-top:3px">정답 <b>' + esc(q.a) + '</b> · 고른 것 ' + (q.m ? '<b style="color:' + (q.o ? "#15803d" : "#b91c1c") + '">' + esc(q.m) + '</b>' : '<span class="mut">(못 골랐어요)</span>') + '</div>'
+      + (q.w && q.w.length ? '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:5px">' + q.w.map(function(x){ var first = x.o && q.w.filter(function(y){ return y.o; })[0] === x; return '<tr style="border-top:1px solid #f1f5f9"><td style="padding:3px 4px;width:30px">' + (x.o ? "⭕" : x.m ? "❌" : "⏰") + '</td><td style="padding:3px 4px;font-weight:800">' + esc(x.nm) + (first ? ' <span style="background:#fef3c7;border-radius:6px;padding:0 5px">🥇 제일 먼저</span>' : '') + '</td><td style="padding:3px 4px">' + (x.m ? esc(x.m) : '<span class="mut">안 고름</span>') + '</td><td style="padding:3px 4px;text-align:right;color:#475569;white-space:nowrap">' + (x.s !== "" && x.s != null ? x.s + "초" : "") + '</td></tr>'; }).join("") + '</table>' : '')
+      + '</div>'; }).join("") + '</div>');
 }
