@@ -394,7 +394,7 @@ function _kdBattleHtml(){
 // ⚔️ 대결 기록 — /kids/{k}/bt (누를 때 불러옴). 줄을 누르면 문제마다 정답·고른 답
 var KD_BTREC = {}, KD_BTROWS = [];
 function _kdBtHtml(k){
-  if(!KD_BTREC[k]){ KD_BTREC[k] = "loading"; fbDb.ref("/kids/" + k + "/bt").once("value").then(function(s){ var v = s.val() || {}; KD_BTREC[k] = Object.keys(v).map(function(i){ return v[i]; }).sort(function(a, b){ return String(b.t).localeCompare(String(a.t)); }); if(CTAB === "kids") draw(); }).catch(function(e){ KD_BTREC[k] = { err: e.message }; if(CTAB === "kids") draw(); }); }
+  if(!KD_BTREC[k]){ KD_BTREC[k] = "loading"; fbDb.ref("/kids/" + k + "/bt").on("value", function(s){ var v = s.val() || {}; KD_BTREC[k] = Object.keys(v).map(function(i){ return v[i]; }).sort(function(a, b){ return String(b.t).localeCompare(String(a.t)); }); if(CTAB === "kids" && KD_TAB === "bt") draw(); }, function(e){ KD_BTREC[k] = { err: e.message }; if(CTAB === "kids") draw(); }); }   // 대결 끝나면 바로 새로 나옴
   var L = KD_BTREC[k];
   if(L === "loading") return '<div style="padding:20px;text-align:center;color:#64748b">📡 대결 기록 불러오는 중...</div>';
   if(L.err) return '<div style="padding:20px;color:#b91c1c">못 불러왔어요: ' + esc(L.err) + '</div>';
