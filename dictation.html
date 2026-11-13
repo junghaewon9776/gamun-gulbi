@@ -359,10 +359,10 @@
       <label>🎯 통과 점수</label>
       <select id="setPass"><option value="100">100점 (다 맞아야)</option><option value="90">90점 이상</option><option value="80">80점 이상</option><option value="70">70점 이상</option></select>
       <label>🗣 목소리</label>
-      <select id="setVoice"></select>
+      <select id="setVoice" onchange="DB.opt.voice=this.value;save();ttsTest()"></select>
       <button class="b-purple" style="margin-top:6px" onclick="ttsTest()">🔊 소리 시험</button>
       <label>🔤 영어 목소리 (알파벳)</label>
-      <select id="setVoiceEn"></select>
+      <select id="setVoiceEn" onchange="DB.opt.voiceEn=this.value;_vBest={};save();ttsTestEn()"></select>
       <button class="b-purple" style="margin-top:6px" onclick="ttsTestEn()">🔤 영어 소리 시험 (A B C)</button>
       <div class="hint" id="voiceHint"></div>
       <button class="big b-ok" style="margin-top:12px" onclick="saveSettings()">💾 저장</button>
@@ -661,6 +661,7 @@ function ttsTestEn(){
   var nm = $("setVoiceEn").value, v = voices.filter(function(x){ return x.name === nm; })[0] || bestVoice("en");
   var enN = voices.filter(function(x){ return /^en/i.test(x.lang || ""); }).length;
   h.textContent = "🔤 지금 영어 목소리: " + (v ? v.name + " (" + v.lang + ")" : "없음 — 기기 기본") + " · 영어 목소리 " + enN + "개. 「에이, 비, 씨」로 들리면 정상이에요. 이상하면 위에서 다른 목소리를 골라 시험해 보세요.";
+  if(IS_IOS && !nm){ h.textContent = "🍎 아이폰은 알파벳을 한국어로 「에이, 비, 씨」 읽어 줘요 (영어 목소리가 이상하게 들려서). 영어 목소리로 듣고 싶으면 위에서 목소리를 골라요."; speak("에이, 비, 씨", 0.9); return; }
   var u = new SpeechSynthesisUtterance("A. B. C."); u.lang = "en-US"; u.rate = 0.8; if(v) u.voice = v; window._ttsU = u;
   setTimeout(function(){ try{ synth.resume(); }catch(e){} synth.speak(u); }, 120);
 }
@@ -1452,7 +1453,7 @@ function mRetryWrong(){
 <!-- ☁️ 로그인 · 서버 저장 · 알림 (아이 계정은 가문굴비 업무 데이터와 따로) -->
 <script src="hanja-data.js?v=20261103a"></script>
 <script src="english-data.js?v=20261109a"></script>
-<script src="study-plus.js?v=20261113a"></script>
+<script src="study-plus.js?v=20261113b"></script>
 <script src="abc.js?v=20261109c"></script>
 <script src="simple-lv.js?v=20261109a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>

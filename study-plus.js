@@ -184,7 +184,13 @@ function wsLv(id){ var s = id.charAt(0) === "h" ? "han" : "eng"; return WSL[s].f
 function wsKey(){ return WS_SUB[WS.sub].pre + WS.lv.id; }
 
 // 소리: 한자는 "날 일" 한국어로, 영어는 영어 목소리로
+// 아이폰은 알파벳 한 글자를 영어 목소리로 읽으면 이상하게 들림 → 글자 이름을 한국어로 (B → 「비」). 단어(apple 등)는 그대로 영어
+var IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 function speakEn(text, rate){
+  var t = String(text || "").trim();
+  if(IS_IOS && /^[A-Za-z]$/.test(t) && typeof ABC !== "undefined" && !(DB.opt && DB.opt.voiceEn)){
+    var a = ABC.filter(function(x){ return x.L === t.toUpperCase(); })[0]; if(a) return speak(a.nm, 0.9);
+  }
   return new Promise(function(res){
     if(!synth){ res(); return; }
     var u = new SpeechSynthesisUtterance(String(text)); u.lang = "en-US"; u.rate = rate || 0.8;
