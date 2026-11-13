@@ -361,6 +361,9 @@
       <label>🗣 목소리</label>
       <select id="setVoice"></select>
       <button class="b-purple" style="margin-top:6px" onclick="ttsTest()">🔊 소리 시험</button>
+      <label>🔤 영어 목소리 (알파벳)</label>
+      <select id="setVoiceEn"></select>
+      <button class="b-purple" style="margin-top:6px" onclick="ttsTestEn()">🔤 영어 소리 시험 (A B C)</button>
       <div class="hint" id="voiceHint"></div>
       <button class="big b-ok" style="margin-top:12px" onclick="saveSettings()">💾 저장</button>
       <div class="row" style="margin-top:12px">
@@ -585,6 +588,11 @@ function loadVoices(){
   var sel = $("setVoice"); sel.innerHTML = '<option value="">기본 (한국어)</option>';
   ko.forEach(function(v){ var o=document.createElement("option"); o.value=v.name; o.textContent=v.name; sel.appendChild(o); });
   sel.value = DB.opt.voice || "";
+  // 영어 목소리 (알파벳·영어 단어) — 기본은 자동(보통 목소리), 이상하면 직접 골라요
+  var se = $("setVoiceEn");
+  if(se){ var en = voices.filter(function(v){ return v.lang && /^en/i.test(v.lang) && !(typeof VOICE_FUNNY !== "undefined" && VOICE_FUNNY.test(v.name)); });
+    se.innerHTML = '<option value="">자동 (보통 목소리)</option>' + en.map(function(v){ return '<option value="' + esc(v.name) + '">' + esc(v.name + " · " + v.lang) + '</option>'; }).join("");
+    se.value = DB.opt.voiceEn || ""; }
   $("voiceHint").textContent = ko.length ? "" : "이 기기에 한국어 목소리가 안 보여요. 소리가 안 나면 기기 설정에서 한국어 음성(TTS)을 켜 주세요.";
 }
 if(synth){ loadVoices(); if(synth.onvoiceschanged!==undefined) synth.onvoiceschanged = loadVoices; }
@@ -593,6 +601,7 @@ var VOICE_FUNNY = /Albert|Bad ?News|Bahh|Bells|Boing|Bubbles|Cellos|Deranged|Goo
 var VOICE_GOOD = { en: /Samantha|Google US English|Aria|Jenny|Zira|Karen|Daniel|Moira|Tessa|Allison|Ava|Susan|Google UK English Female/i, ko: /Yuna|Google 한국|Heami|SunHi|InJoon|유나|Sora|Minsu/i };
 var _vBest = {};
 function bestVoice(lg){
+  if(lg === "en" && DB.opt.voiceEn){ var pk = ((voices && voices.length ? voices : (synth ? synth.getVoices() : [])) || []).filter(function(v){ return v.name === DB.opt.voiceEn; })[0]; if(pk) return pk; }
   var all = (voices && voices.length ? voices : (synth ? synth.getVoices() : [])) || [];
   if(_vBest[lg] && all.indexOf(_vBest[lg]) >= 0) return _vBest[lg];
   var L = all.filter(function(v){ return v.lang && v.lang.toLowerCase().replace("_", "-").indexOf(lg) === 0 && !VOICE_FUNNY.test(v.name); });
@@ -646,6 +655,15 @@ function openInChrome(){
 })();
 // 다른 앱 갔다 오면 읽기 엔진이 멈춰 있는 경우가 많음 → 돌아올 때 풀어 주기
 document.addEventListener("visibilitychange", function(){ if(!document.hidden && synth){ try{ synth.resume(); }catch(e){} } });
+function ttsTestEn(){
+  var h = $("voiceHint"); if(!synth){ h.textContent = "이 브라우저는 읽어 주기를 못 해요."; return; }
+  synth.cancel(); loadVoices();
+  var nm = $("setVoiceEn").value, v = voices.filter(function(x){ return x.name === nm; })[0] || bestVoice("en");
+  var enN = voices.filter(function(x){ return /^en/i.test(x.lang || ""); }).length;
+  h.textContent = "🔤 지금 영어 목소리: " + (v ? v.name + " (" + v.lang + ")" : "없음 — 기기 기본") + " · 영어 목소리 " + enN + "개. 「에이, 비, 씨」로 들리면 정상이에요. 이상하면 위에서 다른 목소리를 골라 시험해 보세요.";
+  var u = new SpeechSynthesisUtterance("A. B. C."); u.lang = "en-US"; u.rate = 0.8; if(v) u.voice = v; window._ttsU = u;
+  setTimeout(function(){ try{ synth.resume(); }catch(e){} synth.speak(u); }, 120);
+}
 function ttsTest(){
   var h = $("voiceHint"); h.textContent = "🔊 「안녕하세요, 받아쓰기 시작합니다」 소리가 나야 해요...";
   if(!synth){ h.textContent = "이 브라우저는 읽어 주기를 못 해요. 크롬으로 열어 주세요."; return; }
@@ -1163,7 +1181,7 @@ function openSettings(){
 function saveSettings(){
   var ns = $("setNames").value.split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
   if(!ns.length){ alert("이름을 한 명 이상 적어 주세요."); return; }
-  DB.names = ns; DB.opt.pass = $("setPass").value; DB.opt.voice = $("setVoice").value; save();
+  DB.names = ns; DB.opt.pass = $("setPass").value; DB.opt.voice = $("setVoice").value; if($("setVoiceEn")) DB.opt.voiceEn = $("setVoiceEn").value; _vBest = {}; save();
   alert("저장했어요!"); go("vName");
 }
 // 부모님 문장 넣기 — 이 기기에 저장 (모든 폰에 넣으려면 사진을 보내서 기본 급수표에 넣기)
