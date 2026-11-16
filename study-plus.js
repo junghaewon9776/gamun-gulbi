@@ -191,12 +191,19 @@ function speakEn(text, rate){
   if(IS_IOS && /^[A-Za-z]$/.test(t) && typeof ABC !== "undefined" && !(DB.opt && DB.opt.voiceEn)){
     var a = ABC.filter(function(x){ return x.L === t.toUpperCase(); })[0]; if(a) return speak(a.nm, 0.9);
   }
+  // 🌐 기기 읽기가 안 되는 기기(인터넷 소리 켜짐)·영어 목소리 없는 기기 → 인터넷 영어 소리
+  var vs = (voices && voices.length ? voices : (synth ? synth.getVoices() : [])) || [];
+  if(typeof netSpeak === "function" && ((typeof _ttsNetOn === "function" && _ttsNetOn()) || !synth || (vs.length && !vs.some(function(v){ return /^en/i.test(v.lang || ""); }))))
+    return netSpeak(t, (rate || 0.8) * 1.05, "en").then(function(){});
   return new Promise(function(res){
     if(!synth){ res(); return; }
     var u = new SpeechSynthesisUtterance(String(text)); u.lang = "en-US"; u.rate = rate || 0.8;
     var v = typeof bestVoice === "function" ? bestVoice("en") : (voices || []).filter(function(x){ return x.lang && x.lang.toLowerCase().indexOf("en") === 0; })[0]; if(v) u.voice = v;   // 아이폰 장난 목소리 피하기
     var done = false, fin = function(){ if(!done){ done = true; res(); } };
-    u.onend = fin; u.onerror = fin; setTimeout(fin, 10000); synth.speak(u);
+    u.onend = fin; setTimeout(fin, 10000);
+    u.onerror = function(e){ var er = e && e.error; if(er === "interrupted" || er === "canceled" || done || typeof netSpeak !== "function"){ fin(); return; }
+      done = true; netSpeak(t, (rate || 0.8) * 1.05, "en").then(function(){ res(); }); };   // 기기 읽기 실패 → 인터넷 영어 소리로
+    synth.speak(u);
   });
 }
 function wsSay(it){ stopAll(); if(WS.sub !== "han" && it.kr && typeof abcBlend === "function") return speak(abcBlend(it.q).split("·").join(", "), 0.8).then(function(){ return wait(250); }).then(function(){ return speakEn(it.q); }).then(function(){ return wait(250); }).then(function(){ return speak(it.a, 0.9); });

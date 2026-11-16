@@ -696,7 +696,8 @@ function notChromeName(){ var u = navigator.userAgent || ""; if(!/Android/i.test
 // 다른 앱 갔다 오면 읽기 엔진이 멈춰 있는 경우가 많음 → 돌아올 때 풀어 주기
 document.addEventListener("visibilitychange", function(){ if(!document.hidden && synth){ try{ synth.resume(); }catch(e){} } });
 function ttsTestEn(){
-  var h = $("voiceHint"); if(!synth){ h.textContent = "이 브라우저는 읽어 주기를 못 해요."; return; }
+  var h = $("voiceHint");
+  if(!synth || _ttsNetOn()){ h.textContent = "🌐 인터넷 영어 소리로 시험하는 중…"; netSpeak("A. B. C. apple", 0.85, "en").then(function(r){ h.textContent = r ? "✅ 🌐 인터넷 영어 소리로 읽어요 (와이파이·데이터 필요)" : "❌ 인터넷 소리가 안 나요 — 인터넷·볼륨 확인"; }); return; }
   synth.cancel(); loadVoices();
   var nm = $("setVoiceEn").value, v = voices.filter(function(x){ return x.name === nm; })[0] || bestVoice("en");
   var enN = voices.filter(function(x){ return /^en/i.test(x.lang || ""); }).length;
@@ -1502,7 +1503,7 @@ function mRetryWrong(){
 <!-- ☁️ 로그인 · 서버 저장 · 알림 (아이 계정은 가문굴비 업무 데이터와 따로) -->
 <script src="hanja-data.js?v=20261103a"></script>
 <script src="english-data.js?v=20261109a"></script>
-<script src="study-plus.js?v=20261113b"></script>
+<script src="study-plus.js?v=20261116n"></script>
 <script src="abc.js?v=20261109c"></script>
 <script src="simple-lv.js?v=20261109a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
