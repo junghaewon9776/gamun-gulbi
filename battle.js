@@ -384,14 +384,28 @@ function btGameQs(lvId, n){
 function _gMake(kd, lvl){
   var Q, cells, cols, pool, i;
   if(kd === "spot"){
-    // 🔍 틀린그림찾기 — 같은 풍경 두 장, 아래 그림에서 다른 곳 n개 (없어짐·바뀜·커짐·작아짐)
-    var nd = [3, 4, 5][lvl], no = [12, 14, 16][lvl], slots = [];
-    for(var sy = 0; sy < 4; sy++) for(var sx = 0; sx < 5; sx++) slots.push([10 + sx * 20, 14 + sy * 23]);
+    // 🔍 틀린그림찾기 — 같은 풍경 두 장, 아래 그림에서 다른 곳 n개. 뒤로 갈수록 그림이 많아지고 차이가 작아짐
+    //   차이: 비슷한 그림으로 바뀜(🍎→🍅) · 살짝 옮김 · 살짝 돌아감 · 좌우 뒤집힘 · 조금 커짐/작아짐 · 없어짐
+    var nd = [3, 4, 5][lvl], no = [14, 18, 22][lvl], cols = [4, 4, 5][lvl], rws = Math.ceil(no / cols) + 1, slots = [];
+    for(var sy = 0; sy < rws; sy++) for(var sx = 0; sx < cols; sx++) slots.push([12 + sx * (76 / (cols - 1)), 9 + sy * (82 / (rws - 1))]);
     slots = shuffle(slots).slice(0, no);
-    var em = shuffle(BT_EMO), objs = slots.map(function(xy, j){ return { e: em[j], x: xy[0] + _gRand(9) - 4, y: xy[1] + _gRand(9) - 4, z: 9 + _gRand(5) }; });
-    var tps = ["miss", "swap", "big", "small", "swap", "miss"], pick = shuffle(objs.map(function(o, j){ return j; })).slice(0, nd);
-    var d = pick.map(function(j, z){ var t = tps[(z + _gRand(6)) % 6]; return { i: j, t: t, e: t === "swap" ? em[no + z] : "" }; });
-    Q = { g: "spot", q: "🔍 아래 그림에서 다른 곳 " + nd + "개를 찾아요", o: objs, d: d, c: ["다 찾음"], k: 0, lim: [40000, 50000, 60000][lvl] };
+    var prs = shuffle(BT_ODD).slice(0, 8), em = shuffle(BT_EMO.concat(prs.map(function(x){ return x[0]; })));
+    var seen = {}, list = []; em.forEach(function(e){ if(!seen[e]){ seen[e] = 1; list.push(e); } });
+    var objs = slots.map(function(xy, j){ return { e: list[j], x: Math.round(xy[0] + _gRand(7) - 3), y: Math.round(xy[1] + _gRand(7) - 3), z: [13, 11, 10][lvl] + _gRand(5) }; });
+    var pairOf = function(e){ var m = null; BT_ODD.forEach(function(x){ if(x[0] === e) m = x[1]; else if(x[1] === e) m = x[0]; }); return m; };
+    var TP = [["miss", "swap", "big", "small", "move"], ["swap", "move", "rot", "size", "miss", "flip"], ["swap", "move", "rot", "flip", "size", "swap"]][lvl];
+    var pick = shuffle(objs.map(function(o, j){ return j; })), d = [], used = {};
+    for(var z = 0; z < pick.length && d.length < nd; z++){
+      var jx = pick[z], o = objs[jx], t = TP[(d.length + _gRand(TP.length)) % TP.length], dd = { i: jx, t: t };
+      if(t === "swap"){ var pe = pairOf(o.e); if(!pe && lvl > 0) continue; var fr = BT_EMO.filter(function(e){ return !seen[e]; }); dd.e = pe || fr[_gRand(fr.length)] || (o.e === "⭐" ? "🌟" : "⭐"); }
+      if(t === "move"){ dd.dx = (_gRand(2) ? 1 : -1) * [6, 4, 3][lvl]; dd.dy = (_gRand(2) ? 1 : -1) * [5, 3, 3][lvl]; }
+      if(t === "rot") dd.r = (_gRand(2) ? 1 : -1) * [35, 25, 20][lvl];
+      if(t === "size") dd.v = _gRand(2) ? [1.35, 1.25, 1.2][lvl] : [0.7, 0.78, 0.82][lvl];
+      if(t === "big") dd.v = 1.5; if(t === "small") dd.v = 0.6;
+      if(t === "flip" && !/[🐶🐱🐭🐰🦊🐻🐯🦁🐷🐸🐔🐧🐤🦄🐝🐞🐢🐙🐬🐳🍌🥕🍕🎈⛵🚗🚌🚀✈️🎸🔔🐟🐠🐺🐨🐹🌙🌛🚕🚎🍋]/u.test(o.e)) continue;
+      if(used[jx]) continue; used[jx] = 1; d.push(dd);
+    }
+    Q = { g: "spot", q: "🔍 아래 그림에서 다른 곳 " + d.length + "개를 찾아요", o: objs, d: d, c: ["다 찾음"], k: 0, lim: [45000, 55000, 65000][lvl] };
   } else if(kd === "diff"){
     cols = [3, 4, 5][lvl]; pool = shuffle(BT_EMO).slice(0, [6, 9, 12][lvl]);
     var a = []; for(i = 0; i < cols * cols; i++) a.push(pool[_gRand(pool.length)]);
@@ -429,7 +443,7 @@ function btSpot(ev){
   if(R.mode === "buzz" && s.holder !== KC.uid) return;
   if(_btNow() < S.lock) return;
   var r = ev.currentTarget.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * 100, py = (ev.clientY - r.top) / r.height * 100, hit = -1;
-  Q.d.forEach(function(d, j){ if(S.f.indexOf(j) >= 0 || hit >= 0) return; var o = Q.o[d.i], rad = Math.max(8, o.z * 0.8); if(Math.abs(px - o.x) < rad && Math.abs(py - o.y) < rad * 1.33) hit = j; });
+  Q.d.forEach(function(d, j){ if(S.f.indexOf(j) >= 0 || hit >= 0) return; var o = Q.o[d.i], rad = Math.max(6, o.z * 0.75), near = function(x, y){ return Math.abs(px - x) < rad && Math.abs(py - y) < rad * 1.33; }; if(near(o.x, o.y) || (d.t === "move" && near(o.x + d.dx, o.y + d.dy))) hit = j; });
   if(hit >= 0){
     S.f.push(hit);
     try { BT.ref.child("p/" + KC.uid + "/g").set({ q: S.k, n: S.f.length }); } catch(e){}
@@ -440,11 +454,13 @@ function btSpot(ev){
 function _btSpotHtml(R, Q, mine, rv, canPick){
   var S = _btSpotSt(R), all = rv || (mine && mine.c === Q.k);
   var panel = function(B){
-    var h = '<div ' + (canPick && !all ? 'onclick="btSpot(event)" ' : '') + 'style="position:relative;width:100%;aspect-ratio:4/3;container-type:inline-size;background:linear-gradient(#bae6fd 0 52%,#86efac 52%);border-radius:12px;overflow:hidden;border:3px solid ' + (B ? "#b91c1c" : "#1e3a8a") + ';cursor:' + (canPick ? "crosshair" : "default") + ';user-select:none;-webkit-user-select:none;touch-action:manipulation">';
+    var h = '<div ' + (canPick && !all ? 'onclick="btSpot(event)" ' : '') + 'style="position:relative;width:100%;aspect-ratio:3/4;container-type:inline-size;background:linear-gradient(#bae6fd 0 45%,#86efac 45%);border-radius:12px;overflow:hidden;border:3px solid ' + (B ? "#b91c1c" : "#1e3a8a") + ';cursor:' + (canPick ? "crosshair" : "default") + ';user-select:none;-webkit-user-select:none;touch-action:manipulation">';
     Q.o.forEach(function(o, j){
       var d = B ? Q.d.filter(function(x){ return x.i === j; })[0] : null, e = o.e, sc = 1;
-      if(d){ if(d.t === "miss") return; if(d.t === "swap") e = d.e; if(d.t === "big") sc = 1.55; if(d.t === "small") sc = 0.55; }
-      h += '<span style="position:absolute;left:' + o.x + '%;top:' + o.y + '%;transform:translate(-50%,-50%) scale(' + sc + ');font-size:' + o.z + 'cqw;line-height:1;pointer-events:none">' + e + '</span>';
+      var ox = o.x, oy = o.y, tf = "";
+      if(d){ if(d.t === "miss") return; if(d.t === "swap") e = d.e; if(d.v) sc = d.v; if(d.t === "big" && !d.v) sc = 1.55; if(d.t === "small" && !d.v) sc = 0.55;
+        if(d.t === "move"){ ox += d.dx; oy += d.dy; } if(d.t === "rot") tf = " rotate(" + d.r + "deg)"; if(d.t === "flip") tf = " scaleX(-1)"; }
+      h += '<span style="position:absolute;left:' + ox + '%;top:' + oy + '%;transform:translate(-50%,-50%) scale(' + sc + ')' + tf + ';font-size:' + o.z + 'cqw;line-height:1;pointer-events:none">' + e + '</span>';
     });
     Q.d.forEach(function(d, j){ var on = S.f.indexOf(j) >= 0; if(!on && !rv) return; var o = Q.o[d.i];
       h += '<span style="position:absolute;left:' + o.x + '%;top:' + o.y + '%;width:' + (o.z * 1.7) + 'cqw;height:' + (o.z * 1.7) + 'cqw;transform:translate(-50%,-50%);border:3px solid ' + (on ? "#dc2626" : "#f59e0b") + ';border-radius:50%;pointer-events:none;box-shadow:0 0 0 2px #fff"></span>'; });
@@ -453,8 +469,8 @@ function _btSpotHtml(R, Q, mine, rv, canPick){
   };
   var lockMsg = _btNow() < S.lock ? ' <span style="color:#b91c1c">❌ 틀렸어요! 잠깐 기다려요</span>' : '';
   return '<div style="text-align:center;font-weight:900;font-size:18px;margin:2px 0 6px">찾은 것 <span style="color:#dc2626;font-size:24px">' + S.f.length + '</span> / ' + Q.d.length + lockMsg + '</div>'
-    + '<div style="font-weight:800;color:#1e3a8a;margin-bottom:3px">⬇ 원래 그림</div>' + panel(false)
-    + '<div style="font-weight:900;color:#b91c1c;margin:8px 0 3px">⬇ 여기서 다른 곳을 눌러요</div>' + panel(true)
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + panel(false) + panel(true) + '</div>'
+    + '<div style="text-align:center;font-size:12.5px;color:#475569;margin-top:4px">왼쪽·오른쪽 아무 그림이나 눌러도 돼요 · 👀 두 그림을 겹쳐 보듯이(매직아이) 보면 다른 곳이 반짝여요</div>'
     + (rv ? '<div style="text-align:center;margin-top:6px;color:#475569">🟡 노란 동그라미 = 다른 곳 정답</div>' : '');
 }
 function _btGameHtml(R, Q, s, mine, rv, canPick){
