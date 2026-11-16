@@ -612,6 +612,7 @@ function bestVoice(lg){
   return (_vBest[lg] = L[0] || null);
 }
 // 「1번」을 「원번」처럼 영어로 읽는 기기(한국어 목소리 없는 갤럭시 탭 등) → 번호는 한글로 바꿔 읽기 (일 번, 십이 번)
+var _ttsNoVoice = false;
 function _koNum(t){ var D="영일이삼사오육칠팔구";
   var kn=function(n){ n=+n; if(n===0) return "영"; var s="", u=[[1000,"천"],[100,"백"],[10,"십"]]; u.forEach(function(x){ var q=Math.floor(n/x[0]); if(q){ s+=(q>1?D[q]:"")+x[1]; n%=x[0]; } }); return s+(n?D[n]:""); };
   return t.replace(/(\d{1,4})\s*(번|단계|급|점|문제)/g, function(m,n,w){ return kn(n)+" "+w; }); }
@@ -620,10 +621,14 @@ function speak(text, rate){
     if(!synth){ res(); return; }
     var u = new SpeechSynthesisUtterance(_koNum(String(text).replace(/[‘’“”'"]/g,"")));
     u.lang = "ko-KR"; u.rate = rate || 0.9;
-    var v = voices.filter(function(x){ return x.name===DB.opt.voice; })[0] || bestVoice("ko"); if(v) u.voice = v;
-    var done=false, started=false, fin=function(){ if(!done){ done=true; res(); } };
+    var v = _ttsNoVoice ? null : (voices.filter(function(x){ return x.name===DB.opt.voice; })[0] || bestVoice("ko")); if(v) u.voice = v;
+    var done=false, started=false, fin=function(){ if(!done){ done=true; res(); } }, tries=0;
     u.onstart = function(){ started = true; _ttsOk = true; };
-    u.onend = fin; u.onerror = fin; setTimeout(fin, 15000);
+    // 갤럭시 탭 등: 목소리를 콕 집어 주면 「읽기 오류」 나는 기기 → 목소리 빼고(기기 기본 한국어) 다시, 그래도 안 되면 언어도 빼고
+    var onErr = function(e){ var er = e && e.error; if(er === "interrupted" || er === "canceled" || done || tries >= 2){ fin(); return; }
+      tries++; if(u.voice) _ttsNoVoice = true; var u3 = new SpeechSynthesisUtterance(u.text); u3.rate = u.rate; if(tries < 2) u3.lang = "ko-KR";
+      u3.onstart = u.onstart; u3.onend = fin; u3.onerror = onErr; window._ttsU = u = u3; setTimeout(function(){ try{ synth.cancel(); synth.resume(); }catch(x){} synth.speak(u3); }, 150); };
+    u.onend = fin; u.onerror = onErr; setTimeout(fin, 15000);
     window._ttsU = u;   // 안드로이드 크롬: 참조 안 잡아 두면 중간에 사라져 소리가 끊김
     // 폰에서 읽기가 멈춰(일시정지·대기열 막힘) 있으면 소리 없이 넘어감 → 풀고 말하기
     var go = function(){ try{ synth.resume(); }catch(e){} synth.speak(u); };
@@ -682,7 +687,11 @@ function ttsTest(){
   var koN = voices.filter(function(x){ return /^ko/i.test(x.lang||""); }).length;
   var vInfo = " 〔목소리: " + (v ? v.name + " · " + v.lang : "한국어 목소리 없음 — 기기 기본") + " / 한국어 " + koN + "개, 전체 " + voices.length + "개〕";
   u.onstart = function(){ ok = true; h.textContent = (koN ? "✅ 읽기는 되고 있어요. 소리가 안 들리면 볼륨(미디어 소리)·무음·방해금지를 확인해 주세요." : "⚠ 소리는 나지만 한국어 목소리가 없어서 외국 사람처럼 이상하게 읽어요 → 태블릿 설정 › 텍스트 음성 변환 › 엔진 ⚙ › 한국어 음성 데이터 설치") + vInfo; };
-  u.onerror = function(e){ h.textContent = "❌ 읽기 오류: " + (e.error||"") + " — 폰 설정 › 텍스트 음성 변환(TTS)에서 「Google 음성 인식 및 합성」·한국어를 골라 주세요."; };
+  var tr = 0, onE = function(e){ var er = (e && e.error) || "";
+    if(tr < 2){ tr++; _ttsNoVoice = true; var u3 = new SpeechSynthesisUtterance(u.text); u3.rate = u.rate; if(tr < 2) u3.lang = "ko-KR"; u3.onstart = u.onstart; u3.onerror = onE; window._ttsU = u3;
+      h.textContent = "🔁 다시 해 보는 중 (" + er + ")…"; setTimeout(function(){ try{ synth.cancel(); synth.resume(); }catch(x){} synth.speak(u3); }, 150); return; }
+    h.textContent = "❌ 읽기 오류: " + er + vInfo + " — 태블릿 설정 › 텍스트 음성 변환에서 「듣기」로 소리가 나는지 먼저 확인해 주세요."; };
+  u.onerror = onE;
   window._ttsU = u; setTimeout(function(){ try{ synth.resume(); }catch(e){} synth.speak(u); }, 120);
   setTimeout(function(){ if(!ok) h.textContent = "❌ 읽기 엔진이 반응이 없어요 (목소리 " + voices.length + "개). 앱을 완전히 껐다 켜 보고, 그래도 안 되면 폰 설정 › 텍스트 음성 변환(TTS)에서 Google 엔진·한국어 음성 데이터를 설치해 주세요. 목소리를 「기본」으로 바꿔 보는 것도 방법이에요."; }, 3000);
 }
