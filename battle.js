@@ -279,7 +279,9 @@ function btDraw(){
       if(!BT.watch && !s.Z[me] && !mine && !s.solved) h += BT_B("#dc2626", "btBuzz()", "🔔 내가 알아요!", "width:100%;font-size:30px;padding:22px;margin-bottom:10px");
       else if(s.Z[me] && s.holder !== me && !mine) h += '<div style="text-align:center;color:#64748b;margin-bottom:8px">🔔 눌렀어요 — 앞사람이 틀리면 내 차례</div>';
     }
-    if(Q.g){ h += _btGameHtml(R, Q, s, mine, rv, canPick); }
+    if(Q.g){ h += _btGameHtml(R, Q, s, mine, rv, canPick);
+      if(Q.g === "spot" && !rv){ var qk = BT.room + "|" + R.cur + "|" + R.qt; h += '<div style="text-align:center;margin-top:6px;font-size:15px;color:#334155">' + uids.map(function(u){ var g = (ps[u] || {}).g, n = g && g.q === qk ? g.n : 0; return nm(u) + ' <b>' + n + '/' + Q.d.length + '</b>'; }).join(" · ") + '</div>'; }
+    }
     else if(Q.ty){
       // ✍️ 쓰기 문제: 입력칸 / 낸 답 / 정답 공개 때 모두의 답
       if(canPick) h += '<div style="display:flex;gap:8px"><input id="btTy" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="10" placeholder="여기에 써요" onkeydown="if(event.key===\'Enter\'){event.preventDefault();btAnsT();}" style="flex:1;min-width:0;font-size:34px;padding:12px;border-radius:14px;border:3px solid #1e3a8a;text-align:center;font-weight:900"><button onclick="btAnsT()" style="border:0;border-radius:14px;padding:12px 18px;font-size:22px;font-weight:900;color:#fff;background:#15803d">✅ 내기</button></div>';
@@ -363,7 +365,7 @@ go = function(id){
 // ───────── 🎮 게임 대결 — 틀린그림찾기 · 다른 하나 찾기 · 같은 그림 기억하기 · 개수 세기 · 색깔 맞추기 ─────────
 //   모두 「누른 칸 번호 = 답」이라 기존 대결 규칙(빨리 맞힌 순서·먼저 누르기·관전·기록)을 그대로 씀
 var BT_GAMES = [
-  { id: "mix", t: "🔀 섞어서 (게임 골고루)" }, { id: "diff", t: "🔍 틀린그림찾기" }, { id: "odd", t: "👀 다른 하나 찾기" },
+  { id: "mix", t: "🔀 섞어서 (게임 골고루)" }, { id: "spot", t: "🔍 틀린그림찾기 (그림 두 장 비교)" }, { id: "diff", t: "🔲 다른 칸 찾기" }, { id: "odd", t: "👀 다른 하나 찾기" },
   { id: "mem", t: "🧠 같은 그림 기억하기" }, { id: "cnt", t: "🔢 몇 개일까? (개수 세기)" }, { id: "col", t: "🎨 글자 색깔 맞추기" }
 ];
 var BT_EMO = ["🐶","🐱","🐭","🐰","🦊","🐻","🐼","🐯","🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐤","🦄","🐝","🐞","🦋","🐢","🐙","🐬","🐳","🍎","🍌","🍇","🍓","🍒","🍑","🍉","🍋","🥕","🌽","🍕","🍔","🍩","🍪","🍦","⚽","🏀","🎈","🎁","⭐","🌙","☀️","🌈","🌸","🚗","🚌","🚀","✈️","⛵","🏠","🎸","🔔"];
@@ -372,20 +374,29 @@ var BT_COL = [["빨강","#dc2626"],["파랑","#2563eb"],["초록","#16a34a"],["�
 function _gRand(n){ return Math.floor(Math.random() * n); }
 function _gGrid(arr, cols, show){ return { a: arr, cols: cols }; }
 function btGameQs(lvId, n){
-  var kinds = ["diff", "odd", "mem", "cnt", "col"], qs = [], k0 = _gRand(5);
+  var kinds = ["spot", "odd", "mem", "diff", "cnt", "col"], qs = [], k0 = _gRand(6);
   for(var i = 0; i < n; i++){
-    var kd = lvId === "mix" || !lvId ? kinds[(i + k0) % 5] : lvId, lvl = Math.min(2, Math.floor(i / Math.max(1, Math.ceil(n / 3))));   // 뒤로 갈수록 어려워짐
+    var kd = lvId === "mix" || !lvId ? kinds[(i + k0) % 6] : lvId, lvl = Math.min(2, Math.floor(i / Math.max(1, Math.ceil(n / 3))));   // 뒤로 갈수록 어려워짐
     qs.push(_gMake(kd, lvl));
   }
   return qs;
 }
 function _gMake(kd, lvl){
   var Q, cells, cols, pool, i;
-  if(kd === "diff"){
+  if(kd === "spot"){
+    // 🔍 틀린그림찾기 — 같은 풍경 두 장, 아래 그림에서 다른 곳 n개 (없어짐·바뀜·커짐·작아짐)
+    var nd = [3, 4, 5][lvl], no = [12, 14, 16][lvl], slots = [];
+    for(var sy = 0; sy < 4; sy++) for(var sx = 0; sx < 5; sx++) slots.push([10 + sx * 20, 14 + sy * 23]);
+    slots = shuffle(slots).slice(0, no);
+    var em = shuffle(BT_EMO), objs = slots.map(function(xy, j){ return { e: em[j], x: xy[0] + _gRand(9) - 4, y: xy[1] + _gRand(9) - 4, z: 9 + _gRand(5) }; });
+    var tps = ["miss", "swap", "big", "small", "swap", "miss"], pick = shuffle(objs.map(function(o, j){ return j; })).slice(0, nd);
+    var d = pick.map(function(j, z){ var t = tps[(z + _gRand(6)) % 6]; return { i: j, t: t, e: t === "swap" ? em[no + z] : "" }; });
+    Q = { g: "spot", q: "🔍 아래 그림에서 다른 곳 " + nd + "개를 찾아요", o: objs, d: d, c: ["다 찾음"], k: 0, lim: [40000, 50000, 60000][lvl] };
+  } else if(kd === "diff"){
     cols = [3, 4, 5][lvl]; pool = shuffle(BT_EMO).slice(0, [6, 9, 12][lvl]);
     var a = []; for(i = 0; i < cols * cols; i++) a.push(pool[_gRand(pool.length)]);
     var b = a.slice(), x = _gRand(a.length), other = shuffle(BT_EMO).filter(function(e){ return e !== a[x]; })[0]; b[x] = other;
-    Q = { g: "diff", q: "🔍 아래 그림에서 다른 곳을 눌러요", a: a, b: b, cols: cols, k: x, lim: [15000, 20000, 25000][lvl] };
+    Q = { g: "diff", q: "🔲 아래 판에서 다른 칸을 눌러요", a: a, b: b, cols: cols, k: x, lim: [15000, 20000, 25000][lvl] };
     Q.c = b.map(function(e, j){ return (j + 1) + "번 칸 " + e; });
   } else if(kd === "odd"){
     cols = [4, 5, 6][lvl]; var pr = BT_ODD[_gRand(BT_ODD.length)], flip = _gRand(2), maj = pr[flip], min = pr[1 - flip], y = _gRand(cols * cols);
@@ -410,7 +421,44 @@ function _gMake(kd, lvl){
   }
   return Q;
 }
+// 🔍 틀린그림찾기 — 누른 곳 근처에 다른 곳이 있으면 ⭕, 아니면 ❌ (1.2초 못 누름). 다 찾으면 답 냄
+function _btSpotSt(R){ var k = BT.room + "|" + R.cur + "|" + R.qt; if(!BT.spot || BT.spot.k !== k) BT.spot = { k: k, f: [], miss: 0, lock: 0, x: null }; return BT.spot; }
+function btSpot(ev){
+  var R = BT.R; if(BT.watch || !R || R.st !== "play" || R.ph !== "q") return;
+  var Q = R.qs[R.cur], S = _btSpotSt(R), s = _btState(R, R.cur); if(!Q || Q.g !== "spot" || s.A[KC.uid]) return;
+  if(R.mode === "buzz" && s.holder !== KC.uid) return;
+  if(_btNow() < S.lock) return;
+  var r = ev.currentTarget.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * 100, py = (ev.clientY - r.top) / r.height * 100, hit = -1;
+  Q.d.forEach(function(d, j){ if(S.f.indexOf(j) >= 0 || hit >= 0) return; var o = Q.o[d.i], rad = Math.max(8, o.z * 0.8); if(Math.abs(px - o.x) < rad && Math.abs(py - o.y) < rad * 1.33) hit = j; });
+  if(hit >= 0){
+    S.f.push(hit);
+    try { BT.ref.child("p/" + KC.uid + "/g").set({ q: S.k, n: S.f.length }); } catch(e){}
+    if(S.f.length >= Q.d.length) BT.ref.child("a/q" + R.cur + "/" + KC.uid).set({ c: Q.k, v: S.f.length + "개 다 찾음", t: _btTS(), s: Math.max(0, Math.round((_btNow() - R.qt) / 100) / 10) }).catch(function(){});
+  } else { S.miss++; S.lock = _btNow() + 1200; S.x = { x: px, y: py, t: _btNow() }; setTimeout(function(){ if(BT.R) btDraw(); }, 1250); }
+  btDraw();
+}
+function _btSpotHtml(R, Q, mine, rv, canPick){
+  var S = _btSpotSt(R), all = rv || (mine && mine.c === Q.k);
+  var panel = function(B){
+    var h = '<div ' + (canPick && !all ? 'onclick="btSpot(event)" ' : '') + 'style="position:relative;width:100%;aspect-ratio:4/3;container-type:inline-size;background:linear-gradient(#bae6fd 0 52%,#86efac 52%);border-radius:12px;overflow:hidden;border:3px solid ' + (B ? "#b91c1c" : "#1e3a8a") + ';cursor:' + (canPick ? "crosshair" : "default") + ';user-select:none;-webkit-user-select:none;touch-action:manipulation">';
+    Q.o.forEach(function(o, j){
+      var d = B ? Q.d.filter(function(x){ return x.i === j; })[0] : null, e = o.e, sc = 1;
+      if(d){ if(d.t === "miss") return; if(d.t === "swap") e = d.e; if(d.t === "big") sc = 1.55; if(d.t === "small") sc = 0.55; }
+      h += '<span style="position:absolute;left:' + o.x + '%;top:' + o.y + '%;transform:translate(-50%,-50%) scale(' + sc + ');font-size:' + o.z + 'cqw;line-height:1;pointer-events:none">' + e + '</span>';
+    });
+    Q.d.forEach(function(d, j){ var on = S.f.indexOf(j) >= 0; if(!on && !rv) return; var o = Q.o[d.i];
+      h += '<span style="position:absolute;left:' + o.x + '%;top:' + o.y + '%;width:' + (o.z * 1.7) + 'cqw;height:' + (o.z * 1.7) + 'cqw;transform:translate(-50%,-50%);border:3px solid ' + (on ? "#dc2626" : "#f59e0b") + ';border-radius:50%;pointer-events:none;box-shadow:0 0 0 2px #fff"></span>'; });
+    if(B && S.x && _btNow() - S.x.t < 1200) h += '<span style="position:absolute;left:' + S.x.x + '%;top:' + S.x.y + '%;transform:translate(-50%,-50%);font-size:9cqw;pointer-events:none">❌</span>';
+    return h + '</div>';
+  };
+  var lockMsg = _btNow() < S.lock ? ' <span style="color:#b91c1c">❌ 틀렸어요! 잠깐 기다려요</span>' : '';
+  return '<div style="text-align:center;font-weight:900;font-size:18px;margin:2px 0 6px">찾은 것 <span style="color:#dc2626;font-size:24px">' + S.f.length + '</span> / ' + Q.d.length + lockMsg + '</div>'
+    + '<div style="font-weight:800;color:#1e3a8a;margin-bottom:3px">⬇ 원래 그림</div>' + panel(false)
+    + '<div style="font-weight:900;color:#b91c1c;margin:8px 0 3px">⬇ 여기서 다른 곳을 눌러요</div>' + panel(true)
+    + (rv ? '<div style="text-align:center;margin-top:6px;color:#475569">🟡 노란 동그라미 = 다른 곳 정답</div>' : '');
+}
 function _btGameHtml(R, Q, s, mine, rv, canPick){
+  if(Q.g === "spot") return _btSpotHtml(R, Q, mine, rv, canPick);
   var seeing = Q.show && !rv && (_btNow() - R.qt < Q.show), cols = Q.cols || 4, n = Q.b.length;
   var big = cols <= 3 ? 46 : cols === 4 ? 38 : cols === 5 ? 30 : 26;
   var cell = function(e, j, tap, bg){ return '<button ' + (tap ? 'onclick="btAns(' + j + ')"' : 'disabled') + ' style="border:0;border-radius:10px;aspect-ratio:1/1;font-size:' + big + 'px;padding:0;background:' + bg + ';cursor:' + (tap ? "pointer" : "default") + '">' + e + '</button>'; };

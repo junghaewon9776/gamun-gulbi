@@ -384,6 +384,7 @@ function _kdBattleHtml(){
         return '<div style="border-radius:10px;padding:8px;font-weight:900;color:#fff;background:' + (j === Q.k ? "#15803d" : "#1e3a8a") + '">' + (j === Q.k ? "⭕ " : "") + esc(c) + (who ? '<div style="font-size:12.5px;font-weight:700;background:rgba(255,255,255,.2);border-radius:6px;padding:2px 6px;margin-top:4px">✋ ' + who + '</div>' : '') + '</div>';
       }).join("") + '</div>';
       if(Q.ty) h += '<div style="margin-top:6px;font-size:14px">' + us.filter(function(u){ return a[u]; }).map(function(u){ return '<div>' + (a[u].c === Q.k ? "⭕" : "❌") + ' <b>' + nm(u) + '</b> 쓴 답: <b>' + esc(a[u].v || "") + '</b>' + _kdSec(a[u], R) + '</div>'; }).join("") + '</div>';
+      if(Q.g === "spot"){ var qk = id + "|" + R.cur + "|" + R.qt; h += '<div style="margin-top:6px;font-size:14px">🔍 찾은 개수: ' + us.map(function(u){ var g = (ps[u] || {}).g, n = g && g.q === qk ? g.n : 0; return '<b>' + nm(u) + '</b> ' + n + '/' + Q.d.length; }).join(" · ") + '</div>'; }
       var notYet = us.filter(function(u){ return !a[u]; }).map(nm);
       if(!rv && notYet.length) h += '<div style="font-size:12.5px;color:#64748b;margin-top:4px">아직 안 고름: ' + notYet.join(", ") + '</div>';
     }
