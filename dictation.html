@@ -613,19 +613,46 @@ function bestVoice(lg){
 }
 // 「1번」을 「원번」처럼 영어로 읽는 기기(한국어 목소리 없는 갤럭시 탭 등) → 번호는 한글로 바꿔 읽기 (일 번, 십이 번)
 var _ttsNoVoice = false;
+// 🌐 인터넷 소리 — 기기 읽기 엔진이 고장(synthesis-failed)·한국어 없음인 태블릿용. 구글 번역 읽기 소리를 받아서 틀어 줌
+//   (구글은 다른 사이트 주소가 같이 가면 막아서, 주소를 안 보내는 숨은 틀 안에서 재생). 켜짐은 이 기기에 기억
+function _ttsNetOn(){ try{ if(localStorage.getItem("dictTtsNet") === "1") return true; }catch(e){}
+  // 한국어 목소리가 하나도 없는 기기 → 자동으로 인터넷 소리 (기기 목소리는 영어로 이상하게 읽음)
+  var vs = (voices && voices.length ? voices : (synth ? synth.getVoices() : [])) || []; return vs.length > 0 && !vs.some(function(v){ return /^ko/i.test(v.lang || ""); }); }
+function _ttsNetSet(on){ try{ if(on) localStorage.setItem("dictTtsNet","1"); else localStorage.removeItem("dictTtsNet"); }catch(e){} }
+var _ttsFrame = null, _ttsAud = null;
+var _ttsFrameP = null;   // 틀이 다 뜨기 전에 쓰면 주소가 같이 가서 구글이 막음 → 다 뜬 뒤에
+function _ttsFrameWin(){ if(!_ttsFrameP) _ttsFrameP = new Promise(function(ok){ _ttsFrame = document.createElement("iframe"); _ttsFrame.style.display = "none"; _ttsFrame.onload = function(){ ok(_ttsFrame.contentWindow); }; _ttsFrame.srcdoc = '<meta name="referrer" content="no-referrer">'; (document.body || document.documentElement).appendChild(_ttsFrame); }); return _ttsFrameP; }
+document.addEventListener("DOMContentLoaded", function(){ _ttsFrameWin(); });
+function netSpeak(text, rate, lang){
+  return new Promise(function(res){
+    var t = String(text || "").trim(); if(!t){ res(false); return; }
+    var parts = [], cur = ""; t.split(/\s+/).forEach(function(w){ if((cur + " " + w).length > 180){ if(cur) parts.push(cur); cur = w; } else cur = cur ? cur + " " + w : w; }); if(cur) parts.push(cur);
+    var W = null, i = 0, ok = false, rid = runId, done = false, fin = function(r){ if(!done){ done = true; res(r); } };
+    var next = function(){
+      if(i >= parts.length || rid !== runId){ fin(ok); return; }
+      var a = new W.Audio("https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + (lang || "ko") + "&q=" + encodeURIComponent(parts[i++]));
+      _ttsAud = a; a.playbackRate = Math.max(0.6, Math.min(1.4, (rate || 0.9) / 0.95));
+      a.onplaying = function(){ ok = true; _ttsOk = true; }; a.onended = next; a.onerror = function(){ fin(ok); };
+      var pr = a.play(); if(pr && pr.catch) pr.catch(function(){ fin(ok); });
+    };
+    try{ if(_ttsAud) _ttsAud.pause(); }catch(e){}
+    _ttsFrameWin().then(function(w){ W = w; next(); }); setTimeout(function(){ fin(ok); }, 20000);
+  });
+}
 function _koNum(t){ var D="영일이삼사오육칠팔구";
   var kn=function(n){ n=+n; if(n===0) return "영"; var s="", u=[[1000,"천"],[100,"백"],[10,"십"]]; u.forEach(function(x){ var q=Math.floor(n/x[0]); if(q){ s+=(q>1?D[q]:"")+x[1]; n%=x[0]; } }); return s+(n?D[n]:""); };
   return t.replace(/(\d{1,4})\s*(번|단계|급|점|문제)/g, function(m,n,w){ return kn(n)+" "+w; }); }
 function speak(text, rate){
+  if(_ttsNetOn() || !synth) return netSpeak(_koNum(String(text).replace(/[‘’“”'"]/g,"")), rate).then(function(){});
   return new Promise(function(res){
-    if(!synth){ res(); return; }
     var u = new SpeechSynthesisUtterance(_koNum(String(text).replace(/[‘’“”'"]/g,"")));
     u.lang = "ko-KR"; u.rate = rate || 0.9;
     var v = _ttsNoVoice ? null : (voices.filter(function(x){ return x.name===DB.opt.voice; })[0] || bestVoice("ko")); if(v) u.voice = v;
     var done=false, started=false, fin=function(){ if(!done){ done=true; res(); } }, tries=0;
     u.onstart = function(){ started = true; _ttsOk = true; };
     // 갤럭시 탭 등: 목소리를 콕 집어 주면 「읽기 오류」 나는 기기 → 목소리 빼고(기기 기본 한국어) 다시, 그래도 안 되면 언어도 빼고
-    var onErr = function(e){ var er = e && e.error; if(er === "interrupted" || er === "canceled" || done || tries >= 2){ fin(); return; }
+    var onErr = function(e){ var er = e && e.error; if(er === "interrupted" || er === "canceled" || done){ fin(); return; }
+      if(tries >= 2){ if(!done){ done = true; _ttsNetSet(true); toast("🌐 이 기기는 읽기 엔진이 안 돼서 인터넷 소리로 바꿨어요"); netSpeak(u.text, u.rate).then(function(){ res(); }); } return; }
       tries++; if(u.voice) _ttsNoVoice = true; var u3 = new SpeechSynthesisUtterance(u.text); u3.rate = u.rate; if(tries < 2) u3.lang = "ko-KR";
       u3.onstart = u.onstart; u3.onend = fin; u3.onerror = onErr; window._ttsU = u = u3; setTimeout(function(){ try{ synth.cancel(); synth.resume(); }catch(x){} synth.speak(u3); }, 150); };
     u.onend = fin; u.onerror = onErr; setTimeout(fin, 15000);
@@ -678,8 +705,10 @@ function ttsTestEn(){
   var u = new SpeechSynthesisUtterance("A. B. C."); u.lang = "en-US"; u.rate = 0.8; if(v) u.voice = v; window._ttsU = u;
   setTimeout(function(){ try{ synth.resume(); }catch(e){} synth.speak(u); }, 120);
 }
+function _ttsNetBack(){ return '<a href="javascript:void 0" onclick="_ttsNetSet(false);ttsTest()" style="font-weight:800">기기 목소리로 다시 시험</a>'; }
 function ttsTest(){
-  var h = $("vSet").classList.contains("hidden") ? $("voiceHint2") : $("voiceHint");  // 설정 화면 밖(맨 위 버튼)에서도 결과 보이게 h.textContent = "🔊 「안녕하세요, 받아쓰기 시작합니다」 소리가 나야 해요...";
+  var h = $("vSet").classList.contains("hidden") ? $("voiceHint2") : $("voiceHint");  // 설정 화면 밖(맨 위 버튼)에서도 결과 보이게
+  if(_ttsNetOn() || !synth){ h.textContent = "🌐 인터넷 소리로 시험하는 중…"; netSpeak("안녕하세요, 받아쓰기 시작합니다", 0.9).then(function(r){ h.innerHTML = (r ? "✅ 🌐 인터넷 소리로 읽고 있어요 (와이파이·데이터 필요). " : "❌ 인터넷 소리가 안 나요 — 인터넷 연결·볼륨을 확인해 주세요. ") + (synth ? _ttsNetBack() : ""); }); return; } h.textContent = "🔊 「안녕하세요, 받아쓰기 시작합니다」 소리가 나야 해요...";
   if(!synth){ h.textContent = "이 브라우저는 읽어 주기를 못 해요. 크롬으로 열어 주세요."; return; }
   synth.cancel(); loadVoices();
   var ok = false, u = new SpeechSynthesisUtterance("안녕하세요, 받아쓰기 시작합니다"); u.lang = "ko-KR"; u.rate = 0.9;
@@ -690,13 +719,14 @@ function ttsTest(){
   var tr = 0, onE = function(e){ var er = (e && e.error) || "";
     if(tr < 2){ tr++; _ttsNoVoice = true; var u3 = new SpeechSynthesisUtterance(u.text); u3.rate = u.rate; if(tr < 2) u3.lang = "ko-KR"; u3.onstart = u.onstart; u3.onerror = onE; window._ttsU = u3;
       h.textContent = "🔁 다시 해 보는 중 (" + er + ")…"; setTimeout(function(){ try{ synth.cancel(); synth.resume(); }catch(x){} synth.speak(u3); }, 150); return; }
-    h.textContent = "❌ 읽기 오류: " + er + vInfo + " — 태블릿 설정 › 텍스트 음성 변환에서 「듣기」로 소리가 나는지 먼저 확인해 주세요."; };
+    _ttsNetSet(true); h.textContent = "🌐 기기 읽기 엔진이 안 돼요 (" + er + ") → 인터넷 소리로 바꿨어요. 지금 들려 볼게요…";
+    netSpeak("안녕하세요, 받아쓰기 시작합니다", 0.9).then(function(r){ h.innerHTML = r ? "✅ 🌐 인터넷 소리로 읽어요 (와이파이·데이터 필요). " + _ttsNetBack() : "❌ 인터넷 소리도 안 나요 — 인터넷 연결과 볼륨을 확인해 주세요. " + _ttsNetBack(); }); };
   u.onerror = onE;
   window._ttsU = u; setTimeout(function(){ try{ synth.resume(); }catch(e){} synth.speak(u); }, 120);
   setTimeout(function(){ if(!ok) h.textContent = "❌ 읽기 엔진이 반응이 없어요 (목소리 " + voices.length + "개). 앱을 완전히 껐다 켜 보고, 그래도 안 되면 폰 설정 › 텍스트 음성 변환(TTS)에서 Google 엔진·한국어 음성 데이터를 설치해 주세요. 목소리를 「기본」으로 바꿔 보는 것도 방법이에요."; }, 3000);
 }
 var runId = 0;
-function stopAll(){ runId++; if(synth) synth.cancel(); }
+function stopAll(){ runId++; if(synth) synth.cancel(); try{ if(_ttsAud) _ttsAud.pause(); }catch(e){} }
 var wait = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
 
 // ───────── 이름 ─────────
