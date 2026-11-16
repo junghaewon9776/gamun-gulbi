@@ -97,6 +97,7 @@
 <div class="wrap">
   <h1>✏️ 받아쓰기 · 🔢 수학</h1>
   <div class="sub" id="subTitle">아이마다 자기 급수표로 공부해요</div>
+  <div style="text-align:center;margin:-4px 0 8px"><button onclick="ttsTest()" style="width:auto;display:inline-block;padding:6px 14px;font-size:14px;border-radius:20px;background:#7c3aed;color:#fff;border:none;font-weight:800">🔊 소리 시험</button><div class="hint" id="voiceHint2" style="margin-top:4px"></div></div>
 
   <!-- ① 이름 -->
   <section id="vName">
@@ -669,7 +670,7 @@ function ttsTestEn(){
   setTimeout(function(){ try{ synth.resume(); }catch(e){} synth.speak(u); }, 120);
 }
 function ttsTest(){
-  var h = $("voiceHint"); h.textContent = "🔊 「안녕하세요, 받아쓰기 시작합니다」 소리가 나야 해요...";
+  var h = $("vSet").classList.contains("hidden") ? $("voiceHint2") : $("voiceHint");  // 설정 화면 밖(맨 위 버튼)에서도 결과 보이게 h.textContent = "🔊 「안녕하세요, 받아쓰기 시작합니다」 소리가 나야 해요...";
   if(!synth){ h.textContent = "이 브라우저는 읽어 주기를 못 해요. 크롬으로 열어 주세요."; return; }
   synth.cancel(); loadVoices();
   var ok = false, u = new SpeechSynthesisUtterance("안녕하세요, 받아쓰기 시작합니다"); u.lang = "ko-KR"; u.rate = 0.9;
