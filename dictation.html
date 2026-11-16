@@ -643,9 +643,12 @@ function openInChrome(){
   if(/Android/i.test(u)){ location.href = "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=https;package=com.android.chrome;end"; return; }
   toast("오른쪽 위 ⋯ 메뉴에서 「다른 브라우저로 열기」(사파리/크롬)를 눌러 주세요");
 }
-(function(){ var n = inAppName(); if(!n && synth) return;
-  // 카톡에서 열리면 바로 크롬(기본 브라우저)으로 넘기기 — 한 번만 (안 넘어가면 아래 빨간 안내 버튼)
-  if(n === "카카오톡"){ var t = 0; try{ t = +sessionStorage.getItem("dictKakaoOut") || 0; }catch(e){}
+// 안드로이드는 무조건 크롬으로 — 삼성 인터넷·웨일·카톡 등에선 읽어 주기가 안 되는 기기가 있어서 (갤럭시 탭 등)
+function notChromeName(){ var u = navigator.userAgent || ""; if(!/Android/i.test(u)) return ""; var n = inAppName(); if(n) return n;
+  return /SamsungBrowser/i.test(u) ? "삼성 인터넷" : /Whale\//i.test(u) ? "네이버 웨일" : /EdgA\//i.test(u) ? "엣지" : /OPR\//i.test(u) ? "오페라" : /Firefox\//i.test(u) ? "파이어폭스" : !/Chrome\//i.test(u) ? "이 브라우저" : ""; }
+(function(){ var n = notChromeName() || inAppName(); if(!n && synth) return;
+  // 크롬이 아니면 바로 크롬으로 넘기기 — 1분에 한 번만 (안 넘어가면 아래 빨간 안내 버튼)
+  if(n){ var t = 0; try{ t = +sessionStorage.getItem("dictKakaoOut") || 0; }catch(e){}
     if(Date.now() - t > 60000){ try{ sessionStorage.setItem("dictKakaoOut", String(Date.now())); }catch(e){} openInChrome(); } }
   var d = document.createElement("div");
   d.style.cssText = "position:sticky;top:0;z-index:9999;background:#b91c1c;color:#fff;padding:10px 12px;font-size:15px;line-height:1.45;display:flex;gap:8px;align-items:center;flex-wrap:wrap";
