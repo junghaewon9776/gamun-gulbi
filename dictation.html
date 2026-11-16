@@ -674,8 +674,10 @@ function ttsTest(){
   if(!synth){ h.textContent = "이 브라우저는 읽어 주기를 못 해요. 크롬으로 열어 주세요."; return; }
   synth.cancel(); loadVoices();
   var ok = false, u = new SpeechSynthesisUtterance("안녕하세요, 받아쓰기 시작합니다"); u.lang = "ko-KR"; u.rate = 0.9;
-  var v = voices.filter(function(x){ return x.name===$("setVoice").value; })[0]; if(v) u.voice = v;
-  u.onstart = function(){ ok = true; h.textContent = "✅ 읽기는 되고 있어요. 소리가 안 들리면 폰 옆 볼륨 버튼(미디어 소리)을 올리고 무음·방해금지를 꺼 주세요."; };
+  var v = voices.filter(function(x){ return x.name===($("setVoice").value||DB.opt.voice); })[0] || bestVoice("ko"); if(v) u.voice = v;  // 받아쓰기 읽기(speak)와 같은 목소리로 시험
+  var koN = voices.filter(function(x){ return /^ko/i.test(x.lang||""); }).length;
+  var vInfo = " 〔목소리: " + (v ? v.name + " · " + v.lang : "한국어 목소리 없음 — 기기 기본") + " / 한국어 " + koN + "개, 전체 " + voices.length + "개〕";
+  u.onstart = function(){ ok = true; h.textContent = (koN ? "✅ 읽기는 되고 있어요. 소리가 안 들리면 볼륨(미디어 소리)·무음·방해금지를 확인해 주세요." : "⚠ 소리는 나지만 한국어 목소리가 없어서 외국 사람처럼 이상하게 읽어요 → 태블릿 설정 › 텍스트 음성 변환 › 엔진 ⚙ › 한국어 음성 데이터 설치") + vInfo; };
   u.onerror = function(e){ h.textContent = "❌ 읽기 오류: " + (e.error||"") + " — 폰 설정 › 텍스트 음성 변환(TTS)에서 「Google 음성 인식 및 합성」·한국어를 골라 주세요."; };
   window._ttsU = u; setTimeout(function(){ try{ synth.resume(); }catch(e){} synth.speak(u); }, 120);
   setTimeout(function(){ if(!ok) h.textContent = "❌ 읽기 엔진이 반응이 없어요 (목소리 " + voices.length + "개). 앱을 완전히 껐다 켜 보고, 그래도 안 되면 폰 설정 › 텍스트 음성 변환(TTS)에서 Google 엔진·한국어 음성 데이터를 설치해 주세요. 목소리를 「기본」으로 바꿔 보는 것도 방법이에요."; }, 3000);
