@@ -611,10 +611,14 @@ function bestVoice(lg){
   L.sort(function(a, b){ return sc(b) - sc(a); });
   return (_vBest[lg] = L[0] || null);
 }
+// 「1번」을 「원번」처럼 영어로 읽는 기기(한국어 목소리 없는 갤럭시 탭 등) → 번호는 한글로 바꿔 읽기 (일 번, 십이 번)
+function _koNum(t){ var D="영일이삼사오육칠팔구";
+  var kn=function(n){ n=+n; if(n===0) return "영"; var s="", u=[[1000,"천"],[100,"백"],[10,"십"]]; u.forEach(function(x){ var q=Math.floor(n/x[0]); if(q){ s+=(q>1?D[q]:"")+x[1]; n%=x[0]; } }); return s+(n?D[n]:""); };
+  return t.replace(/(\d{1,4})\s*(번|단계|급|점|문제)/g, function(m,n,w){ return kn(n)+" "+w; }); }
 function speak(text, rate){
   return new Promise(function(res){
     if(!synth){ res(); return; }
-    var u = new SpeechSynthesisUtterance(String(text).replace(/[‘’“”'"]/g,""));
+    var u = new SpeechSynthesisUtterance(_koNum(String(text).replace(/[‘’“”'"]/g,"")));
     u.lang = "ko-KR"; u.rate = rate || 0.9;
     var v = voices.filter(function(x){ return x.name===DB.opt.voice; })[0] || bestVoice("ko"); if(v) u.voice = v;
     var done=false, started=false, fin=function(){ if(!done){ done=true; res(); } };
