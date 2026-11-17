@@ -349,10 +349,11 @@ function _bsWorkCalc(id){
       for(var i = 0; i < v.dur; i++){ var dd = _bsAdd(v.dry, i), o = _bsOcc(pt.loc, dd, id, rows0).doo; if(o > mx){ mx = o; mxd = dd; } }
       capTxt += (capTxt ? "<br>" : "") + esc(pt.loc) + ": 다른 작업 최대 " + _bsW(mx) + "두름(" + _bsMS(mxd) + ") + 이번 " + _bsW(pt.doo) + " = <b" + (cap && mx + pt.doo > cap ? ' style="color:#dc2626"' : '') + ">" + _bsW(mx + pt.doo) + "</b>" + (cap ? " / " + _bsW(cap) + "두름" : "");
       if(cap && mx + pt.doo > cap){
-        warn.push(esc(pt.loc) + " 자리가 넘쳐요 (" + _bsW(mx + pt.doo) + " / " + _bsW(cap) + "두름)");
+        var clash = _bsOcc(pt.loc, mxd, id, rows0).list.map(function(c){ return _bsMS(c.dry) + "~" + _bsMS(c.walk) + " " + esc(_bsLbl(c.item)) + " " + _bsW(c.doo) + "두름"; });
+        warn.push(esc(pt.loc) + " 자리가 넘쳐요 (" + _bsMS(mxd) + " " + _bsW(mx + pt.doo) + " / " + _bsW(cap) + "두름)" + (clash.length ? "<br>　└ 겹치는 작업: " + clash.join(", ") + " — 다른 구역으로 옮기거나 나눠 널기" : ""));
         if(parts.length === 1){
           var f = _bsFit(pt.loc, pt.doo, v.dry, v.dur, id);
-          fit += f === "over" ? '<div>📌 ' + esc(pt.loc) + '은(는) 최대 ' + _bsW(cap) + '두름이라 한 번에 못 널어요 — 구역을 더 체크해서 나눠 널기</div>' : f ? '<div>📌 <b>' + esc(pt.loc) + '은(는) ' + _bsMS(f) + '부터 널 수 있어요</b> <button class="btn" style="background:#0e7490;color:#fff;padding:2px 8px" onclick="document.getElementById(\'bw_dry\').value=\'' + f + '\';_bsWorkCalc(\'' + (id || "") + '\')">그 날로</button></div>' : '';
+          fit += f === "over" ? '<div>📌 ' + esc(pt.loc) + '은(는) 최대 ' + _bsW(cap) + '두름이라 한 번에 못 널어요 — 구역을 더 체크해서 나눠 널기</div>' : f ? '<div>📌 <b>' + esc(pt.loc) + '은(는) ' + _bsMS(f) + '부터 널 수 있어요</b> <span style="font-size:12px;color:#475569">(말리는 ' + v.dur + '일 내내 자리가 되는 날)</span> <button class="btn" style="background:#0e7490;color:#fff;padding:2px 8px" onclick="document.getElementById(\'bw_dry\').value=\'' + f + '\';_bsWorkCalc(\'' + (id || "") + '\')">그 날로</button></div>' : '';
         }
       }
     });
