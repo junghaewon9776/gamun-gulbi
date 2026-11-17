@@ -161,6 +161,53 @@
         ".read": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid",
         ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid"
       }
+    },
+    "busePub": {
+      ".read": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
+      ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'",
+      "$s": {
+        "$id": {
+          ".write": "!data.exists() && newData.hasChildren(['dt','from','lines','at']) && !newData.child('done').exists() && !newData.child('doneAt').exists() && !newData.child('doneBy').exists() && !newData.child('inb').exists()",
+          "dt": {
+            ".validate": "newData.isString() && newData.val().length === 10"
+          },
+          "from": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "car": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "memo": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          },
+          "at": {
+            ".validate": "newData.isString() && newData.val().length <= 30"
+          },
+          "photo": {
+            ".validate": "newData.isString() && newData.val().length < 450000 && newData.val().beginsWith('data:image/')"
+          },
+          "lines": {
+            "$i": {
+              "item": {
+                ".validate": "newData.isString() && newData.val().length <= 20"
+              },
+              "qty": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() < 100000"
+              },
+              "$o": {
+                ".validate": false
+              }
+            }
+          },
+          "$o": {
+            ".validate": "$o === 'done' || $o === 'doneAt' || $o === 'doneBy' || $o === 'inb'"
+          }
+        }
+      }
+    },
+    "busePubCfg": {
+      ".read": true,
+      ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
     }
   }
 }
