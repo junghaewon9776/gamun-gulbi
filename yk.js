@@ -490,14 +490,47 @@ function _ykLabels(w){
   var c = _ykCalc(w), st = _ykSet(), lot = _ykLot(w.dt), out = [], skip = [];
   c.rows.forEach(function(x){ var I = x.I || {}; if(!x.boxes) return;
     if(I.noLbl){ skip.push(x.item + " (라벨 안 뽑음)"); return; } if(I.under && x.boxes <= _bsN(I.under)){ skip.push(x.item + " " + x.boxes + "박스 (" + I.under + "박스 이하)"); return; }
-    for(var b = 1; b <= x.boxes; b++) for(var k = 0; k < Math.max(1, _bsN(st.lblPer)); k++) out.push({ nm: x.item + x.box, lot: lot + (I.color ? "(" + I.color + ")" : ""), n: b + "/" + x.boxes, code: I.code || "", txt: x.item + "/" + x.box + "/" + lot }); });
+    for(var b = 1; b <= x.boxes; b++) for(var k = 0; k < Math.max(1, _bsN(st.lblPer)); k++) out.push({ item: x.item, col: I.color || "", nm: x.item + x.box, lot: lot + (I.color ? "(" + I.color + ")" : ""), n: b + "/" + x.boxes, code: I.code || "", txt: x.item + "/" + x.box + "/" + lot }); });
   return { list: out, skip: skip };
 }
+// ── 라벨: A4 27칸(3×9, 색 인쇄) 또는 60×30 라벨 프린터(흑백) ──
+var YK_LCOL = { "노랑": "#fde047", "분홍": "#f9a8d4", "빨강": "#f87171", "초록": "#86efac", "파랑": "#93c5fd", "주황": "#fdba74", "보라": "#c4b5fd", "하늘": "#bae6fd", "연두": "#d9f99d", "회색": "#d1d5db" };
+var YK_LDEF = { paper: "a4", cols: 3, rows: 9, w: 63.5, h: 29.6, top: 15.3, left: 7.25, gx: 2.5, gy: 0 };
+function _ykLset(){ return Object.assign({}, YK_LDEF, (_ykS().set || {}).lbl || {}); }
 function ykPrintLabel(){
   var L = _ykLabels(YK.ed.w);
   if(!L.list.length) return toast("뽑을 라벨이 없어요" + (L.skip.length ? " — " + L.skip.join(", ") : ""), true);
-  var b = (L.skip.length ? '<div class="note">라벨 안 뽑은 품명: ' + L.skip.map(esc).join(" · ") + '</div>' : '') + '<div class="sheet">' + L.list.map(function(l){ return '<div class="lb"><div class="a">' + esc(l.nm) + '</div><div class="b">' + esc(l.lot) + ' <span>(' + l.n + ')</span></div>' + (l.code ? '<div class="bc">' + _ykC39(l.code, 34) + '</div><div class="c">' + esc(l.code) + ' · ' + esc(l.txt) + '</div>' : '') + '</div>'; }).join("") + '</div>';
-  _ykWin("라벨 " + YK.ed.w.dt + " (" + L.list.length + "장)", '@page{size:A4;margin:10mm 6mm}.note{font-size:12px;color:#92400e;padding:4px 8px}.sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:2mm;width:198mm;margin:0 auto}.lb{border:1px dashed #999;height:36mm;padding:2mm 3mm;display:flex;flex-direction:column;justify-content:center;break-inside:avoid;text-align:center}.a{font-size:20px;font-weight:900}.b{font-size:13px;font-weight:700}.b span{font-weight:400;font-size:11px}.bc{margin:1mm 0}.c{font-size:9.5px;color:#333}@media print{.lb{border-color:#ddd}}', b);
+  var S = _ykLset(), items = {}; L.list.forEach(function(l){ if(!items[l.item]) items[l.item] = { n: 0, col: l.col }; items[l.item].n++; });
+  YK.lc = {}; Object.keys(items).forEach(function(k){ YK.lc[k] = items[k].col || ""; });
+  var R = function(v, lb){ var on = S.paper === v; return '<label style="flex:1;border:2px solid ' + (on ? "#7c3aed" : "#e5e7eb") + ';background:' + (on ? "#f5f3ff" : "#fff") + ';border-radius:8px;padding:8px;cursor:pointer;font-size:13px;font-weight:700"><input type="radio" name="ylp" value="' + v + '" ' + (on ? "checked" : "") + ' onchange="document.getElementById(\'ylA4\').style.display=this.value===\'a4\'?\'\':\'none\'"> ' + lb + '</label>'; };
+  var h = '<h3 style="margin:0 0 10px">🏷 라벨 뽑기 · ' + L.list.length + '장 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3>';
+  if(L.skip.length) h += '<div style="font-size:12px;color:#92400e;background:#fffbeb;border-radius:6px;padding:5px 8px;margin-bottom:8px">안 뽑는 품명: ' + L.skip.map(esc).join(" · ") + '</div>';
+  h += '<div style="display:flex;gap:8px">' + R("a4", "📄 A4 27칸 (3×9) · 색 인쇄") + R("roll", "🖨 60×30 라벨 프린터 · 흑백") + '</div>';
+  h += '<div id="ylA4" style="' + (S.paper === "a4" ? "" : "display:none") + '"><div style="font-size:13px;font-weight:700;margin:10px 0 4px">품명별 인쇄 색 <span class="mut" style="font-weight:400;font-size:12px">— 정품표의 라벨 색이 먼저 골라져 있어요</span></div>';
+  Object.keys(items).forEach(function(k){ var c = YK.lc[k]; h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span id="ylS_' + _ykKey(k) + '" style="width:26px;height:18px;border-radius:4px;border:1px solid #94a3b8;background:' + (YK_LCOL[c] || "#fff") + '"></span><b style="min-width:110px">' + esc(k) + '</b><span class="mut" style="font-size:12px;min-width:44px">' + items[k].n + '장</span><select onchange="YK.lc[\'' + esc(k) + '\']=this.value;document.getElementById(\'ylS_' + _ykKey(k) + '\').style.background=YK_LCOL[this.value]||\'#fff\'" style="padding:5px;border:1px solid #cbd5e1;border-radius:6px"><option value="">흰색 (색 없음)</option>' + Object.keys(YK_LCOL).map(function(n){ return '<option' + (n === c ? " selected" : "") + '>' + n + '</option>'; }).join("") + '</select></div>'; });
+  h += '<div style="display:flex;gap:10px;align-items:center;margin-top:8px;font-size:13px">시작 칸 <input id="yl_start" type="number" min="1" max="27" value="1" style="width:70px;padding:5px;border:1px solid #cbd5e1;border-radius:6px"> <span class="mut" style="font-size:12px">쓰다 남은 라벨지면 비어 있는 첫 칸 번호 (왼쪽 위부터 1~27)</span></div>';
+  h += '<details style="margin-top:8px;font-size:12.5px"><summary style="cursor:pointer;color:#475569">라벨지 크기 맞추기 (mm)</summary><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px">' + [["w", "칸 가로"], ["h", "칸 세로"], ["top", "위 여백"], ["left", "왼쪽 여백"], ["gx", "가로 간격"], ["gy", "세로 간격"], ["cols", "가로 칸 수"], ["rows", "세로 칸 수"]].map(function(f){ return '<label>' + f[1] + '<input id="yl_' + f[0] + '" type="number" step="0.1" value="' + S[f[0]] + '" style="width:100%;padding:4px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; }).join("") + '</div></details></div>';
+  h += '<div style="display:flex;justify-content:flex-end;margin-top:12px">' + _bsB("#7c3aed", "🖨 라벨 인쇄", "ykPrintLabelGo()", "padding:9px 22px") + '</div>';
+  openPopup(h, 560);
+}
+function ykPrintLabelGo(){
+  var L = _ykLabels(YK.ed.w), paper = (document.querySelector('input[name="ylp"]:checked') || {}).value || "a4", S = _ykLset(), g = function(k){ return _bsN((document.getElementById("yl_" + k) || {}).value); };
+  if(paper === "a4") ["w", "h", "top", "left", "gx", "gy", "cols", "rows"].forEach(function(k){ var v = g(k); if(v || k === "gx" || k === "gy") S[k] = v; });
+  S.paper = paper; var keep = JSON.parse(JSON.stringify(S)); _ykRef("set/lbl").set(keep).catch(function(){}); YK.D.set = YK.D.set || {}; YK.D.set.lbl = keep;
+  var cell = function(l, col){ return '<div class="lb"' + (col ? ' style="background:' + col + '"' : '') + '><div class="a">' + esc(l.nm) + '</div><div class="b">' + esc(l.lot) + ' <span>(' + l.n + ')</span></div>' + (l.code ? '<div class="bc">' + _ykC39(l.code, paper === "a4" ? 30 : 26) + '</div><div class="c">' + esc(l.code) + ' · ' + esc(l.txt) + '</div>' : '') + '</div>'; };
+  var b, css, PC = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+  if(paper === "a4"){
+    var per = S.cols * S.rows, start = Math.max(1, Math.min(per, Math.round(g("start")) || 1)), cells = [];
+    for(var i = 1; i < start; i++) cells.push('<div class="lb empty"></div>');
+    L.list.forEach(function(l){ cells.push(cell(l, YK_LCOL[YK.lc[l.item]] || "")); });
+    var pages = []; for(var p = 0; p < cells.length; p += per) pages.push('<div class="sheet">' + cells.slice(p, p + per).join("") + '</div>');
+    b = pages.join("");
+    css = '@page{size:A4;margin:0}body{' + PC + '}.sheet{width:210mm;height:297mm;padding:' + S.top + 'mm 0 0 ' + S.left + 'mm;display:grid;grid-template-columns:repeat(' + S.cols + ',' + S.w + 'mm);grid-auto-rows:' + S.h + 'mm;column-gap:' + S.gx + 'mm;row-gap:' + S.gy + 'mm;break-after:page;overflow:hidden;margin:0 auto}.sheet:last-child{break-after:auto}.lb{' + PC + 'height:' + S.h + 'mm;padding:1mm 2mm;display:flex;flex-direction:column;justify-content:center;text-align:center;overflow:hidden;outline:1px dashed #bbb}.lb.empty{background:none!important}.a{font-size:17px;font-weight:900;line-height:1.1}.b{font-size:11.5px;font-weight:700}.b span{font-weight:400;font-size:10px}.bc{margin:.5mm 0;line-height:0}.bc svg{max-width:100%}.c{font-size:8.5px;color:#222}@media screen{.sheet{box-shadow:0 0 0 1px #94a3b8;margin:10px auto}}@media print{.lb{outline:none}}';
+  } else {
+    b = L.list.map(function(l){ return cell(l, ""); }).join("");
+    css = '@page{size:60mm 30mm;margin:0}.lb{width:60mm;height:30mm;padding:1.2mm 2mm;display:flex;flex-direction:column;justify-content:center;text-align:center;overflow:hidden;break-after:page;color:#000}.lb:last-child{break-after:auto}.a{font-size:15px;font-weight:900;line-height:1.1}.b{font-size:10.5px;font-weight:700}.b span{font-weight:400;font-size:9.5px}.bc{margin:.4mm 0;line-height:0}.bc svg{max-width:100%}.c{font-size:7.5px}@media screen{.lb{outline:1px dashed #999;margin:6px auto}}';
+  }
+  closePopup(); _ykWin("라벨 " + YK.ed.w.dt + " (" + L.list.length + "장)", css, b);
 }
 function ykPrintSheet(){
   var w = YK.ed.w, c = _ykCalc(w), names = w.ws;
