@@ -110,17 +110,16 @@ function _ykEditor(){
   h += '<div style="margin-top:8px;font-size:13px;background:' + (same ? "#f8fafc" : "#fff7ed") + ';border:1px solid ' + (same ? "#e2e8f0" : "#fdba74") + ';border-radius:8px;padding:6px 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center"><b>이 작업 엮거리 단가 (두름당)</b> 굴비 <input type="number" value="' + rt.굴비 + '" oninput="YK.ed.w.rate=YK.ed.w.rate||{};YK.ed.w.rate.굴비=this.value;_ykRecalc()" style="width:80px;padding:4px;border:1px solid #cbd5e1;border-radius:5px"> 부세 <input type="number" value="' + rt.부세 + '" oninput="YK.ed.w.rate=YK.ed.w.rate||{};YK.ed.w.rate.부세=this.value;_ykRecalc()" style="width:80px;padding:4px;border:1px solid #cbd5e1;border-radius:5px">' + (same ? '<span class="mut" style="font-size:12px">— 지금 설정 단가와 같아요. 저장하면 이 단가로 고정돼서 나중에 설정을 올려도 이 작업은 안 바뀌어요</span>' : '<span style="font-size:12px;color:#c2410c;font-weight:700">— 지금 설정 단가(굴비 ' + _ykWon(st0.굴비) + ' · 부세 ' + _ykWon(st0.부세) + ')와 달라요</span> ' + _bsB("#ea580c", "지금 단가로 바꾸기", "YK.ed.w.rate=JSON.parse(JSON.stringify(_ykSet().rate));draw()", "padding:3px 9px")) + '</div>';
   h += '<div style="font-weight:800;margin:10px 0 4px">🐟 원료 <span class="mut" style="font-weight:400;font-size:12px">— 짝 수와 짝당 가격 (비우면 설정의 원료값)</span></div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#f8fafc"><th style="text-align:left;padding:4px">원료명</th><th style="width:90px">짝 수</th><th style="width:130px">짝당 가격</th><th style="width:90px;text-align:right">마리수</th><th style="width:90px;text-align:right">kg</th><th style="width:120px;text-align:right">원료 금액</th><th style="width:36px"></th></tr>';
   w.mats.forEach(function(m, i){ var M = _ykMat(m.nm) || {};
-    h += '<tr><td style="padding:3px">' + _ykIn(m.nm, "YK.ed.w.mats[" + i + "].nm=this.value;_ykRecalc()", 'list="ykMats" placeholder="예: 부세30미"') + '</td><td style="padding:3px">' + _ykIn(m.qty, "YK.ed.w.mats[" + i + "].qty=this.value;_ykRecalc()", 'type="number" step="any"') + '</td><td style="padding:3px">' + _ykIn(m.price, "YK.ed.w.mats[" + i + "].price=this.value;_ykRecalc()", 'type="number" placeholder="' + (M.price ? _ykWon(M.price) : "짝당") + '"') + '</td>';
+    h += '<tr><td style="padding:3px">' + _ykPick("mat", i, m.nm) + '</td><td style="padding:3px">' + _ykIn(m.qty, "YK.ed.w.mats[" + i + "].qty=this.value;_ykRecalc()", 'type="number" step="any"') + '</td><td style="padding:3px">' + _ykIn(m.price, "YK.ed.w.mats[" + i + "].price=this.value;_ykRecalc()", 'type="number" placeholder="' + (M.price ? _ykWon(M.price) : "짝당") + '"') + '</td>';
     h += '<td id="ykMm' + i + '" style="text-align:right;padding:3px"></td><td id="ykMk' + i + '" style="text-align:right;padding:3px"></td><td id="ykMc' + i + '" style="text-align:right;padding:3px;font-weight:700"></td><td><button class="btn" style="background:#dc2626;color:#fff;padding:2px 7px" onclick="YK.ed.w.mats.splice(' + i + ',1);draw()">✕</button></td></tr>'; });
   h += '</table>' + _bsB("#b45309", "+ 원료 줄", "YK.ed.w.mats.push({nm:'',qty:'',price:''});draw()", "padding:4px 10px;margin-top:4px") + '</div>';
-  h += '<datalist id="ykMats">' + mats.map(function(n){ return '<option value="' + esc(n) + '">'; }).join("") + '</datalist><datalist id="ykItems">' + items.map(function(n){ return '<option value="' + esc(n) + '">'; }).join("") + '</datalist>';
   // 이모 × 품명 표
   h += '<div class="card" style="margin-bottom:10px;padding:10px 0 0"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;padding:0 12px 8px"><b>👵 이모들 × 품명 (두름)</b><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input id="ykAddW" list="ykPeople" placeholder="이모 이름" style="width:110px;padding:5px;border:1px solid #cbd5e1;border-radius:5px">' + _bsB("#0e7490", "+ 이모", "ykAddWorker()", "padding:5px 10px") + '<datalist id="ykPeople">' + people.map(function(n){ return '<option value="' + esc(n) + '">'; }).join("") + '</datalist></div></div>';
   h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;min-width:100%"><thead><tr style="background:#fff7ed"><th style="padding:5px;text-align:left;min-width:120px;position:sticky;left:0;background:#fff7ed;z-index:1">품명</th><th style="padding:5px">굴비/부세</th>';
   w.ws.forEach(function(n, j){ h += '<th style="padding:5px;min-width:70px;white-space:nowrap">' + esc(n) + ' <a href="javascript:void 0" onclick="ykDelWorker(' + j + ')" style="color:#dc2626;text-decoration:none">✕</a></th>'; });
   h += '<th style="padding:5px;background:#fde68a">합계</th><th style="padding:5px">마리수</th><th style="padding:5px">박스</th><th style="padding:5px">잔량</th><th></th></tr></thead><tbody>';
   w.rows.forEach(function(r, i){
-    h += '<tr><td style="padding:3px;position:sticky;left:0;background:#fff;z-index:1">' + _ykIn(r.item, "YK.ed.w.rows[" + i + "].item=this.value;_ykRecalc()", 'list="ykItems" placeholder="품명"') + '</td>';
+    h += '<tr><td style="padding:3px;position:sticky;left:0;background:#fff;z-index:1">' + _ykPick("item", i, r.item) + '</td>';
     h += '<td style="padding:3px;text-align:center"><button class="btn" style="background:' + (r.kind === "부세" ? "#0e7490" : "#b45309") + ';color:#fff;padding:3px 9px;min-width:46px" onclick="YK.ed.w.rows[' + i + '].kind=(YK.ed.w.rows[' + i + '].kind===\'부세\'?\'굴비\':\'부세\');draw()">' + (r.kind || "굴비") + '</button></td>';
     w.ws.forEach(function(n, j){ h += '<td style="padding:3px"><input type="number" inputmode="numeric" value="' + esc((r.c || {})[n] || "") + '" oninput="_ykCell(' + i + ',' + j + ',this.value)" style="width:64px;padding:5px;border:1px solid #cbd5e1;border-radius:5px;text-align:right"></td>'; });
     h += '<td id="ykRd' + i + '" style="padding:3px 6px;text-align:right;font-weight:900;background:#fef9c3"></td><td id="ykRm' + i + '" style="padding:3px 6px;text-align:right"></td><td id="ykRb' + i + '" style="padding:3px 6px;text-align:right;font-weight:800"></td><td id="ykRr' + i + '" style="padding:3px 6px;text-align:right"></td><td><button class="btn" style="background:#dc2626;color:#fff;padding:2px 7px" onclick="YK.ed.w.rows.splice(' + i + ',1);draw()">✕</button></td></tr>'; });
@@ -169,6 +168,7 @@ function ykSave(){
   w.mats = w.mats.filter(function(m){ return String(m.nm).trim() || _bsN(m.qty); }).map(function(m){ return { nm: String(m.nm).trim(), qty: _bsN(m.qty), price: m.price === "" || m.price == null ? "" : _bsN(m.price) }; });
   w.rows = w.rows.filter(function(r){ return String(r.item).trim() || Object.keys(r.c || {}).length; }).map(function(r){ return { item: String(r.item).trim(), kind: r.kind || "굴비", c: r.c || {} }; });
   if(w.rows.some(function(r){ return !r.item; })) return toast("품명이 빈 줄이 있어요", true);
+  if(_ykUnregPop(w)) return;
   w.upAt = new Date().toISOString(); w.upBy = CID || "";
   var ref = E.id ? _ykRef("works/" + E.id) : _ykRef("works").push(), key = E.id || ref.key, up = {}; up["works/" + key] = w;
   w.ws.forEach(function(n){ if(!((_ykS().people || {})[n])) up["people/" + n] = { on: true }; });
@@ -186,6 +186,7 @@ function dYkPay(){
   var tot = names.reduce(function(a, n){ return a + P[n].due; }, 0), totA = Object.keys(A).reduce(function(a, n){ return a + A[n].due; }, 0);
   var h = _ykHead("👵 이모 정산", "엮은 두름 × 단가 = 번 돈 · 돈 주면 미수에서 빠짐", can ? _bsB("#16a34a", "💵 지급 넣기", "ykPayEdit('')", "padding:9px 18px") : "");
   h += _ykPerBar(f, t);
+  if(_ykBoss()) h += '<div style="margin:-4px 0 10px;text-align:right">' + _bsB("#1d4ed8", "🏦 다건이체 엑셀 만들기", "ykBulkPay()", "padding:8px 16px") + '</div>';
   h += '<div class="card" style="margin-bottom:10px;font-size:14px">' + (per ? '<b>' + _ykPerTxt(f, t) + '</b> 남은 돈 <b style="font-size:20px;color:' + (tot > 0 ? "#dc2626" : "#16a34a") + '">' + _ykWon(tot) + '원</b> <span class="mut" style="font-size:12px">(이 기간 작업 번 돈 − 이 기간에 준 돈)</span> · ' : '') + '전체 미수 합계 <b style="font-size:' + (per ? 15 : 20) + 'px;color:' + (totA > 0 ? "#dc2626" : "#16a34a") + '">' + _ykWon(totA) + '원</b> <span class="mut" style="font-size:12px">· 엮거리 단가: 굴비 ' + _ykWon(_ykSet().rate.굴비) + ' · 부세 ' + _ykWon(_ykSet().rate.부세) + ' (두름당)</span></div>';
   h += '<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px"><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px"><thead><tr style="background:#fff7ed">';
   (per ? ["이모", "굴비 두름", "부세 두름", "기간 번 돈", "기간에 준 돈", "기간 남은 돈", "마지막 작업", "", "전체 미수"] : ["이모", "굴비 두름", "부세 두름", "번 돈", "준 돈", "미수 (남은 돈)", "마지막 작업", ""]).forEach(function(x, i){ h += '<th style="padding:7px 6px;border-bottom:2px solid #fed7aa;text-align:' + (i >= 1 && i <= 5 ? "right" : "left") + '">' + x + '</th>'; });
@@ -354,9 +355,56 @@ function ykInfoCsv(){
   Object.keys(nk).sort().forEach(function(n){ var x = I[n] || {}; rows.push([q(n)].concat(YK_INFO_F.map(function(f){ return q(x[f[0]], /phone|rrn|acct/.test(f[0])); })).join(",")); });
   var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" })); a.download = "엮거리_이모명단_" + _bsToday() + ".csv"; document.body.appendChild(a); a.click(); a.remove();
 }
+// ════════ 🏦 다건이체 — 은행 기업뱅킹 '다건이체 엑셀 업로드' 양식(은행코드/은행명 · 입금계좌번호 · 이체금액 · 입금통장표시 · 출금통장표시 · 이체메모) ════════
+var YK_BANKS = [["NH농협", 11, "농협"], ["국민", 4, "국민"], ["부산", 32, "부산"], ["새마을금고", 45, "새마을"], ["신협", 48, "신협"], ["우체국", 71, "우체국"], ["제주", 35, "제주"], ["중국은행(BOC)", 63, "중국은행(BOC)"], ["K뱅크", 89, "케이뱅크"], ["뱅크 오브 아메리카", 60, "뱅크 오브 아메리카"], ["JP모간", 57, "JP모간"], ["교보증권", 261, "교보증권"], ["메리츠증권", 287, "메리츠증권"], ["삼성증권", 240, "삼성증권"], ["신한투자증권", 278, "신한투자증권"], ["카카오페이증권", 288, "카카오페이증권"], ["토스증권", 271, "토스증권"], ["한국투자증권", 243, "한국투자증권"], ["현대차증권", 263, "현대차증권"], ["IBK투자증권", 225, "IBK투자증권"], ["SK증권", 266, "SK증권"], ["경남", 39, "경남"], ["기업", 3, "기업"], ["산업", 2, "산업"], ["수협", 7, "수협"], ["SC제일", 23, "SC제일"], ["전북", 37, "전북"], ["중국건설은행(CCB)", 67, "중국건설은행(CCB)"], ["하나", 81, "하나"], ["카카오뱅크", 90, "카뱅"], ["BNP파리바", 61, "BNP파리바"], ["홍콩(HSBC은행)", 54, "홍콩(HSBC은행)"], ["다올투자증권", 227, "다올투자증권"], ["미래에셋증권", 238, "미래에셋증권"], ["상상인증권", 221, "상상인증권"], ["유안타증권", 209, "유안타증권"], ["케이프투자증권", 292, "케이프투자증권"], ["하나증권", 270, "하나증권"], ["한국포스증권", 294, "한국포스증권"], ["BNK투자증권", 224, "BNK투자증권"], ["KB증권", 218, "KB증권"], ["광주", 34, "광주"], ["아이엠 (구)대구", 31, "아이엠 (구)대구"], ["산림조합", 64, "산림조합"], ["신한", 88, "신한"], ["우리", 20, "우리"], ["저축은행", 50, "저축은행"], ["중국공상(ICBC)", 62, "중국공상(ICBC)"], ["한국씨티", 27, "한국씨티"], ["토스뱅크", 92, "토스뱅크"], ["도이치", 55, "도이치"], ["NH투자증권", 247, "NH투자증권"], ["대신증권", 267, "대신증권"], ["부국증권", 290, "부국증권"], ["신영증권", 291, "신영증권"], ["유진투자증권", 280, "유진투자증권"], ["키움증권", 264, "키움증권"], ["하이투자증권", 262, "하이투자증권"], ["한화투자증권", 269, "한화투자증권"], ["DB증권", 279, "DB증권"], ["LS증권", 265, "LS증권"]];   // [은행, 코드, 포함단어] — 엑셀 '은행코드' 시트
+function _ykBankCd(b){ b = String(b || "").replace(/\s/g, ""); if(!b) return null; var best = null, bl = 0;
+  YK_BANKS.forEach(function(x){ [x[0], x[2]].forEach(function(w){ w = String(w).replace(/\s/g, ""); if(w && b.indexOf(w) >= 0 && w.length > bl){ best = x; bl = w.length; } }); }); return best; }
+function _ykAcctNo(a){ return String(a || "").replace(/[^0-9]/g, ""); }
+function ykBulkPay(){
+  if(!_ykBoss()) return toast("관리자만 쓸 수 있어요", true);
+  if(!YK.info){ _ykInfoLoad(); return toast("이모 정보 불러오는 중 — 잠깐 뒤 다시 눌러 주세요", true); }
+  if(YK.info.__err) return toast("이모 정보를 못 읽었어요: " + YK.info.__err, true);
+  var f = YK.pf || "", t = YK.pt || "", per = !!(f || t), P = per ? _ykPayInfo(f, t) : _ykPayInfo(), st = _ykSet().bulk || {};
+  var names = Object.keys(P).filter(function(n){ return P[n].due > 0; }).sort(function(a, b){ return P[b].due - P[a].due; });
+  if(!names.length) return toast((per ? _ykPerTxt(f, t) + " 기간에 " : "") + "줄 돈이 남은 이모가 없어요", true);
+  YK.bulk = names.map(function(n){ var x = YK.info[n] || {}, bk = _ykBankCd(x.bank); return { n: n, on: true, amt: Math.round(P[n].due), x: x, bk: bk, acct: _ykAcctNo(x.acct) }; });
+  var memo = per ? _ykPerTxt(f, t).replace(/\([^)]*\)/g, "") + " 엮거리" : "엮거리값";
+  var h = '<h3 style="margin:0 0 6px">🏦 다건이체 엑셀 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div class="mut" style="font-size:12px;margin-bottom:8px">' + (per ? '<b>' + _ykPerTxt(f, t) + '</b> 남은 돈' : '전체 미수') + ' 기준 · 금액은 고칠 수 있어요 · 받은 엑셀을 은행 기업뱅킹 <b>다건이체 → 엑셀 올리기</b>에 그대로 올리면 돼요</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12.5px;margin-bottom:8px"><label>입금통장 표시 (받는 분 통장)<input id="yb_in" value="' + esc(st.inShow || "가문굴비영어조합법인") + '" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label><label>출금통장 표시 (우리 통장) <span class="mut">— 비우면 실명</span><input id="yb_out" value="' + esc(st.outShow || "") + '" placeholder="예: 엮거리" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label><label>이체 메모<input id="yb_memo" value="' + esc(memo) + '" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label></div>';
+  h += '<div style="max-height:52vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#eff6ff;position:sticky;top:0"><th style="padding:5px"><input type="checkbox" checked onchange="YK.bulk.forEach(function(b,i){b.on=this.checked;var e=document.getElementById(\'yb_c\'+i);if(e)e.checked=this.checked},this);_ykBulkSum()"></th><th style="text-align:left">닉네임</th><th style="text-align:left">실명</th><th style="text-align:left">은행 (코드)</th><th style="text-align:left">계좌</th><th style="text-align:right">이체 금액</th></tr>';
+  YK.bulk.forEach(function(b, i){ var bad = !b.acct ? "계좌 없음" : !b.bk ? "은행코드 모름" : "";
+    h += '<tr style="' + (bad ? "background:#fef2f2" : "") + '"><td style="padding:4px;text-align:center;border-bottom:1px solid #f1f5f9"><input id="yb_c' + i + '" type="checkbox" ' + (bad ? "" : "checked") + ' onchange="YK.bulk[' + i + '].on=this.checked;_ykBulkSum()"></td><td style="border-bottom:1px solid #f1f5f9;font-weight:800">' + esc(b.n) + '</td><td style="border-bottom:1px solid #f1f5f9">' + esc(b.x.name || "") + '</td><td style="border-bottom:1px solid #f1f5f9">' + (b.bk ? esc(b.bk[0]) + ' <span class="mut">(' + b.bk[1] + ')</span>' : '<span style="color:#dc2626;font-weight:700">' + esc(b.x.bank || "없음") + '</span>') + '</td><td style="border-bottom:1px solid #f1f5f9;font-family:monospace">' + (b.acct ? esc(b.x.acct) : '<span style="color:#dc2626;font-weight:700">계좌 없음</span>') + (bad ? ' <a href="javascript:void 0" onclick="closePopup();CTAB=\'ykSet\';draw();setTimeout(function(){ykInfoEdit(\'' + esc(b.n) + '\')},50)" style="font-size:11.5px">정보 넣기</a>' : '') + '</td><td style="border-bottom:1px solid #f1f5f9;text-align:right"><input type="number" value="' + b.amt + '" oninput="YK.bulk[' + i + '].amt=_bsN(this.value);_ykBulkSum()" style="width:110px;padding:4px;border:1px solid #cbd5e1;border-radius:5px;text-align:right;font-weight:800"></td></tr>';
+    if(bad) b.on = false; });
+  h += '</table></div><div id="ybSum" style="margin-top:8px;font-size:14px;font-weight:800;text-align:right"></div>';
+  h += '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap">' + _bsB("#16a34a", "✅ 이체했어요 — 지급 기록 넣기", "ykBulkPaid()", "padding:9px 16px") + _bsB("#1d4ed8", "📥 다건이체 엑셀 받기", "ykBulkXlsx()", "padding:9px 22px;font-size:14px") + '</div><div class="mut" style="font-size:11.5px;margin-top:6px">은행에서 이체가 끝나면 <b>이체했어요</b>를 눌러야 미수에서 빠져요 (체크된 이모·금액 그대로 지급 기록)</div>';
+  openPopup(h, 820); _ykBulkSum();
+}
+function _ykBulkSum(){ var el = document.getElementById("ybSum"); if(!el) return; var on = YK.bulk.filter(function(b){ return b.on && b.amt > 0; }); el.innerHTML = '체크 ' + on.length + '명 · 합계 <span style="color:#1d4ed8;font-size:17px">' + _ykWon(on.reduce(function(a, b){ return a + b.amt; }, 0)) + '원</span>'; }
+function _ykBulkRows(){ var bad = YK.bulk.filter(function(b){ return b.on && (!b.acct || !b.bk || !(b.amt > 0)); }); if(bad.length){ toast(bad.map(function(b){ return b.n; }).join(", ") + " — 계좌·은행·금액을 확인해 주세요", true); return null; } var L = YK.bulk.filter(function(b){ return b.on; }); if(!L.length){ toast("체크된 이모가 없어요", true); return null; } return L; }
+async function ykBulkXlsx(){
+  var L = _ykBulkRows(); if(!L) return;
+  var g = function(k){ return ((document.getElementById("yb_" + k) || {}).value || "").trim(); }, inS = g("in"), outS = g("out"), memo = g("memo");
+  _ykRef("set/bulk").set({ inShow: inS, outShow: outS }).catch(function(){}); YK.D.set = YK.D.set || {}; YK.D.set.bulk = { inShow: inS, outShow: outS };
+  showLoading("엑셀 만드는 중...");
+  var EJ; try { EJ = await _loadExcelJS(); } catch(e){ hideLoading(); return toast(e.message, true); }
+  var wb = new EJ.Workbook(), ws = wb.addWorksheet("은행양식");
+  ws.columns = [{ width: 16 }, { width: 20 }, { width: 14 }, { width: 24 }, { width: 18 }, { width: 22 }];
+  ws.addRow(["은행코드/은행명", "입금계좌번호", "이체금액", "입금통장표시내용", "출금통장표시내용", "이체메모"]); ws.getRow(1).font = { bold: true };
+  L.forEach(function(b){ var r = ws.addRow([b.bk[1], b.acct, Math.round(b.amt), inS, outS || b.x.name || b.n, memo]); r.getCell(2).numFmt = "@"; r.getCell(2).value = String(b.acct); r.getCell(3).numFmt = "#,##0"; });
+  var buf = await wb.xlsx.writeBuffer(), a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })); a.download = "엮거리_다건이체_" + _bsToday() + ".xlsx";
+  document.body.appendChild(a); a.click(); a.remove(); hideLoading(); toast(L.length + "명 다건이체 엑셀 받았어요 — 이체 끝나면 '이체했어요'를 눌러 주세요");
+}
+function ykBulkPaid(){
+  var L = _ykBulkRows(); if(!L) return;
+  var tot = L.reduce(function(a, b){ return a + b.amt; }, 0), memo = ((document.getElementById("yb_memo") || {}).value || "").trim();
+  if(!confirm(L.length + "명 · " + _ykWon(tot) + "원을 오늘 날짜 지급으로 기록할까요?\n(은행 이체가 끝났을 때만 눌러 주세요)")) return;
+  var up = {}, dt = _bsToday(); L.forEach(function(b){ up["pays/" + _ykRef("pays").push().key] = { dt: dt, w: b.n, amt: Math.round(b.amt), note: "다건이체 · " + memo }; });
+  _ykRef().update(up).then(function(){ YK.D.pays = YK.D.pays || {}; Object.keys(up).forEach(function(p){ YK.D.pays[p.split("/")[1]] = up[p]; }); closePopup(); toast(L.length + "명 지급 기록 — 미수에서 빠졌어요"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
 function ykPerson(n, on){ if(/[.#$\[\]\/]/.test(n)) return toast("이름에 . # $ [ ] / 는 못 써요", true); _ykRef("people/" + n).set({ on: !!on }).then(function(){ YK.D.people = YK.D.people || {}; YK.D.people[n] = { on: !!on }; draw(); }); }
-function ykItemEdit(k){
-  var x = k ? _ykS().items[k] : { nm: "", box: 10, mi: 10, sale: "", whole: "", cost: "", wt: "", color: "", noLbl: false, under: "", code: "", msg: "" };
+function ykItemEdit(k, pre){
+  var x = k ? _ykS().items[k] : { nm: pre || "", box: 10, mi: 10, sale: "", whole: "", cost: "", wt: "", color: "", noLbl: false, under: "", code: "", msg: "" };
   var F = function(lb, f, t){ return '<label style="font-size:13px">' + lb + '<input id="yi_' + f + '" type="' + (t || "text") + '" value="' + esc(x[f] == null ? "" : x[f]) + '" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; };
   var h = '<h3 style="margin:0 0 10px">📦 ' + (k ? "정품 고치기" : "정품 추가") + ' <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
   h += F("품명", "nm") + F("박스당 두름", "box", "number") + F("두름 마리수 (20미/10미)", "mi", "number") + F("판매가 (두름당)", "sale", "number") + F("도매가 (두름당)", "whole", "number") + F("원가표 (두름당)", "cost", "number") + F("무게 (g)", "wt", "number") + F("라벨 색", "color") + F("바코드 (예: GA0005)", "code") + '</div>';
@@ -368,11 +416,41 @@ function ykItemSave(k){
   var g = function(f){ return (document.getElementById("yi_" + f) || {}).value; }, v = { nm: (g("nm") || "").trim(), box: _bsN(g("box")), mi: _bsN(g("mi")) || 10, sale: _bsN(g("sale")), whole: _bsN(g("whole")), cost: _bsN(g("cost")), wt: _bsN(g("wt")), color: (g("color") || "").trim(), noLbl: document.getElementById("yi_noLbl").checked, under: _bsN(g("under")) || "", code: (g("code") || "").trim(), msg: (g("msg") || "").trim() };
   if(!v.nm) return toast("품명을 넣어 주세요", true);
   var key = _ykKey(v.nm), up = {}; up["items/" + key] = v; if(k && k !== key) up["items/" + k] = null;
-  _ykRef().update(up).then(function(){ YK.D.items = YK.D.items || {}; if(k && k !== key) delete YK.D.items[k]; YK.D.items[key] = v; closePopup(); toast("저장 — " + v.nm); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+  _ykRef().update(up).then(function(){ YK.D.items = YK.D.items || {}; if(k && k !== key) delete YK.D.items[k]; YK.D.items[key] = v; closePopup(); toast("저장 — " + v.nm); _ykAfter("item", v.nm); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+// ── 품명·원료 고르기: 정품표·원료표 순서 그대로 · 등록 안 된 이름은 빨갛게 + 바로 추가 ──
+function _ykItemKeys(){ var I = _ykS().items || {}; return Object.keys(I).sort(function(a, b){ return String(I[a].code || "z").localeCompare(String(I[b].code || "z")) || a.localeCompare(b); }); }
+function _ykMatKeys(){ return Object.keys(_ykS().mats || {}).sort(); }
+function _ykPick(t, i, v){
+  var isI = t === "item", L = isI ? _ykItemKeys() : _ykMatKeys(), T = isI ? _ykS().items || {} : _ykS().mats || {}, ok = !v || !!(isI ? _ykItem(v) : _ykMat(v));
+  var h = '<div style="display:flex;gap:4px;align-items:center"><select onchange="_ykPicked(\'' + t + '\',' + i + ',this)" style="flex:1;min-width:' + (isI ? 140 : 160) + 'px;padding:7px 8px;font-size:14px;font-weight:700;border:2px solid ' + (ok ? (v ? "#b45309" : "#cbd5e1") : "#dc2626") + ';border-radius:8px;background:' + (ok ? (v ? "#fff7ed" : "#fff") : "#fef2f2") + ';color:' + (ok ? "#111" : "#b91c1c") + ';cursor:pointer">';
+  h += '<option value="">' + (isI ? "— 품명 고르기 —" : "— 원료 고르기 —") + '</option>';
+  if(!ok) h += '<option value="' + esc(v) + '" selected>⚠ ' + esc(v) + ' (등록 안 됨)</option>';
+  L.forEach(function(k){ var x = T[k], nm = x.nm || k, lb = isI ? nm + (x.mi ? " · " + x.mi + "미" : "") + (x.box ? " · " + x.box + "두름/박스" : "") : nm + (x.mi ? " · " + x.mi + "마리/짝" : ""); h += '<option value="' + esc(nm) + '"' + (ok && nm === v ? " selected" : "") + '>' + esc(lb) + '</option>'; });
+  h += '<option value="__new">➕ 새 ' + (isI ? "품명" : "원료") + ' 추가…</option></select>';
+  h += '<button class="btn" title="새 ' + (isI ? "품명" : "원료") + ' 추가" style="background:#16a34a;color:#fff;padding:5px 9px;font-weight:900" onclick="_ykAddNew(\'' + t + '\',' + i + ',\'' + (ok ? "" : esc(v)) + '\')">+</button></div>';
+  return h;
+}
+function _ykPicked(t, i, el){
+  if(el.value === "__new"){ var cur = t === "item" ? YK.ed.w.rows[i].item : YK.ed.w.mats[i].nm; el.value = cur || ""; return _ykAddNew(t, i, ""); }
+  if(t === "item") YK.ed.w.rows[i].item = el.value; else YK.ed.w.mats[i].nm = el.value;
+  draw();
+}
+function _ykAddNew(t, i, pre){ YK.after = { t: t, i: i }; if(t === "item") ykItemEdit("", pre); else ykMatEdit("", pre); }
+function _ykAfter(t, nm){ var a = YK.after; YK.after = null; if(!a || a.t !== t || !YK.ed) return; if(t === "item" && YK.ed.w.rows[a.i]) YK.ed.w.rows[a.i].item = nm; if(t === "mat" && YK.ed.w.mats[a.i]) YK.ed.w.mats[a.i].nm = nm; }
+function _ykUnregPop(w){
+  var bi = [], bm = [];
+  w.rows.forEach(function(r, i){ if(r.item && !_ykItem(r.item)) bi.push([i, r.item]); });
+  w.mats.forEach(function(m, i){ if(m.nm && !_ykMat(m.nm)) bm.push([i, m.nm]); });
+  if(!bi.length && !bm.length) return false;
+  var h = '<h3 style="margin:0 0 10px;color:#b91c1c">⚠ 등록 안 된 이름이 있어요 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div style="font-size:13px;margin-bottom:8px">정품표·원료표에 없는 이름이라 가격·박스·마리수를 몰라서 계산이 틀려요. 추가하거나 목록에서 골라 주세요.</div>';
+  var row = function(t, x){ return '<div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #fecaca;background:#fef2f2;border-radius:8px;padding:7px 10px;margin-bottom:6px"><span><b style="color:#b91c1c">' + esc(x[1]) + '</b> <span class="mut" style="font-size:12px">' + (t === "item" ? "품명" : "원료") + '</span></span>' + _bsB("#16a34a", "+ " + (t === "item" ? "정품으로" : "원료로") + " 추가", "_ykAddNew('" + t + "'," + x[0] + ",'" + esc(x[1]) + "')", "padding:4px 10px") + '</div>'; };
+  bi.forEach(function(x){ h += row("item", x); }); bm.forEach(function(x){ h += row("mat", x); });
+  openPopup(h, 460); return true;
 }
 function ykItemDel(k){ if(!confirm(_ykS().items[k].nm + " 정품을 지울까요?")) return; _ykRef("items/" + k).remove().then(function(){ delete YK.D.items[k]; closePopup(); draw(); }); }
-function ykMatEdit(k){
-  var x = k ? _ykS().mats[k] : { nm: "", mi: "", kg: "", price: "" }, F = function(lb, f, t){ return '<label style="font-size:13px">' + lb + '<input id="ym_' + f + '" type="' + (t || "text") + '" value="' + esc(x[f] == null ? "" : x[f]) + '" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; };
+function ykMatEdit(k, pre){
+  var x = k ? _ykS().mats[k] : { nm: pre || "", mi: "", kg: "", price: "" }, F = function(lb, f, t){ return '<label style="font-size:13px">' + lb + '<input id="ym_' + f + '" type="' + (t || "text") + '" value="' + esc(x[f] == null ? "" : x[f]) + '" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; };
   var h = '<h3 style="margin:0 0 10px">🐟 ' + (k ? "원료 고치기" : "원료 추가") + ' <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + F("원료명", "nm") + F("짝당 마리수", "mi", "number") + F("짝당 무게 (kg)", "kg", "number") + F("짝당 값 (원)", "price", "number") + '</div>';
   h += '<div style="display:flex;justify-content:space-between;margin-top:12px">' + (k ? _bsB("#dc2626", "🗑 삭제", "ykMatDel('" + esc(k) + "')") : "<span></span>") + _bsB("#16a34a", "💾 저장", "ykMatSave('" + esc(k || "") + "')", "padding:9px 22px") + '</div>';
   openPopup(h, 460);
@@ -381,7 +459,7 @@ function ykMatSave(k){
   var g = function(f){ return (document.getElementById("ym_" + f) || {}).value; }, v = { nm: (g("nm") || "").trim(), mi: _bsN(g("mi")), kg: _bsN(g("kg")), price: _bsN(g("price")) };
   if(!v.nm || !v.mi) return toast("원료명과 짝당 마리수를 넣어 주세요", true);
   var key = _ykKey(v.nm), up = {}; up["mats/" + key] = v; if(k && k !== key) up["mats/" + k] = null;
-  _ykRef().update(up).then(function(){ YK.D.mats = YK.D.mats || {}; if(k && k !== key) delete YK.D.mats[k]; YK.D.mats[key] = v; closePopup(); toast("저장 — " + v.nm); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+  _ykRef().update(up).then(function(){ YK.D.mats = YK.D.mats || {}; if(k && k !== key) delete YK.D.mats[k]; YK.D.mats[key] = v; closePopup(); toast("저장 — " + v.nm); _ykAfter("mat", v.nm); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 function ykMatDel(k){ if(!confirm(_ykS().mats[k].nm + " 원료를 지울까요?")) return; _ykRef("mats/" + k).remove().then(function(){ delete YK.D.mats[k]; closePopup(); draw(); }); }
 
