@@ -29,13 +29,15 @@ function _ykMat(nm){ var M = _ykS().mats || {}; return M[_ykKey(nm)] || null; }
 function _ykKindOf(w){ return (w.mats || []).some(function(m){ return /부세/.test(m.nm); }) ? "부세" : "굴비"; }
 
 // ── 계산 ──
+// 엮거리 단가: 작업마다 저장할 때 단가를 같이 적어 둠(w.rate) → 나중에 설정 단가 올려도 지난 작업 금액은 그대로
+function _ykRate(w){ var st = _ykSet().rate, r = (w && w.rate) || {}; return { 굴비: r.굴비 != null && r.굴비 !== "" ? _bsN(r.굴비) : _bsN(st.굴비), 부세: r.부세 != null && r.부세 !== "" ? _bsN(r.부세) : _bsN(st.부세) }; }
 function _ykCalc(w){
   var st = _ykSet(), o = { matMi: 0, matKg: 0, matCost: 0, rows: [], doo: 0, mi: 0, boxes: 0, workers: {}, weave: 0 };
   (w.mats || []).forEach(function(m){ var M = _ykMat(m.nm) || {}, q = _bsN(m.qty); o.matMi += q * _bsN(M.mi); o.matKg += q * _bsN(M.kg); o.matCost += q * (m.price !== "" && m.price != null ? _bsN(m.price) : _bsN(M.price)); });
   (w.ws || []).forEach(function(n){ o.workers[n] = { 굴비: 0, 부세: 0, amt: 0 }; });
   (w.rows || []).forEach(function(r){
     var I = _ykItem(r.item) || {}, doo = 0, kind = r.kind || "굴비";
-    Object.keys(r.c || {}).forEach(function(n){ var v = _bsN(r.c[n]); if(!v) return; doo += v; var W = o.workers[n] || (o.workers[n] = { 굴비: 0, 부세: 0, amt: 0 }); W[kind] += v; W.amt += v * _bsN(st.rate[kind]); });
+    Object.keys(r.c || {}).forEach(function(n){ var v = _bsN(r.c[n]); if(!v) return; doo += v; var W = o.workers[n] || (o.workers[n] = { 굴비: 0, 부세: 0, amt: 0 }); W[kind] += v; W.amt += v * _bsN(_ykRate(w)[kind]); });
     var box = _bsN(I.box), mi = doo * _bsN(I.mi || 20);
     var x = { item: r.item, kind: kind, doo: doo, mi: mi, box: box, boxes: box ? Math.floor(doo / box) : 0, rest: box ? doo % box : doo, I: I };
     o.rows.push(x); o.doo += doo; o.mi += mi; o.boxes += x.boxes;
@@ -88,7 +90,7 @@ function dYkWork(){
 function ykNew(){
   var S = _ykS(), W = S.works || {}, last = Object.keys(W).sort(function(a, b){ return String(W[b].dt).localeCompare(String(W[a].dt)); })[0], lw = last ? W[last] : null;
   var people = Object.keys(S.people || {}).filter(function(n){ return S.people[n].on !== false; });
-  YK.ed = { id: "", w: { dt: _bsToday(), mats: [{ nm: "", qty: "", price: "" }], ws: lw ? (lw.ws || []).slice() : people.slice(0, 8), rows: [{ item: "", kind: "굴비", c: {} }], actual: "", labor: "", misc: "", origin: "국산", boxMat: "", note: "" } };
+  YK.ed = { id: "", w: { dt: _bsToday(), mats: [{ nm: "", qty: "", price: "" }], ws: lw ? (lw.ws || []).slice() : people.slice(0, 8), rows: [{ item: "", kind: "굴비", c: {} }], rate: JSON.parse(JSON.stringify(_ykSet().rate)), actual: "", labor: "", misc: "", origin: "국산", boxMat: "", note: "" } };
   draw();
 }
 function ykOpen(id){ YK.ed = { id: id, w: JSON.parse(JSON.stringify(_ykS().works[id])) }; YK.ed.w.mats = YK.ed.w.mats || []; YK.ed.w.ws = YK.ed.w.ws || []; YK.ed.w.rows = YK.ed.w.rows || []; draw(); }
@@ -104,6 +106,8 @@ function _ykEditor(){
   h += '<div class="card" style="margin-bottom:10px"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:13px">';
   h += '<label>작업일<input type="date" value="' + esc(w.dt) + '" onchange="YK.ed.w.dt=this.value;document.getElementById(\'ykLot\').textContent=_ykLot(this.value);_ykRecalc()" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>';
   h += '<label>원산지' + _ykIn(w.origin, "YK.ed.w.origin=this.value") + '</label><label>상자 재질' + _ykIn(w.boxMat, "YK.ed.w.boxMat=this.value", 'placeholder="박스/스티로폼/팩"') + '</label><label>비고' + _ykIn(w.note, "YK.ed.w.note=this.value") + '</label></div>';
+  var rt = _ykRate(w), st0 = _ykSet().rate, same = rt.굴비 === _bsN(st0.굴비) && rt.부세 === _bsN(st0.부세);
+  h += '<div style="margin-top:8px;font-size:13px;background:' + (same ? "#f8fafc" : "#fff7ed") + ';border:1px solid ' + (same ? "#e2e8f0" : "#fdba74") + ';border-radius:8px;padding:6px 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center"><b>이 작업 엮거리 단가 (두름당)</b> 굴비 <input type="number" value="' + rt.굴비 + '" oninput="YK.ed.w.rate=YK.ed.w.rate||{};YK.ed.w.rate.굴비=this.value;_ykRecalc()" style="width:80px;padding:4px;border:1px solid #cbd5e1;border-radius:5px"> 부세 <input type="number" value="' + rt.부세 + '" oninput="YK.ed.w.rate=YK.ed.w.rate||{};YK.ed.w.rate.부세=this.value;_ykRecalc()" style="width:80px;padding:4px;border:1px solid #cbd5e1;border-radius:5px">' + (same ? '<span class="mut" style="font-size:12px">— 지금 설정 단가와 같아요. 저장하면 이 단가로 고정돼서 나중에 설정을 올려도 이 작업은 안 바뀌어요</span>' : '<span style="font-size:12px;color:#c2410c;font-weight:700">— 지금 설정 단가(굴비 ' + _ykWon(st0.굴비) + ' · 부세 ' + _ykWon(st0.부세) + ')와 달라요</span> ' + _bsB("#ea580c", "지금 단가로 바꾸기", "YK.ed.w.rate=JSON.parse(JSON.stringify(_ykSet().rate));draw()", "padding:3px 9px")) + '</div>';
   h += '<div style="font-weight:800;margin:10px 0 4px">🐟 원료 <span class="mut" style="font-weight:400;font-size:12px">— 짝 수와 짝당 가격 (비우면 설정의 원료값)</span></div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#f8fafc"><th style="text-align:left;padding:4px">원료명</th><th style="width:90px">짝 수</th><th style="width:130px">짝당 가격</th><th style="width:90px;text-align:right">마리수</th><th style="width:90px;text-align:right">kg</th><th style="width:120px;text-align:right">원료 금액</th><th style="width:36px"></th></tr>';
   w.mats.forEach(function(m, i){ var M = _ykMat(m.nm) || {};
     h += '<tr><td style="padding:3px">' + _ykIn(m.nm, "YK.ed.w.mats[" + i + "].nm=this.value;_ykRecalc()", 'list="ykMats" placeholder="예: 부세30미"') + '</td><td style="padding:3px">' + _ykIn(m.qty, "YK.ed.w.mats[" + i + "].qty=this.value;_ykRecalc()", 'type="number" step="any"') + '</td><td style="padding:3px">' + _ykIn(m.price, "YK.ed.w.mats[" + i + "].price=this.value;_ykRecalc()", 'type="number" placeholder="' + (M.price ? _ykWon(M.price) : "짝당") + '"') + '</td>';
@@ -161,6 +165,7 @@ function _ykCalcHtml(c){
 function ykSave(){
   var E = YK.ed, w = JSON.parse(JSON.stringify(E.w));
   if(!w.dt) return toast("작업일을 넣어 주세요", true);
+  w.rate = _ykRate(w);
   w.mats = w.mats.filter(function(m){ return String(m.nm).trim() || _bsN(m.qty); }).map(function(m){ return { nm: String(m.nm).trim(), qty: _bsN(m.qty), price: m.price === "" || m.price == null ? "" : _bsN(m.price) }; });
   w.rows = w.rows.filter(function(r){ return String(r.item).trim() || Object.keys(r.c || {}).length; }).map(function(r){ return { item: String(r.item).trim(), kind: r.kind || "굴비", c: r.c || {} }; });
   if(w.rows.some(function(r){ return !r.item; })) return toast("품명이 빈 줄이 있어요", true);
@@ -215,7 +220,7 @@ function _ykCostAgg(f, t){
   var S = _ykS(), m = {}, n = 0;
   Object.keys(S.works || {}).forEach(function(id){ var w = S.works[id]; if(!_ykInPer(w.dt, f, t)) return; var c = _ykCalc(w); if(!c.doo) return; n++;
     c.rows.forEach(function(x){ if(!x.doo) return; var k = x.item || "(품명 없음)", g = m[k] || (m[k] = { item: k, kind: x.kind, I: x.I, works: 0, doo: 0, mi: 0, boxes: 0, cost: 0, mat: 0, weave: 0, lo: null, hi: null, last: "", lastU: 0 });
-      var share = c.mi ? x.mi / c.mi : 0, mat = c.cost.mat * share, wv = x.doo * _bsN(_ykSet().rate[x.kind || "굴비"]);
+      var share = c.mi ? x.mi / c.mi : 0, mat = c.cost.mat * share, wv = x.doo * _bsN(_ykRate(w)[x.kind || "굴비"]);
       g.works++; g.doo += x.doo; g.mi += x.mi; g.boxes += x.boxes; g.cost += x.alloc; g.mat += mat; g.weave += wv;
       if(g.lo == null || x.unit < g.lo) g.lo = x.unit; if(g.hi == null || x.unit > g.hi) g.hi = x.unit; if(w.dt >= g.last){ g.last = w.dt; g.lastU = x.unit; } }); });
   return { n: n, list: Object.keys(m).map(function(k){ var g = m[k]; g.avg = g.doo ? g.cost / g.doo : 0; g.matU = g.doo ? g.mat / g.doo : 0; g.weaveU = g.doo ? g.weave / g.doo : 0; g.etcU = g.avg - g.matU - g.weaveU; g.whole = _bsN(g.I.whole); g.sale = _bsN(g.I.sale); g.tbl = _bsN(g.I.cost); g.mr = g.whole ? (g.whole - g.avg) / g.whole : null; return g; })
@@ -387,7 +392,7 @@ function _ykWin(title, css, body){
   w.document.close();
 }
 function ykPrintSlip(){
-  var w = YK.ed.w, c = _ykCalc(w), st = _ykSet(), PI = _ykPayInfo(), names = w.ws.filter(function(n){ return (c.workers[n] || {}).amt; });
+  var w = YK.ed.w, c = _ykCalc(w), st = { rate: _ykRate(YK.ed.w) }, PI = _ykPayInfo(), names = w.ws.filter(function(n){ return (c.workers[n] || {}).amt; });
   if(!names.length) return toast("두름을 적은 이모가 없어요", true);
   var one = function(n, who){ var W = c.workers[n], due = PI[n] ? PI[n].due : 0;
     return '<div class="slip"><div class="t">엮거리 전표 <span>(' + who + ')</span></div><div>날 짜 : <b>' + _bsMD(w.dt) + '</b> · 로트 ' + esc(_ykLot(w.dt)) + '</div><div>작업자 : <b style="font-size:17px">' + esc(n) + '</b></div><div class="sm">작업마리수 ' + _bsW(c.mi) + ' · 실제마리수 ' + _bsW(c.actual) + ' · ' + (c.diff > 0 ? _bsW(c.diff) + '마리 더 나옴' : c.diff < 0 ? _bsW(-c.diff) + '마리 덜 나옴' : '맞음') + '</div>' +
