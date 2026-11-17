@@ -10,6 +10,7 @@ var YK = { D: null, loading: false, cur: "", ed: null, ym: "" };
 var YK_DEF = { rate: { 굴비: 600, 부세: 700 }, string: { price: 0, per: 0 }, salt: { pct: 7, price: 0 }, freeze: { mode: "kg", val: 0 }, pack: { val: 0 }, misc: { mode: "amt", val: 0 }, lblPer: 3 };
 function _ykS(){ return YK.D || {}; }
 function _ykSet(){ var s = _ykS().set || {}, o = JSON.parse(JSON.stringify(YK_DEF)); Object.keys(s).forEach(function(k){ o[k] = typeof s[k] === "object" && s[k] ? Object.assign({}, o[k], s[k]) : s[k]; }); return o; }
+function _ykSaltPct(st, kind){ var b = st.salt.pctB; return kind === "부세" && b !== "" && b != null ? _bsN(b) : _bsN(st.salt.pct); }
 function _ykRef(p){ return fbDb.ref("/main/Yk" + (p ? "/" + p : "")); }
 function _ykKey(s){ return String(s || "").trim().replace(/[.#$\[\]\/]/g, "_"); }
 function _ykCan(){ return typeof _bsCan === "function" ? _bsCan() : !!ME; }
@@ -33,7 +34,7 @@ function _ykKindOf(w){ return (w.mats || []).some(function(m){ return /부세/.t
 function _ykRate(w){ var st = _ykSet().rate, r = (w && w.rate) || {}; return { 굴비: r.굴비 != null && r.굴비 !== "" ? _bsN(r.굴비) : _bsN(st.굴비), 부세: r.부세 != null && r.부세 !== "" ? _bsN(r.부세) : _bsN(st.부세) }; }
 function _ykCalc(w){
   var st = _ykSet(), o = { matMi: 0, matKg: 0, matCost: 0, rows: [], doo: 0, mi: 0, boxes: 0, workers: {}, weave: 0 };
-  (w.mats || []).forEach(function(m){ var M = _ykMat(m.nm) || {}, q = _bsN(m.qty); o.matMi += q * _bsN(M.mi); o.matKg += q * _bsN(M.kg); o.matCost += q * (m.price !== "" && m.price != null ? _bsN(m.price) : _bsN(M.price)); });
+  o.saltKg = 0; (w.mats || []).forEach(function(m){ var M = _ykMat(m.nm) || {}, q = _bsN(m.qty); o.matMi += q * _bsN(M.mi); o.matKg += q * _bsN(M.kg); o.saltKg += q * _bsN(M.kg) * _ykSaltPct(st, /부세/.test(m.nm || "") ? "부세" : "굴비") / 100; o.matCost += q * (m.price !== "" && m.price != null ? _bsN(m.price) : _bsN(M.price)); });
   (w.ws || []).forEach(function(n){ o.workers[n] = { 굴비: 0, 부세: 0, amt: 0 }; });
   (w.rows || []).forEach(function(r){
     var I = _ykItem(r.item) || {}, doo = 0, kind = r.kind || "굴비";
@@ -45,7 +46,6 @@ function _ykCalc(w){
   Object.keys(o.workers).forEach(function(n){ o.weave += o.workers[n].amt; });
   o.actual = w.actual !== "" && w.actual != null ? _bsN(w.actual) : o.mi;
   o.diff = o.actual - o.matMi;
-  o.saltKg = o.matKg * _bsN(st.salt.pct) / 100;
   var c = { mat: o.matCost, weave: o.weave, labor: _bsN(w.labor), string: _bsN(st.string.per) ? o.doo * _bsN(st.string.price) / _bsN(st.string.per) : 0, salt: o.saltKg * _bsN(st.salt.price),
     freeze: st.freeze.mode === "kg" ? o.matKg * _bsN(st.freeze.val) : st.freeze.mode === "box" ? o.boxes * _bsN(st.freeze.val) : st.freeze.mode === "doo" ? o.doo * _bsN(st.freeze.val) : _bsN(st.freeze.val),
     pack: o.boxes * _bsN(st.pack.val) };
@@ -312,7 +312,7 @@ function dYkSet(){
   h += '<div class="card" style="margin-bottom:10px"><b>💰 원가 단가</b><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px">';
   h += N("엮거리 값 · 굴비 (두름당)", "rate.굴비", st.rate.굴비) + N("엮거리 값 · 부세 (두름당)", "rate.부세", st.rate.부세);
   h += N("엮거리 끈 한 다발 값 (원)", "string.price", st.string.price) + N("한 다발로 엮는 두름 수", "string.per", st.string.per);
-  h += N("소금 비율 (%)", "salt.pct", st.salt.pct) + N("소금 kg당 값 (원)", "salt.price", st.salt.price);
+  h += N("굴비 소금 비율 (%)", "salt.pct", st.salt.pct) + N("부세 소금 비율 (%)", "salt.pctB", st.salt.pctB != null && st.salt.pctB !== "" ? st.salt.pctB : st.salt.pct) + N("소금 kg당 값 (원)", "salt.price", st.salt.price);
   h += '<label style="font-size:13px">냉동비 기준' + Sel("freeze.mode", st.freeze.mode, [["kg", "원료 kg당"], ["box", "박스당"], ["doo", "두름당"], ["amt", "한 작업에 얼마"]]) + '</label>' + N("냉동비 (원)", "freeze.val", st.freeze.val);
   h += N("포장비 · 박스당 (박스·트레이·비닐·라벨)", "pack.val", st.pack.val);
   h += '<label style="font-size:13px">잡비 기준' + Sel("misc.mode", st.misc.mode, [["amt", "한 작업에 얼마 (원)"], ["pct", "원가의 % "]]) + '</label>' + N("잡비 (원 또는 %)", "misc.val", st.misc.val) + N("박스당 라벨 장수", "lblPer", st.lblPer);
@@ -337,7 +337,7 @@ function dYkSet(){
 }
 function ykSetSave(){
   var o = {}; Array.prototype.forEach.call(document.querySelectorAll(".ykSetIn"), function(el){ var p = el.getAttribute("data-p").split("."), v = el.tagName === "SELECT" ? el.value : _bsN(el.value); if(p.length === 2){ o[p[0]] = o[p[0]] || {}; o[p[0]][p[1]] = v; } else o[p[0]] = v; });
-  _ykRef("set").set(o).then(function(){ YK.D.set = o; toast("원가 설정 저장했어요"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+  _ykRef("set").update(o).then(function(){ YK.D.set = Object.assign({}, YK.D.set || {}, o); toast("원가 설정 저장했어요"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 // ── 이모 개인정보 (신고용) — 맨 위 /YkInfo/{닉네임} 에 따로 둠: 규칙으로 super·admin 만 읽고 씀 (작업 데이터와 같이 안 불러옴)
 var YK_INFO_F = [["name", "실명"], ["phone", "연락처"], ["addr", "주소"], ["rrn", "주민번호"], ["bank", "은행"], ["acct", "계좌번호"], ["holder", "예금주"], ["memo", "메모"]];
@@ -689,14 +689,14 @@ function ykPrintSheet(L){
   _ykWin("작업현황 " + T, '@page{size:A4 landscape;margin:8mm}.pg{width:280mm;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;letter-spacing:10px;font-size:22px;margin:2mm 0 4mm}.w{width:100%}.w td,.w th{border:1px solid #333;padding:3px 5px;font-size:12px}.w th{background:#eef2f7}.r{text-align:right}', b);
 }
 function ykPrintProd(L){
-  L = L || [YK.ed.w]; var st = _ykSet(), sp = _bsN(st.salt.pct), pages = [];
+  L = L || [YK.ed.w]; var st = _ykSet(), pages = [];
   // 원재료명 = 부세 / 참조기 (+원산지) · 크기 이름(부세30미 600짝)은 비고 · 굴비·부세 섞인 작업은 한 장씩 따로
   L.forEach(function(w){ var c = _ykCalc(w), G = {}, ord = [];
     var g = function(k){ if(!G[k]){ G[k] = { kg: 0, doo: 0, mats: [] }; ord.push(k); } return G[k]; };
     (w.mats || []).forEach(function(m){ if(!m.nm) return; var k = /부세/.test(m.nm) ? "부세" : "굴비", M = _ykMat(m.nm) || {}, x = g(k); x.kg += _bsN(m.qty) * _bsN(M.kg); x.mats.push(m.nm + (_bsN(m.qty) ? " " + _bsW(m.qty) + "짝" : "")); });
     c.rows.forEach(function(r){ if(r.doo) g(r.kind || "굴비").doo += r.doo; });
     if(!ord.length) g(_ykKindOf(w));
-    ord.forEach(function(k){ var x = G[k], raw = (k === "부세" ? "부세" : "참조기") + (w.origin ? " (" + w.origin + ")" : ""), salt = Math.round(x.kg * sp / 100 * 10) / 10;
+    ord.forEach(function(k){ var sp = _ykSaltPct(st, k), x = G[k], raw = (k === "부세" ? "부세" : "참조기") + (w.origin ? " (" + w.origin + ")" : ""), salt = Math.round(x.kg * sp / 100 * 10) / 10;
       var b = '<div class="pg"><h1>생 산 작 업 일 지</h1><table class="w"><tr><th>생산일자</th><td>' + _bsMD(w.dt) + '</td><th>제품명</th><td><b>' + esc(k) + '</b>' + (ord.length > 1 ? ' <span style="font-size:11px">(' + (ord.indexOf(k) + 1) + '/' + ord.length + ')</span>' : '') + '</td></tr></table><div style="margin:4mm 0 2mm;font-weight:800">원재료명 또는 성분 및 투입량</div><table class="w"><tr><th>원재료명 또는 성분명</th><th>배합비율(%)</th><th>투입량(kg)</th><th>비고</th></tr>';
       b += '<tr><td>' + esc(raw) + '</td><td class="r">' + (100 - sp) + '</td><td class="r">' + (x.kg ? _bsW(Math.round(x.kg * 10) / 10) : '') + '</td><td style="font-size:11.5px">' + esc(x.mats.join(", ")) + '</td></tr><tr><td>소금</td><td class="r">' + sp + '</td><td class="r">' + (x.kg ? _bsW(salt) : '') + '</td><td></td></tr></table>';
       b += '<table class="w" style="margin-top:4mm"><tr><th>기 타</th><td colspan="3" style="height:14mm">' + esc(w.note || "") + '</td></tr><tr><th>포장방법 및 단위</th><td>' + esc(w.boxMat || "박스/스티로폼/팩") + '</td><th>생산량(두름)</th><td>' + _bsW(x.doo) + '</td></tr><tr><th>작 업 자</th><td>공장장</td><th>유통기한</th><td>작업일자로부터 2년</td></tr></table></div>';
