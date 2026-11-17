@@ -523,6 +523,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="kids.js?v=20261116a"></script>
 <script src="buse.js?v=20261117g"></script>
 <script src="raw.js?v=20261117a"></script>
+<script src="yk.js?v=20261117a"></script>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="console.warn('XLSX CDN load failed')"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" onerror="console.warn('xlsx-js-style CDN load failed')"></script>
@@ -1604,6 +1605,10 @@ function mkTabs(){
   // ── 택배 스케줄 (달력) — 로그인한 모두 열람 가능 ──
   // ── 🐟 부세 작업 (시즌별 건조 일정·원료 재고·건조장 자리) — 로그인한 직원 모두 · 계정별 탭 권한으로 읽기만/숨김 ──
   // ── 🧪 원료수불부 (제품 배합표대로 생산 → 원료 저절로 빠짐 · 원료 입고 · 수불부) ──
+  // ── 🪢 엮거리 작업 (원료 → 이모들 두름 → 박스·라벨 · 원가·마진율 · 이모 정산) ──
+  if(ME && ME.r!=="kid" && typeof dYkWork==="function") cats.push({id:"yk",label:"🪢 엮거리 작업",items:[
+    {k:"ykWork",l:"작업"},{k:"ykPay",l:"이모 정산"},{k:"ykSet",l:"엮거리 설정"}
+  ]});
   if(ME && ME.r!=="kid" && typeof dRwProd==="function") cats.push({id:"raw",label:"🧪 원료수불부",items:[
     {k:"rwProd",l:"생산일지"},{k:"rwStock",l:"원료 재고·수불부"},{k:"rwRecipe",l:"배합표"}
   ]});
@@ -6143,6 +6148,9 @@ function draw(){
   else if(CTAB=="pcLic"){    el.innerHTML=dPcLic();    loadPcLic(); }
   else if(CTAB=="shipData"){ el.innerHTML=dShipData(); loadShipData(); }
   else if(CTAB=="shipCal"){ el.innerHTML=dShipCal(); loadShipCal(); }
+  else if(CTAB=="ykWork")el.innerHTML=dYkWork();
+  else if(CTAB=="ykPay")el.innerHTML=dYkPay();
+  else if(CTAB=="ykSet")el.innerHTML=dYkSet();
   else if(CTAB=="rwProd")el.innerHTML=dRwProd();
   else if(CTAB=="rwStock")el.innerHTML=dRwStock();
   else if(CTAB=="rwRecipe")el.innerHTML=dRwRecipe();
