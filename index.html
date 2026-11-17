@@ -521,9 +521,9 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script>var TH_BASE = { c1: "#2563eb", c2: "#1d4ed8", bar: "#2563eb", accent: "#2563eb", label: "🔵 기본 (파란색)", ph: "예: 영광 법성포 굴비 명가, 가문굴비", sky: false };</script>
 <script src="theme.js?v=20261104e"></script>
 <script src="kids.js?v=20261116a"></script>
-<script src="buse.js?v=20261117g"></script>
+<script src="buse.js?v=20261117h"></script>
 <script src="raw.js?v=20261117a"></script>
-<script src="yk.js?v=20261117a"></script>
+<script src="yk.js?v=20261117b"></script>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="console.warn('XLSX CDN load failed')"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" onerror="console.warn('xlsx-js-style CDN load failed')"></script>
@@ -1607,7 +1607,7 @@ function mkTabs(){
   // ── 🧪 원료수불부 (제품 배합표대로 생산 → 원료 저절로 빠짐 · 원료 입고 · 수불부) ──
   // ── 🪢 엮거리 작업 (원료 → 이모들 두름 → 박스·라벨 · 원가·마진율 · 이모 정산) ──
   if(ME && ME.r!=="kid" && typeof dYkWork==="function") cats.push({id:"yk",label:"🪢 엮거리 작업",items:[
-    {k:"ykWork",l:"작업"},{k:"ykPay",l:"이모 정산"},{k:"ykSet",l:"엮거리 설정"}
+    {k:"ykWork",l:"작업"},{k:"ykPay",l:"이모 정산"},{k:"ykCost",l:"원가표"},{k:"ykSet",l:"엮거리 설정"}
   ]});
   if(ME && ME.r!=="kid" && typeof dRwProd==="function") cats.push({id:"raw",label:"🧪 원료수불부",items:[
     {k:"rwProd",l:"생산일지"},{k:"rwStock",l:"원료 재고·수불부"},{k:"rwRecipe",l:"배합표"}
@@ -6150,6 +6150,7 @@ function draw(){
   else if(CTAB=="shipCal"){ el.innerHTML=dShipCal(); loadShipCal(); }
   else if(CTAB=="ykWork")el.innerHTML=dYkWork();
   else if(CTAB=="ykPay")el.innerHTML=dYkPay();
+  else if(CTAB=="ykCost")el.innerHTML=dYkCost();
   else if(CTAB=="ykSet")el.innerHTML=dYkSet();
   else if(CTAB=="rwProd")el.innerHTML=dRwProd();
   else if(CTAB=="rwStock")el.innerHTML=dRwStock();
