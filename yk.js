@@ -689,11 +689,18 @@ function ykPrintSheet(L){
   _ykWin("작업현황 " + T, '@page{size:A4 landscape;margin:8mm}.pg{width:280mm;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;letter-spacing:10px;font-size:22px;margin:2mm 0 4mm}.w{width:100%}.w td,.w th{border:1px solid #333;padding:3px 5px;font-size:12px}.w th{background:#eef2f7}.r{text-align:right}', b);
 }
 function ykPrintProd(L){
-  L = L || [YK.ed.w]; var st = _ykSet(), sp = _bsN(st.salt.pct), T = L.length === 1 ? L[0].dt : L.length + "건";
-  var b = L.map(function(w){ var c = _ykCalc(w);
-  var b = '<div class="pg"><h1>생 산 작 업 일 지</h1><table class="w"><tr><th>생산일자</th><td>' + _bsMD(w.dt) + '</td><th>제품명</th><td><b>' + esc(_ykKindOf(w)) + '</b></td></tr></table><div style="margin:4mm 0 2mm;font-weight:800">원재료명 또는 성분 및 투입량</div><table class="w"><tr><th>원재료명 또는 성분명</th><th>배합비율(%)</th><th>투입량(kg)</th><th>비고</th></tr>';
-  b += '<tr><td>' + esc((w.mats || []).map(function(m){ return m.nm; }).join(", ") || "조기") + '</td><td class="r">' + (100 - sp) + '</td><td class="r">' + _bsW(c.matKg) + '</td><td></td></tr><tr><td>소금</td><td class="r">' + sp + '</td><td class="r">' + _bsW(Math.round(c.saltKg * 10) / 10) + '</td><td></td></tr></table>';
-  b += '<table class="w" style="margin-top:4mm"><tr><th>기 타</th><td colspan="3" style="height:14mm">' + esc(w.note || "") + '</td></tr><tr><th>포장방법 및 단위</th><td>' + esc(w.boxMat || "박스/스티로폼/팩") + '</td><th>생산량(두름)</th><td>' + _bsW(c.doo) + '</td></tr><tr><th>작 업 자</th><td>공장장</td><th>유통기한</th><td>작업일자로부터 2년</td></tr></table></div>';
-  return b; }).join("");
-  _ykWin("생산작업일지 " + T, '@page{size:A4;margin:12mm}.pg{width:186mm;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;letter-spacing:10px;font-size:24px;margin:2mm 0 6mm}.w{width:100%}.w td,.w th{border:1px solid #333;padding:5px 7px;font-size:13px}.w th{background:#eef2f7}.r{text-align:right}', b);
+  L = L || [YK.ed.w]; var st = _ykSet(), sp = _bsN(st.salt.pct), pages = [];
+  // 원재료명 = 부세 / 참조기 (+원산지) · 크기 이름(부세30미 600짝)은 비고 · 굴비·부세 섞인 작업은 한 장씩 따로
+  L.forEach(function(w){ var c = _ykCalc(w), G = {}, ord = [];
+    var g = function(k){ if(!G[k]){ G[k] = { kg: 0, doo: 0, mats: [] }; ord.push(k); } return G[k]; };
+    (w.mats || []).forEach(function(m){ if(!m.nm) return; var k = /부세/.test(m.nm) ? "부세" : "굴비", M = _ykMat(m.nm) || {}, x = g(k); x.kg += _bsN(m.qty) * _bsN(M.kg); x.mats.push(m.nm + (_bsN(m.qty) ? " " + _bsW(m.qty) + "짝" : "")); });
+    c.rows.forEach(function(r){ if(r.doo) g(r.kind || "굴비").doo += r.doo; });
+    if(!ord.length) g(_ykKindOf(w));
+    ord.forEach(function(k){ var x = G[k], raw = (k === "부세" ? "부세" : "참조기") + (w.origin ? " (" + w.origin + ")" : ""), salt = Math.round(x.kg * sp / 100 * 10) / 10;
+      var b = '<div class="pg"><h1>생 산 작 업 일 지</h1><table class="w"><tr><th>생산일자</th><td>' + _bsMD(w.dt) + '</td><th>제품명</th><td><b>' + esc(k) + '</b>' + (ord.length > 1 ? ' <span style="font-size:11px">(' + (ord.indexOf(k) + 1) + '/' + ord.length + ')</span>' : '') + '</td></tr></table><div style="margin:4mm 0 2mm;font-weight:800">원재료명 또는 성분 및 투입량</div><table class="w"><tr><th>원재료명 또는 성분명</th><th>배합비율(%)</th><th>투입량(kg)</th><th>비고</th></tr>';
+      b += '<tr><td>' + esc(raw) + '</td><td class="r">' + (100 - sp) + '</td><td class="r">' + (x.kg ? _bsW(Math.round(x.kg * 10) / 10) : '') + '</td><td style="font-size:11.5px">' + esc(x.mats.join(", ")) + '</td></tr><tr><td>소금</td><td class="r">' + sp + '</td><td class="r">' + (x.kg ? _bsW(salt) : '') + '</td><td></td></tr></table>';
+      b += '<table class="w" style="margin-top:4mm"><tr><th>기 타</th><td colspan="3" style="height:14mm">' + esc(w.note || "") + '</td></tr><tr><th>포장방법 및 단위</th><td>' + esc(w.boxMat || "박스/스티로폼/팩") + '</td><th>생산량(두름)</th><td>' + _bsW(x.doo) + '</td></tr><tr><th>작 업 자</th><td>공장장</td><th>유통기한</th><td>작업일자로부터 2년</td></tr></table></div>';
+      pages.push(b); }); });
+  var T = pages.length === 1 ? L[0].dt : pages.length + "장";
+  _ykWin("생산작업일지 " + T, '@page{size:A4;margin:12mm}.pg{width:186mm;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;letter-spacing:10px;font-size:24px;margin:2mm 0 6mm}.w{width:100%}.w td,.w th{border:1px solid #333;padding:5px 7px;font-size:13px}.w th{background:#eef2f7}.r{text-align:right}', pages.join(""));
 }
