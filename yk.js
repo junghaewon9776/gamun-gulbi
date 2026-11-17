@@ -292,7 +292,7 @@ function dYkCost(){
   var h = _ykHead("📊 품명별 평균 원가표", "작업한 것들로 품명마다 두름당 원가 평균 · 원물값 따로", _bsB("#475569", "🖨 인쇄", "ykPrintCost()", "padding:8px 16px"));
   h += _ykPerBar(f, t);
   h += '<div class="card" style="margin-bottom:10px;font-size:13.5px"><b>' + _ykPerTxt(f, t) + '</b> · 작업 ' + A.n + '번 · 품명 ' + A.list.length + '개 <span class="mut" style="font-size:12px">— 한 작업의 총원가(원료·엮거리·인건비·끈·소금·냉동·포장·잡비)를 품명별 마리수 비율로 나눠서 더함. 원가표 칸의 ▲는 실제 평균이 원가표보다 비쌈</span></div>';
-  return h + '<div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto">' + _ykCostTable(A) + '</div></div>';
+  return h + '<div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto">' + _ykCostTable(A) + '</div></div>' + _ykGochuCard();
 }
 function ykPrintCost(){
   var f = YK.pf || "", t = YK.pt || "", A = _ykCostAgg(f, t), w = window.open("", "_blank"); if(!w) return toast("팝업이 막혔어요", true);
@@ -819,4 +819,41 @@ function ykXlSave(){
   _ykRef().update(up).then(function(){ var ps = Object.keys(info).map(function(n){ return fbDb.ref("/YkInfo/" + n).update(info[n]).then(function(){ YK.info = YK.info || {}; YK.info[n] = Object.assign({}, YK.info[n] || {}, info[n]); }); }); return Promise.all(ps); })
     .then(function(){ Object.keys(up).forEach(function(p){ var a = p.split("/"); YK.D[a[0]] = YK.D[a[0]] || {}; YK.D[a[0]][a[1]] = up[p]; }); hideLoading(); closePopup(); YK.xl = null; toast("📤 " + YK_XL[t].nm + " " + X.list.length + "개 등록했어요"); draw(); })
     .catch(function(e){ hideLoading(); toast("등록 실패: " + e.message, true); });
+}
+
+// ════════ 🌶 고추장굴비로 만들까, 그냥 팔까 — 정품 두름 무게 → 말리면 15% → 굴비포 → 고추장굴비(굴비포 50% 배합) 300g 몇 개 ════════
+var YK_GOCHU = { dry: 15, po: 50, pack: 300, whole: 19000, retail: 25000, sub: 0, dryCost: 0 };
+function _ykGset(){ return Object.assign({}, YK_GOCHU, (_ykS().set || {}).gochu || {}); }
+function _ykGochu(I, G){
+  var wt = _bsN(I.wt); if(!wt) return null;
+  var po = wt * _bsN(G.dry) / 100, prod = _bsN(G.po) ? po / (_bsN(G.po) / 100) : 0, packs = _bsN(G.pack) ? prod / _bsN(G.pack) : 0;
+  var cost = packs * _bsN(G.sub) + _bsN(G.dryCost);
+  return { po: po, prod: prod, packs: packs, gW: packs * _bsN(G.whole) - cost, gR: packs * _bsN(G.retail) - cost, sW: _bsN(I.whole), sR: _bsN(I.sale), cost: cost };
+}
+function ykGset(k, v){ var G = _ykGset(); G[k] = _bsN(v); _ykRef("set/gochu").set(G).then(function(){ YK.D.set = YK.D.set || {}; YK.D.set.gochu = G; draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); }); }
+function _ykGochuCard(){
+  var G = _ykGset(), S = _ykS(), can = _ykCan(), basis = YK.gB || "W";
+  var In = function(lb, k, unit, w){ return '<label style="font-size:12.5px;display:inline-flex;flex-direction:column;gap:2px">' + lb + '<span><input type="number" step="any" value="' + G[k] + '" ' + (can ? '' : 'disabled ') + 'onchange="ykGset(\'' + k + '\',this.value)" style="width:' + (w || 80) + 'px;padding:5px;border:1px solid #cbd5e1;border-radius:6px;text-align:right"> ' + unit + '</span></label>'; };
+  var h = '<div class="card" style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><b style="font-size:16px">🌶 고추장굴비로 만들까, 그냥 팔까</b><span style="display:flex;gap:4px">' + [["W", "도매가로 비교"], ["R", "소매가로 비교"]].map(function(o){ var on = basis === o[0]; return '<button class="btn" onclick="YK.gB=\'' + o[0] + '\';draw()" style="padding:5px 11px;background:' + (on ? "#dc2626" : "#fff") + ';color:' + (on ? "#fff" : "#991b1b") + ';border:1px solid #fca5a5">' + o[1] + '</button>'; }).join("") + '</span></div>';
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:#fef2f2;border-radius:8px">' + In("말리면 남는 무게", "dry", "%", 60) + In("굴비포 비율 (배합)", "po", "%", 60) + In("포장 한 개", "pack", "g", 70) + In("고추장굴비 도매가", "whole", "원/개", 90) + In("고추장굴비 소매가", "retail", "원/개", 90) + In("부원료·포장값", "sub", "원/개", 80) + In("말리는 비용", "dryCost", "원/두름", 80) + '</div>';
+  h += '<div class="mut" style="font-size:12px;margin-bottom:6px">두름 무게(정품표 무게 g) × ' + G.dry + '% = 굴비포 → ÷ ' + G.po + '% = 고추장굴비 무게 → ÷ ' + G.pack + 'g = 몇 개 · 고추장굴비 돈 = 개수 × ' + (basis === "W" ? "도매가" : "소매가") + ' − 부원료·포장값 − 말리는 비용' + (_bsN(G.sub) ? '' : ' <b style="color:#c2410c">(부원료·포장값 0원 — 넣으면 더 정확해요)</b>') + '</div>';
+  var rows = _ykItemKeys().map(function(k){ var I = S.items[k], x = _ykGochu(I, G); return { I: I, x: x }; });
+  h += '<div style="overflow-x:auto;max-height:520px"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:820px"><thead><tr style="background:#fef2f2;position:sticky;top:0">' + ["품명", "두름 무게", "굴비포", "고추장굴비", "몇 개", "그냥 팔면 (두름당)", "고추장굴비로 (두름당)", "차이", "추천", "지금 메모"].map(function(x, i){ return '<th style="padding:6px;text-align:' + (i >= 1 && i <= 7 ? "right" : "left") + ';white-space:nowrap">' + x + '</th>'; }).join("") + '</tr></thead><tbody>';
+  var nG = 0, nS = 0;
+  rows.forEach(function(r){ var I = r.I, x = r.x, td = function(v, st){ return '<td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:right;' + (st || "") + '">' + v + '</td>'; };
+    if(!x){ h += '<tr style="color:#94a3b8"><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;font-weight:700">' + esc(I.nm) + '</td><td colspan="9" style="padding:5px 6px;border-bottom:1px solid #f1f5f9;font-size:12px">정품표에 두름 무게(g)가 없어서 계산 못 해요</td></tr>'; return; }
+    var sell = basis === "W" ? x.sW : x.sR, go = basis === "W" ? x.gW : x.gR, d = go - sell, rec = !sell ? (go > 0 ? "gochu" : "") : d > 0 ? "gochu" : "sell";
+    if(rec === "gochu") nG++; else if(rec === "sell") nS++;
+    h += '<tr><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;font-weight:800;white-space:nowrap">' + esc(I.nm) + '</td>' + td(_bsW(I.wt) + 'g') + td(_bsW(Math.round(x.po)) + 'g') + td(_bsW(Math.round(x.prod)) + 'g') + td((Math.round(x.packs * 100) / 100) + '개', 'font-weight:800') + td(sell ? _ykWon(sell) : '<span style="color:#cbd5e1">가격 없음</span>') + td(_ykWon(go), 'font-weight:800;color:#b91c1c') + td(sell ? (d > 0 ? '+' : '') + _ykWon(d) : '-', 'font-weight:900;color:' + (d > 0 ? '#16a34a' : '#475569'));
+    h += '<td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;white-space:nowrap">' + (rec === "gochu" ? '<span style="background:#fee2e2;color:#b91c1c;font-weight:900;padding:2px 8px;border-radius:10px">🌶 고추장굴비</span>' : rec === "sell" ? '<span style="background:#dbeafe;color:#1d4ed8;font-weight:900;padding:2px 8px;border-radius:10px">💰 팔기</span>' : '-') + '</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#7c3aed">' + esc(I.msg || "") + '</td></tr>'; });
+  h += '</tbody></table></div><div style="font-size:13px;margin-top:8px"><b style="color:#b91c1c">🌶 고추장굴비 ' + nG + '개</b> · <b style="color:#1d4ed8">💰 팔기 ' + nS + '개</b>' + (can ? ' ' + _bsB("#7c3aed", "📝 추천대로 메모 바꾸기", "ykGochuMemo()", "padding:5px 11px;margin-left:8px") : '') + '</div></div>';
+  return h;
+}
+function ykGochuMemo(){
+  var G = _ykGset(), S = _ykS(), basis = YK.gB || "W", up = {}, n = 0;
+  _ykItemKeys().forEach(function(k){ var I = S.items[k], x = _ykGochu(I, G); if(!x) return; var sell = basis === "W" ? x.sW : x.sR, go = basis === "W" ? x.gW : x.gR; if(!sell && !(go > 0)) return;
+    var m = !sell || go > sell ? "고추장만드세요" : "팔아야해요"; if(I.msg !== m){ up["items/" + k + "/msg"] = m; n++; } });
+  if(!n) return toast("바꿀 메모가 없어요 — 이미 추천대로예요");
+  if(!confirm("정품 " + n + "개의 메모를 추천대로(팔아야해요 / 고추장만드세요) 바꿀까요?\n(" + (basis === "W" ? "도매가" : "소매가") + " 기준)")) return;
+  _ykRef().update(up).then(function(){ Object.keys(up).forEach(function(p){ var a = p.split("/"); YK.D.items[a[1]].msg = up[p]; }); toast("메모 " + n + "개 바꿨어요"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
