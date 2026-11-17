@@ -525,14 +525,14 @@ function _ykLpre(){
       nm: { on: true, x: 0, y: 0.6, w: g.w, fs: 40, b: true, al: "center" },
       lot: { on: true, x: 9.5, y: 18.2, w: g.w - 10, fs: 13.5, b: true, al: "center" },
       qr: { on: true, x: 0.8, y: 18.4, s: 8.6 },
-      qtxt: { on: true, x: 9.5, y: 25.3, w: g.w - 10, fs: 6, b: false, al: "center" },
+      qtxt: { on: false, x: 9.5, y: 25.3, w: g.w - 10, fs: 6, b: false, al: "center" },
       bc: { on: false, x: 10, y: 18, w: 43, h: 6 },
       code: { on: false, x: 0, y: 25, w: g.w, fs: 7, b: false, al: "center" } } },
     roll: { nm: "60×30 라벨 프린터 (엑셀 모양)", paper: "roll", w: 60, h: 30, els: {
       nm: { on: true, x: 0, y: 0.5, w: 60, fs: 26, b: true, al: "center" },
       lot: { on: true, x: 11.5, y: 13.8, w: 48, fs: 10, b: true, al: "center" },
       qr: { on: true, x: 1, y: 13.6, s: 10 },
-      qtxt: { on: true, x: 11.5, y: 20.5, w: 48, fs: 6.5, b: true, al: "center" },
+      qtxt: { on: false, x: 11.5, y: 20.5, w: 48, fs: 6.5, b: true, al: "center" },
       bc: { on: false, x: 12, y: 21, w: 46, h: 7 },
       code: { on: false, x: 0, y: 26, w: 60, fs: 7, b: false, al: "center" } } }
   };
