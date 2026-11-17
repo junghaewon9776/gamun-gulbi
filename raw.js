@@ -22,7 +22,7 @@ function _rwLoad(){
 }
 function _rwGate(){ if(!RW.D){ _rwLoad(); return '<div class="card"><div class="mut">📡 원료수불부 불러오는 중...</div></div>'; } return ""; }
 function _rwRecipes(all){ var R = _rwS().recipes || {}; return Object.keys(R).filter(function(k){ return all || !R[k].off; }).sort(function(a, b){ return String(R[a].nm).localeCompare(String(R[b].nm)); }); }
-function _rwMats(){ var m = {}, S = _rwS(); Object.keys(S.mats || {}).forEach(function(k){ m[k] = 1; }); Object.keys(S.recipes || {}).forEach(function(r){ _rwFac(S.recipes[r]).list.forEach(function(x){ m[x.mat] = 1; }); }); Object.keys(S.inb || {}).forEach(function(i){ m[S.inb[i].mat] = 1; }); return Object.keys(m).sort(); }
+function _rwMats(){ var m = {}, S = _rwS(); Object.keys(S.mats || {}).forEach(function(k){ m[k] = 1; }); Object.keys(S.recipes || {}).forEach(function(r){ if(S.recipes[r].off) return; _rwFac(S.recipes[r]).list.forEach(function(x){ m[x.mat] = 1; }); }); Object.keys(S.inb || {}).forEach(function(i){ m[S.inb[i].mat] = 1; }); return Object.keys(m).sort(); }
 
 // ── 배합 계산 ──
 function _rwFac(r){   // { base, unit, list:[{mat,f}], sum }
