@@ -33,25 +33,25 @@ var HC_PRESETS = [
     { t: "쓰레기·폐기물 처리", std: "뚜껑 닫힘·당일 처리" }, { t: "출입문·방충망 닫힘", std: "닫힘" }, { t: "화장실·탈의실 청결", std: "청결" }, { t: "세척제·소독제 따로 보관", std: "표시·구분 보관" } ] },
   { nm: "냉동고 온도 기록부", kind: "log", cat: "선행요건", freq: "day", hw: true, sig: true, std: "하루 2번 이상 (작업 전·후) · 냉동 -18℃ 이하", cols: [
     { lb: "측정 시간", type: "time" }, { lb: "냉동고 1", type: "num", max: -18, unit: "℃" }, { lb: "냉동고 2", type: "num", max: -18, unit: "℃" }, { lb: "냉동고 3", type: "num", max: -18, unit: "℃" }, { lb: "냉동고 4", type: "num", max: -18, unit: "℃" } ] },
-  { nm: "원료 입고검사 기록", kind: "log", cat: "선행요건", freq: "each", land: true, std: "원료 들어올 때마다 · 부적합이면 반품·폐기 등 개선조치 적기", cols: [
+  { nm: "원료 입고검사 기록", kind: "log", cat: "선행요건", freq: "each", land: true, hw: true, sig: true, std: "원료 들어올 때마다 · 부적합이면 반품·폐기 등 개선조치 적기", cols: [
     { lb: "원료명", type: "text" }, { lb: "공급업체", type: "text" }, { lb: "입고량", type: "num", unit: "kg" }, { lb: "품온", type: "num", unit: "℃" },
     { lb: "외관·냄새", type: "ok" }, { lb: "포장 상태", type: "ok" }, { lb: "표시사항·유통기한", type: "ok" }, { lb: "시험성적서", type: "ok" } ] },
-  { nm: "세척·소독 점검표", kind: "chk", cat: "선행요건", freq: "day", land: true, std: "작업 끝난 뒤 · 세척(세제) → 헹굼 → 소독(차아염소산 200ppm 등)", items: [
+  { nm: "세척·소독 점검표", kind: "chk", cat: "선행요건", freq: "day", land: true, sig: true, std: "작업 끝난 뒤 · 세척(세제) → 헹굼 → 소독(차아염소산 200ppm 등)", items: [
     { t: "작업대", std: "세척·소독" }, { t: "칼·도마·바구니 등 도구", std: "세척·소독" }, { t: "작업장 바닥", std: "세척" }, { t: "배수로·트랩", std: "이물 제거" },
     { t: "운반 용기·대차", std: "세척" }, { t: "손 세척대·소독기", std: "소독제 보충" } ] },
-  { nm: "방충·방서 점검표", kind: "chk", cat: "선행요건", freq: "week", land: true, std: "주 1회 · 해충·쥐 흔적 있으면 원인 찾고 조치", items: [
+  { nm: "방충·방서 점검표", kind: "chk", cat: "선행요건", freq: "week", land: true, sig: true, std: "주 1회 · 해충·쥐 흔적 있으면 원인 찾고 조치", items: [
     { t: "포충등 작동", std: "정상" }, { t: "포충등 포획 상태 확인·교체", std: "확인" }, { t: "쥐덫·끈끈이 점검", std: "흔적 없음" }, { t: "출입구·창문 방충망 파손", std: "파손 없음" },
     { t: "배수구 트랩·덮개", std: "설치·정상" }, { t: "건물 주변 정리 (잡초·적재물)", std: "정리" } ] },
-  { nm: "용수 관리 기록", kind: "log", cat: "선행요건", freq: "month", std: "매월 · 물탱크 청소 반기 1회 · 지하수는 연 1회 이상 수질검사", cols: [
+  { nm: "용수 관리 기록", kind: "log", cat: "선행요건", freq: "month", hw: true, sig: true, std: "매월 · 물탱크 청소 반기 1회 · 지하수는 연 1회 이상 수질검사", cols: [
     { lb: "물탱크 청소", type: "ok" }, { lb: "잔류염소", type: "num", unit: "ppm" }, { lb: "수질검사 (기관·결과)", type: "text" } ] },
-  { nm: "CCP 금속검출 모니터링", kind: "log", cat: "CCP", freq: "each", land: true, std: "작업 시작 전 · 2시간마다 · 작업 끝 · 시험편이 감지되면 적합 · 감지 안 되면 직전 확인 뒤 제품 다시 통과", cols: [
+  { nm: "CCP 금속검출 모니터링", kind: "log", cat: "CCP", freq: "each", land: true, hw: true, sig: true, std: "작업 시작 전 · 2시간마다 · 작업 끝 · 시험편이 감지되면 적합 · 감지 안 되면 직전 확인 뒤 제품 다시 통과", cols: [
     { lb: "확인 시간", type: "time" }, { lb: "제품명", type: "text" }, { lb: "Fe 시험편 감지", type: "ok" }, { lb: "SUS 시험편 감지", type: "ok" },
     { lb: "통과 수량", type: "num", unit: "개" }, { lb: "검출(배제) 수량", type: "num", unit: "개" } ], off: true },
   { nm: "CCP 가열 (찐굴비)", kind: "log", cat: "CCP", freq: "each", hw: true, sig: true, land: true, std: "찔 때마다 · 한계기준(중심온도·시간)은 해썹 위해요소분석 결과대로 양식 관리에서 최소값 넣기 · 벗어나면 다시 찌거나 폐기", cols: [
     { lb: "제품명·로트", type: "text" }, { lb: "찌기 시작", type: "time" }, { lb: "찌기 끝", type: "time" }, { lb: "증기 온도", type: "num", unit: "℃" }, { lb: "중심 온도", type: "num", unit: "℃" }, { lb: "찐 시간", type: "num", unit: "분" }, { lb: "수량", type: "num", unit: "kg" } ], off: true },
   { nm: "CCP 염도 기록 (젓갈)", kind: "log", cat: "CCP", freq: "each", std: "한계기준은 업체 기준대로 넣기 (양식 관리에서 최소 염도)", cols: [
     { lb: "제품명", type: "text" }, { lb: "로트", type: "text" }, { lb: "염도", type: "num", unit: "%" } ], off: true },
-  { nm: "검교정 기록", kind: "log", cat: "선행요건", freq: "each", std: "저울·온도계·금속검출기 · 연 1회 이상 (자체 또는 공인기관)", cols: [
+  { nm: "검교정 기록", kind: "log", cat: "선행요건", freq: "each", sig: true, std: "저울·온도계·금속검출기 · 연 1회 이상 (자체 또는 공인기관)", cols: [
     { lb: "기기명", type: "text" }, { lb: "방법 (자체/기관)", type: "text" }, { lb: "결과", type: "ok" }, { lb: "다음 검교정일", type: "date" } ] },
   { nm: "교육훈련 기록", kind: "log", cat: "선행요건", freq: "each", land: true, std: "신규자 교육 · 정기 위생교육 (해썹 교육 포함)", cols: [
     { lb: "교육명", type: "text" }, { lb: "대상·인원", type: "text" }, { lb: "강사", type: "text" }, { lb: "교육 내용", type: "text" }, { lb: "시간", type: "num", unit: "시간" } ] },
@@ -168,7 +168,7 @@ function hcLogEdit(fid, id){
     if(c.type === "ok") h += '<select id="hl_' + i + '" onchange="_hcLogChk(\'' + fid + '\')" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px"><option value=""></option><option value="O"' + (v === "O" ? " selected" : "") + '>적합 ○</option><option value="X"' + (v === "X" ? " selected" : "") + '>부적합 ×</option></select>';
     else h += '<input id="hl_' + i + '" type="' + (c.type === "num" ? "number" : c.type === "time" ? "time" : c.type === "date" ? "date" : "text") + '"' + (c.type === "num" ? ' step="any" inputmode="decimal"' : '') + ' value="' + esc(v == null ? "" : v) + '" oninput="_hcLogChk(\'' + fid + '\')" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">';
     h += '</label>'; });
-  h += '</div><div id="hlBad" style="margin-top:8px"></div>' + (f.sig ? '<div style="font-size:13px;margin-top:8px">작성자 서명 ✍</div><div id="hlSig"></div>' : '') + '<label style="font-size:13px;display:block;margin-top:6px">개선조치 <span class="mut" style="font-size:11.5px">— 기준을 벗어나면 꼭</span><input id="hl_fix" value="' + esc(r.fix || "") + '" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>';
+  h += '</div><div id="hlBad" style="margin-top:8px"></div>' + (hw ? '<label style="font-size:13px;display:block;margin-top:6px">판정 <span class="mut" style="font-size:11.5px">— 적은 사람이 기준과 비교해서 골라요 (숫자를 넣으면 기준 벗어날 때 저절로 부적합)</span><select id="hl_judge" style="width:100%;padding:7px;border:2px solid #0f766e;border-radius:6px;font-weight:800"><option value=""></option><option value="O"' + (r.judge === "O" ? " selected" : "") + '>적합 ○</option><option value="X"' + (r.judge === "X" ? " selected" : "") + '>부적합 ×</option></select></label>' : '') + (f.sig ? '<div style="font-size:13px;margin-top:8px">작성자 서명 ✍</div><div id="hlSig"></div>' : '') + '<label style="font-size:13px;display:block;margin-top:6px">개선조치 <span class="mut" style="font-size:11.5px">— 기준을 벗어나면 꼭</span><input id="hl_fix" value="' + esc(r.fix || "") + '" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>';
   h += '<div style="display:flex;justify-content:space-between;margin-top:12px">' + (id ? _bsB("#dc2626", "🗑 삭제", "hcRecDel('" + fid + "','" + id + "')") : "<span></span>") + _bsB("#16a34a", "💾 저장", "hcLogSave('" + fid + "','" + (id || "") + "')", "padding:9px 22px") + '</div>';
   openPopup('<div style="max-height:86vh;overflow:auto">' + h + '</div>', 600); _hcLogChk(fid);
   if(hw) (f.cols || []).forEach(function(c, i){ var el = document.getElementById("hlP" + i); if(el){ HC.pads[i] = _hcPad(el, c.type === "text" ? 70 : 64, c.type === "time" ? "예: 9:30" : c.type === "num" ? "예: -20" : ""); if(r.hw && r.hw[i]) HC.pads[i].load(r.hw[i]); } });
@@ -181,8 +181,10 @@ function hcLogSave(fid, id){
   var f = _hcS().forms[fid], v = _hcLogVals(f), dt = (document.getElementById("hl_dt") || {}).value, fix = (document.getElementById("hl_fix") || {}).value.trim();
   var hwv = {}; Object.keys(HC.pads || {}).forEach(function(k){ if(k === "sig") return; var u = HC.pads[k].url(); if(u) hwv[k] = u; }); var sig = HC.pads && HC.pads.sig ? HC.pads.sig.url() : "";
   if(!dt) return toast("날짜를 넣어 주세요", true); if(!Object.keys(v).length && !Object.keys(hwv).length) return toast("값을 하나 이상 넣어 주세요", true);
-  var bad = (f.cols || []).some(function(c, i){ return _hcBadCol(c, v[i]); }); if(bad && !fix) return toast("기준을 벗어났어요 — 개선조치를 적어 주세요", true);
-  var r = { dt: dt, v: v, fix: fix, bad: bad, by: (ME && (ME.nm || ME.id)) || CID || "", at: new Date().toISOString() }; if(Object.keys(hwv).length) r.hw = hwv; if(sig) r.sig = sig; var ref = id ? _hcRef("recs/" + fid + "/" + id) : _hcRef("recs/" + fid).push(), key = id || ref.key;
+  var judge = ((document.getElementById("hl_judge") || {}).value || ""), bad = (f.cols || []).some(function(c, i){ return _hcBadCol(c, v[i]); }) || judge === "X";
+  if(f.hw && !judge && !(f.cols || []).some(function(c){ return c.type === "num" && (c.min != null || c.max != null); })) return toast("판정(적합/부적합)을 골라 주세요", true);
+  if(bad && !fix) return toast("기준을 벗어났어요 — 개선조치를 적어 주세요", true);
+  var r = { dt: dt, v: v, fix: fix, bad: bad, by: (ME && (ME.nm || ME.id)) || CID || "", at: new Date().toISOString() }; if(Object.keys(hwv).length) r.hw = hwv; if(sig) r.sig = sig; if(judge) r.judge = judge; var ref = id ? _hcRef("recs/" + fid + "/" + id) : _hcRef("recs/" + fid).push(), key = id || ref.key;
   ref.set(r).then(function(){ HC.D.recs = HC.D.recs || {}; HC.D.recs[fid] = HC.D.recs[fid] || {}; HC.D.recs[fid][key] = r; closePopup(); toast(f.nm + " 저장" + (bad ? " (부적합)" : "")); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 function hcRecDel(fid, id){ if(!confirm("이 기록을 지울까요?")) return; _hcRef("recs/" + fid + "/" + id).remove().then(function(){ delete HC.D.recs[fid][id]; closePopup(); draw(); }); }

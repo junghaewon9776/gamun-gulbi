@@ -323,15 +323,15 @@ function rwPrintProd(id){
 function rwPrintProdIds(ids, ret){
   var P = _rwS().prods || {}; ids = ids.slice().sort(function(a, b){ return String(P[a].dt).localeCompare(String(P[b].dt)); });
   var b = ids.map(function(k){ var p = P[k], tot = _bsN(p.total);
-    var h = '<div class="pg"><h1>생 산 작 업 일 지</h1><table><tr><th style="width:18%">생산일자</th><td style="width:32%">' + _bsMD(p.dt) + '</td><th style="width:18%">제 품 명</th><td><b>' + esc(p.nm) + '</b></td></tr></table>';
+    var h = '<div class="pg"><h1>생 산 작 업 일 지</h1><table><tr><th style="width:18%">생산일자</th><td class="v" style="width:32%">' + _bsMD(p.dt) + '</td><th style="width:18%">제 품 명</th><td><b>' + esc(p.nm) + '</b></td></tr></table>';
     h += '<div style="margin:5mm 0 2mm;font-weight:800">원재료명 또는 성분 및 투입량 (kg)</div><table><tr><th>원재료명 또는 성분명</th><th style="width:20%">배합비율(%)</th><th style="width:22%">투입량(kg)</th><th style="width:18%">비고</th></tr>';
-    (p.lines || []).forEach(function(l){ var pc = l.pct != null && l.pct !== "" ? _bsN(l.pct) : (tot ? _bsN(l.qty) / tot : 0); h += '<tr><td>' + esc(l.mat) + '</td><td class="r">' + (Math.round(pc * 10000) / 100) + '</td><td class="r">' + _rwKg(l.qty) + '</td><td></td></tr>'; });
-    h += '<tr style="font-weight:800"><td class="c">합 계</td><td class="r">100</td><td class="r">' + _rwKg(tot) + '</td><td></td></tr></table>';
+    (p.lines || []).forEach(function(l){ var pc = l.pct != null && l.pct !== "" ? _bsN(l.pct) : (tot ? _bsN(l.qty) / tot : 0); h += '<tr><td>' + esc(l.mat) + '</td><td class="r">' + (Math.round(pc * 10000) / 100) + '</td><td class="r v">' + _rwKg(l.qty) + '</td><td></td></tr>'; });
+    h += '<tr style="font-weight:800"><td class="c">합 계</td><td class="r">100</td><td class="r v">' + _rwKg(tot) + '</td><td></td></tr></table>';
     var rr = (_rwS().recipes || {})[p.rid], X = rr && rr.mode === "add" ? _rwComp(rr, { lines: p.lines || [] }) : null;
     if(X && X.has){ h += '<div style="margin:5mm 0 2mm;font-weight:800">완제품 원재료 배합비율 (' + esc((rr.base || {}).mat || "") + ' 통 안 원료 포함)</div><table><tr><th>원재료명</th><th style="width:20%">배합비율(%)</th><th style="width:22%">중량(kg)</th></tr>';
-      X.lines.forEach(function(x){ h += '<tr><td>' + esc(x.mat) + '</td><td class="r">' + (Math.round(x.pct * 10000) / 100) + '</td><td class="r">' + _rwKg(x.kg) + '</td></tr>'; });
-      h += '<tr style="font-weight:800"><td class="c">합 계</td><td class="r">100</td><td class="r">' + _rwKg(X.total) + '</td></tr></table>'; }
-    h += '<table style="margin-top:5mm"><tr><th style="width:18%">기 타</th><td colspan="3" style="height:16mm;vertical-align:top">' + esc(p.note || "") + '</td></tr><tr><th>포장방법 및 단위</th><td style="width:32%">' + (p.pack ? p.pack + 'g' : '') + '</td><th style="width:18%">가생산량(개)</th><td>' + (p.units ? _rwKg(p.units) : '') + '</td></tr><tr><th>작 업 자</th><td>' + esc(p.worker || "") + '</td><th>유통기한</th><td>' + esc(p.life || ((_rwS().recipes || {})[p.rid] || {}).life || "") + '</td></tr></table></div>';
+      X.lines.forEach(function(x){ h += '<tr><td>' + esc(x.mat) + '</td><td class="r">' + (Math.round(x.pct * 10000) / 100) + '</td><td class="r v">' + _rwKg(x.kg) + '</td></tr>'; });
+      h += '<tr style="font-weight:800"><td class="c">합 계</td><td class="r">100</td><td class="r v">' + _rwKg(X.total) + '</td></tr></table>'; }
+    h += '<table style="margin-top:5mm"><tr><th style="width:18%">기 타</th><td class="v" colspan="3" style="height:16mm;vertical-align:top">' + esc(p.note || "") + '</td></tr><tr><th>포장방법 및 단위</th><td style="width:32%">' + (p.pack ? p.pack + 'g' : '') + '</td><th style="width:18%">가생산량(개)</th><td class="v">' + (p.units ? _rwKg(p.units) : '') + '</td></tr><tr><th>작 업 자</th><td class="v">' + esc(p.worker || "") + '</td><th>유통기한</th><td>' + esc(p.life || ((_rwS().recipes || {})[p.rid] || {}).life || "") + '</td></tr></table></div>';
     return h; }).join("");
   if(ret) return b;
   if(!ids.length) return toast("인쇄할 생산이 없어요", true);
@@ -347,20 +347,23 @@ function rwPrintAllAsk(){
   var t = _bsToday(), h = '<h3 style="margin:0 0 10px">🖨 원료수불부 한번에 뽑기 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3>';
   h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px">기간 <input id="rpa_f" type="date" value="' + t.slice(0, 4) + '-01-01" style="width:150px;padding:6px;border:1px solid #cbd5e1;border-radius:6px"> ~ <input id="rpa_t" type="date" value="' + t + '" style="width:150px;padding:6px;border:1px solid #cbd5e1;border-radius:6px"></div>';
   h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' + [["올해", t.slice(0, 4) + "-01-01", t], ["작년", (+t.slice(0, 4) - 1) + "-01-01", (+t.slice(0, 4) - 1) + "-12-31"], ["이번 달", t.slice(0, 7) + "-01", t], ["전체", "2000-01-01", t]].map(function(o){ return _bsB("#64748b", o[0], "document.getElementById('rpa_f').value='" + o[1] + "';document.getElementById('rpa_t').value='" + o[2] + "'", "padding:4px 10px"); }).join("") + '</div>';
-  h += '<label style="display:block;margin-top:10px;font-size:13px"><input type="checkbox" id="rpa_p" checked> 생산작업일지도 같이 (그 기간 생산 전부)</label><label style="display:block;margin-top:4px;font-size:13px"><input type="checkbox" id="rpa_e"> 기록 없는 원료도 빈 장으로</label>';
+  h += '<label style="display:block;margin-top:10px;font-size:13px"><input type="checkbox" id="rpa_p" checked> 생산작업일지도 같이 (그 기간 생산 전부)</label><label style="display:block;margin-top:4px;font-size:13px"><input type="checkbox" id="rpa_e"> 기록 없는 원료도 빈 장으로</label><div style="margin-top:8px;font-size:13px;font-weight:700;color:#7c2d12">✍ 손으로 쓸 서류면</div><select id="rpa_h" style="width:100%;padding:7px;border:2px solid #fdba74;border-radius:6px;font-size:13px;margin-top:3px"><option value="">전산 그대로 (값이 찍혀 나옴)</option><option value="pair">안내표 + 빈 양식 — 한 장씩 짝지어, 보고 옮겨 적기</option><option value="trace">연한 글씨 따라 쓰기 — 값이 연한 회색으로 찍힌 위에 덧쓰기</option></select>';
   h += '<div class="mut" style="font-size:12px;margin-top:6px">원료마다 한 장씩 — 맨 위에 기간 전 재고(전기 이월)를 적고 그 기간 입고·사용을 이어서 적어요</div>';
-  h += '<div style="display:flex;justify-content:flex-end;margin-top:12px">' + _bsB("#0e7490", "🖨 뽑기", "rwPrintAll(document.getElementById('rpa_f').value,document.getElementById('rpa_t').value,document.getElementById('rpa_p').checked,document.getElementById('rpa_e').checked)", "padding:9px 22px") + '</div>';
+  h += '<div style="display:flex;justify-content:flex-end;margin-top:12px">' + _bsB("#0e7490", "🖨 뽑기", "rwPrintAll(document.getElementById('rpa_f').value,document.getElementById('rpa_t').value,document.getElementById('rpa_p').checked,document.getElementById('rpa_e').checked,document.getElementById('rpa_h').value)", "padding:9px 22px") + '</div>';
   openPopup(h, 480);
 }
 function _rwLedgerPage(mat, f, t){
   var L = _rwLedger(mat), open = 0, rows = L.filter(function(e){ if(f && e.dt < f){ open = e.stock; return false; } return !t || e.dt <= t; });
   var b = '<div class="pg"><h1>원 료 수 불 부</h1><table style="margin-bottom:3mm"><tr><th style="width:16%">원 료 명</th><td><b>' + esc(mat) + '</b></td><th style="width:12%">단 위</th><td style="width:10%">kg</td><th style="width:12%">기 간</th><td style="width:26%">' + _bsMD(f) + ' ~ ' + _bsMD(t) + '</td></tr></table><table><tr><th style="width:18%">일 자</th><th>입 고</th><th>사용(출고)</th><th>현재고량</th><th style="width:30%">비고 (구입처 및 생산제품)</th></tr>';
-  if(f) b += '<tr style="background:#f8fafc"><td class="c">' + _bsMD(f) + '</td><td></td><td></td><td class="r"><b>' + _rwKg(open) + '</b></td><td>전기 이월</td></tr>';
-  rows.forEach(function(e){ b += '<tr><td class="c">' + _bsMD(e.dt) + '</td><td class="r">' + (e.t === "in" ? _rwKg(e.qty) : "") + '</td><td class="r">' + (e.t === "use" ? _rwKg(e.qty) : "") + '</td><td class="r"><b>' + _rwKg(e.stock) + '</b></td><td>' + esc(e.note) + '</td></tr>'; });
+  if(f) b += '<tr style="background:#f8fafc"><td class="c v">' + _bsMD(f) + '</td><td></td><td></td><td class="r v"><b>' + _rwKg(open) + '</b></td><td class="v">전기 이월</td></tr>';
+  rows.forEach(function(e){ b += '<tr><td class="c v">' + _bsMD(e.dt) + '</td><td class="r v">' + (e.t === "in" ? _rwKg(e.qty) : "") + '</td><td class="r v">' + (e.t === "use" ? _rwKg(e.qty) : "") + '</td><td class="r v"><b>' + _rwKg(e.stock) + '</b></td><td class="v">' + esc(e.note) + '</td></tr>'; });
   for(var i = rows.length; i < 24; i++) b += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
   return { html: b + '</table><table style="margin-top:4mm;width:60%;margin-left:auto"><tr><th>작성자</th><td style="height:12mm"></td><th>확인자</th><td></td></tr></table></div>', n: rows.length };
 }
-function rwPrintAll(f, t, withProd, empty){
+// 수기용: 장마다 [옮겨 적을 값 안내] + [값 칸이 빈 양식] 짝 — 값 칸(class v)만 비움, 칸·줄·제목은 그대로
+var RW_HAND_CSS = '<style>.hand .v,.hand .v *{color:transparent!important}.gdb{border:2px dashed #7c2d12;background:#fff7ed;color:#7c2d12;font-weight:800;text-align:center;padding:2mm;margin-bottom:3mm;font-size:13px}.gd{opacity:.92}@media print{.gdb{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>';
+function _rwHand(html){ return html.split('<div class="pg">').filter(function(x){ return x; }).map(function(x){ return '<div class="pg gd"><div class="gdb">📋 옮겨 적을 값 — 참고용 (이 장은 서류로 보관 안 함) · 다음 장 빈 양식에 손으로 적어요</div>' + x + '<div class="pg hand">' + x; }).join(""); }
+function rwPrintAll(f, t, withProd, empty, hand){
   if(f && t && f > t){ var z = f; f = t; t = z; }
   var pages = [], cnt = 0;
   _rwMats().forEach(function(m){ var P = _rwLedgerPage(m, f, t); if(P.n || empty){ pages.push(P.html); cnt++; } });
@@ -368,7 +371,9 @@ function rwPrintAll(f, t, withProd, empty){
   var body = pages.join("");
   if(withProd){ var keep = RW.ym, ks = RW.rsel; RW.ym = ""; RW.rsel = ""; var P = _rwS().prods || {}, ids = Object.keys(P).filter(function(k){ return (!f || P[k].dt >= f) && (!t || P[k].dt <= t); });
     if(ids.length) body += rwPrintProdIds(ids, true); RW.ym = keep; RW.rsel = ks; }
-  closePopup(); _rwWin("원료수불부_" + f + "_" + t, body);
+  if(hand === "trace") body = '<style>.v,.v *{color:#d4d4d8!important;font-weight:400!important}</style>' + body;
+  else if(hand) body = RW_HAND_CSS + _rwHand(body);
+  closePopup(); _rwWin((hand ? "수기용_" : "") + "원료수불부_" + f + "_" + t, body);
 }
 async function rwExcel(){
   showLoading("엑셀 만드는 중...");
