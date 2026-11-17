@@ -523,6 +523,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="kids.js?v=20261116a"></script>
 <script src="buse.js?v=20261117h"></script>
 <script src="raw.js?v=20261117b"></script>
+<script src="haccp.js?v=20261117a"></script>
 <script src="yk.js?v=20261117f"></script>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="console.warn('XLSX CDN load failed')"></script>
@@ -1608,6 +1609,10 @@ function mkTabs(){
   // ── 🪢 엮거리 작업 (원료 → 이모들 두름 → 박스·라벨 · 원가·마진율 · 이모 정산) ──
   if(ME && ME.r!=="kid" && typeof dYkWork==="function") cats.push({id:"yk",label:"🪢 엮거리 작업",items:[
     {k:"ykWork",l:"작업"},{k:"ykPay",l:"이모 정산"},{k:"ykCost",l:"원가표"},{k:"ykSet",l:"엮거리 설정"}
+  ]});
+  // ── 🛡 해썹 일지 (양식 자유 · 손글씨 · QR · 한 달 서류 한번에) ──
+  if(ME && ME.r!=="kid" && typeof dHcToday==="function") cats.push({id:"haccp",label:"🛡 해썹",items:[
+    {k:"hcToday",l:"오늘 기록"},{k:"hcView",l:"기록·출력"},{k:"hcForm",l:"양식 관리"}
   ]});
   if(ME && ME.r!=="kid" && typeof dRwProd==="function") cats.push({id:"raw",label:"🧪 원료수불부",items:[
     {k:"rwProd",l:"생산일지"},{k:"rwStock",l:"원료 재고·수불부"},{k:"rwRecipe",l:"배합표"}
@@ -6153,6 +6158,9 @@ function draw(){
   else if(CTAB=="ykCost")el.innerHTML=dYkCost();
   else if(CTAB=="ykSet")el.innerHTML=dYkSet();
   else if(CTAB=="rwProd")el.innerHTML=dRwProd();
+  else if(CTAB=="hcToday")el.innerHTML=dHcToday();
+  else if(CTAB=="hcView")el.innerHTML=dHcView();
+  else if(CTAB=="hcForm")el.innerHTML=dHcForm();
   else if(CTAB=="rwStock")el.innerHTML=dRwStock();
   else if(CTAB=="rwRecipe")el.innerHTML=dRwRecipe();
   else if(CTAB=="bsWork")el.innerHTML=dBsWork();
