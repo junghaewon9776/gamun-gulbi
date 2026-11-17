@@ -298,7 +298,7 @@ function dYkSet(){
   var g = _ykGate(); if(g) return g;
   var st = _ykSet(), S = _ykS(), can = _ykCan(), N = function(lb, path, v, ex){ return '<label style="font-size:13px">' + lb + '<input ' + (can ? '' : 'disabled ') + 'type="number" step="any" value="' + esc(v) + '" data-p="' + path + '" class="ykSetIn" ' + (ex || "") + ' style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; };
   var Sel = function(path, v, opts){ return '<select ' + (can ? '' : 'disabled ') + 'data-p="' + path + '" class="ykSetIn" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px">' + opts.map(function(o){ return '<option value="' + o[0] + '"' + (v === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select>'; };
-  var h = _ykHead("⚙️ 엮거리 설정", "원가 단가 · 정품 · 원료 · 이모 명단", can ? _bsB("#16a34a", "💾 원가 설정 저장", "ykSetSave()", "padding:9px 18px") : "");
+  var h = _ykHead("⚙️ 엮거리 설정", "원가 단가 · 정품 · 원료 · 이모 명단 · 라벨 모양", can ? _bsB("#7c3aed", "🏷 라벨 모양 고치기", "ykLblEdit()", "padding:9px 14px") + " " + _bsB("#16a34a", "💾 원가 설정 저장", "ykSetSave()", "padding:9px 18px") : "");
   h += '<div class="card" style="margin-bottom:10px"><b>💰 원가 단가</b><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px">';
   h += N("엮거리 값 · 굴비 (두름당)", "rate.굴비", st.rate.굴비) + N("엮거리 값 · 부세 (두름당)", "rate.부세", st.rate.부세);
   h += N("엮거리 끈 한 다발 값 (원)", "string.price", st.string.price) + N("한 다발로 엮는 두름 수", "string.per", st.string.per);
@@ -504,52 +504,168 @@ function _ykC39(txt, hpx){
   for(var i = 0; i < s.length; i++){ var p = YK_C39[s[i]]; if(!p) continue; for(var k = 0; k < 9; k++){ var w = p[k] === "w" ? Wd : N; if(k % 2 === 0) bars += '<rect x="' + x.toFixed(2) + '" y="0" width="' + w + '" height="' + hpx + '"/>'; x += w; } x += N; }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + x.toFixed(1) + ' ' + hpx + '" preserveAspectRatio="none" style="width:100%;height:' + hpx + 'px">' + bars + '</svg>';
 }
-function _ykLabels(w){
-  var c = _ykCalc(w), st = _ykSet(), lot = _ykLot(w.dt), out = [], skip = [];
-  c.rows.forEach(function(x){ var I = x.I || {}; if(!x.boxes) return;
-    if(I.noLbl){ skip.push(x.item + " (라벨 안 뽑음)"); return; } if(I.under && x.boxes <= _bsN(I.under)){ skip.push(x.item + " " + x.boxes + "박스 (" + I.under + "박스 이하)"); return; }
-    for(var b = 1; b <= x.boxes; b++) for(var k = 0; k < Math.max(1, _bsN(st.lblPer)); k++) out.push({ item: x.item, col: I.color || "", nm: x.item + x.box, lot: lot + (I.color ? "(" + I.color + ")" : ""), n: b + "/" + x.boxes, code: I.code || "", txt: x.item + "/" + x.box + "/" + lot }); });
-  return { list: out, skip: skip };
-}
-// ── 라벨: A4 27칸(3×9, 색 인쇄) 또는 60×30 라벨 프린터(흑백) ──
+// ── 라벨: 프리셋(모양) 마음대로 — 칸마다 위치·크기·글자 크기 바꾸기. 기본 = 예전 엑셀 라벨메일머지(품명 크게 · QR + 로트(색) (몇/총) · QR 내용) ──
 var YK_LCOL = { "노랑": "#fde047", "분홍": "#f9a8d4", "빨강": "#f87171", "초록": "#86efac", "파랑": "#93c5fd", "주황": "#fdba74", "보라": "#c4b5fd", "하늘": "#bae6fd", "연두": "#d9f99d", "회색": "#d1d5db" };
 var YK_LDEF = { paper: "a4", cols: 3, rows: 9, w: 63.5, h: 29.6, top: 15.3, left: 7.25, gx: 2.5, gy: 0 };
 function _ykLset(){ return Object.assign({}, YK_LDEF, (_ykS().set || {}).lbl || {}); }
+// 라벨에 들어가는 칸들
+var YK_LEL = [
+  { k: "nm", t: "txt", lb: "품명 (왕장8)" },
+  { k: "lot", t: "txt", lb: "로트(색) (몇/총)" },
+  { k: "qr", t: "qr", lb: "QR 코드" },
+  { k: "qtxt", t: "txt", lb: "QR 내용 글자" },
+  { k: "bc", t: "bc", lb: "바코드 (Code39)" },
+  { k: "code", t: "txt", lb: "바코드 번호 (GA0006)" }
+];
+// 기본 프리셋 2개 — 엑셀 라벨메일머지(A4 3×9, 68% 축소 인쇄) · 롤라벨메일머지를 60×30에 맞춘 것
+function _ykLpre(){
+  var g = _ykLset();
+  return {
+    a4: { nm: "A4 27칸 (엑셀 모양)", paper: "a4", w: g.w, h: g.h, cols: g.cols, rows: g.rows, top: g.top, left: g.left, gx: g.gx, gy: g.gy, els: {
+      nm: { on: true, x: 0, y: 0.6, w: g.w, fs: 40, b: true, al: "center" },
+      lot: { on: true, x: 9.5, y: 18.2, w: g.w - 10, fs: 13.5, b: true, al: "center" },
+      qr: { on: true, x: 0.8, y: 18.4, s: 8.6 },
+      qtxt: { on: true, x: 9.5, y: 25.3, w: g.w - 10, fs: 6, b: false, al: "center" },
+      bc: { on: false, x: 10, y: 18, w: 43, h: 6 },
+      code: { on: false, x: 0, y: 25, w: g.w, fs: 7, b: false, al: "center" } } },
+    roll: { nm: "60×30 라벨 프린터 (엑셀 모양)", paper: "roll", w: 60, h: 30, els: {
+      nm: { on: true, x: 0, y: 0.5, w: 60, fs: 26, b: true, al: "center" },
+      lot: { on: true, x: 11.5, y: 13.8, w: 48, fs: 10, b: true, al: "center" },
+      qr: { on: true, x: 1, y: 13.6, s: 10 },
+      qtxt: { on: true, x: 11.5, y: 20.5, w: 48, fs: 6.5, b: true, al: "center" },
+      bc: { on: false, x: 12, y: 21, w: 46, h: 7 },
+      code: { on: false, x: 0, y: 26, w: 60, fs: 7, b: false, al: "center" } } }
+  };
+}
+function _ykLps(){ var d = _ykLpre(), s = (_ykS().set || {}).lblP || {}, o = {}; Object.keys(d).forEach(function(k){ o[k] = d[k]; }); Object.keys(s).forEach(function(k){ if(s[k]) o[k] = s[k]; }); return o; }
+function _ykLp(id){ var L = _ykLps(); var p = JSON.parse(JSON.stringify(L[id] || L.a4)); var d = _ykLpre()[p.paper === "roll" ? "roll" : "a4"]; p.els = p.els || {}; YK_LEL.forEach(function(e){ p.els[e.k] = Object.assign({}, d.els[e.k], p.els[e.k] || {}); }); return p; }
+function _ykStamp(){ var d = new Date(), z = function(n){ return String(n).padStart(2, "0"); }; return String(d.getFullYear()).slice(2) + "." + z(d.getMonth() + 1) + "." + z(d.getDate()) + " " + z(d.getHours()) + "_" + z(d.getMinutes()); }
+function _ykLabels(w){
+  var c = _ykCalc(w), st = _ykSet(), lot = _ykLot(w.dt), out = [], skip = [], stamp = _ykStamp();
+  c.rows.forEach(function(x){ var I = x.I || {}; if(!x.boxes) return;
+    if(I.noLbl){ skip.push(x.item + " (라벨 안 뽑음)"); return; } if(I.under && x.boxes <= _bsN(I.under)){ skip.push(x.item + " " + x.boxes + "박스 (" + I.under + "박스 이하)"); return; }
+    for(var b = 1; b <= x.boxes; b++) for(var k = 0; k < Math.max(1, _bsN(st.lblPer)); k++) out.push({ item: x.item, col: I.color || "", nm: x.item + x.box, lot: lot + (I.color ? "(" + I.color + ")" : ""), n: b + "/" + x.boxes, code: I.code || "", qr: (I.code ? "*" + I.code + "*" : "") + x.item + "/" + x.box + "/" + lot + "///" + stamp }); });
+  return { list: out, skip: skip };
+}
+function _ykLsample(){ return { item: "왕장", col: "빨강", nm: "왕장8", lot: "210A02(빨강)", n: "1/19", code: "GA0006", qr: "*GA0006*왕장/8/210A02///24.12.25 11_48" }; }
+function _ykQrImg(txt){ if(typeof qrcode === "undefined") return ""; try{ var q = qrcode(0, "M"); q.addData(unescape(encodeURIComponent(txt))); q.make(); return q.createDataURL(6, 0); }catch(e){ return ""; } }
+function _ykLtxt(k, l){ return k === "nm" ? l.nm : k === "lot" ? l.lot + (l.n ? " (" + l.n + ")" : "") : k === "qtxt" ? l.qr : k === "code" ? l.code : ""; }
+// 라벨 한 장 HTML (mm 단위) — sel: 편집 중 고른 칸 표시
+function _ykLblHtml(P, l, bg, sel){
+  var h = '<div class="ylb" style="position:relative;width:' + P.w + 'mm;height:' + P.h + 'mm;overflow:hidden;box-sizing:border-box;background:' + (bg || "#fff") + ';color:#000;font-family:\'Malgun Gothic\',\'맑은 고딕\',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact">';
+  YK_LEL.forEach(function(d){ var e = P.els[d.k]; if(!e || !e.on) return;
+    var pos = 'position:absolute;left:' + e.x + 'mm;top:' + e.y + 'mm;' + (sel ? 'cursor:move;' + (sel === d.k ? 'outline:1.5px solid #7c3aed;background:rgba(124,58,237,.08);' : 'outline:1px dashed rgba(100,116,139,.5);') : '');
+    var at = sel ? ' data-k="' + d.k + '" onmousedown="_ylpDown(event,\'' + d.k + '\')" ontouchstart="_ylpDown(event,\'' + d.k + '\')"' : '';
+    if(d.t === "txt"){ var tx = _ykLtxt(d.k, l) || "", fs = e.fs; if(e.fit !== false && tx){ var em = 0; for(var ci = 0; ci < tx.length; ci++) em += tx.charCodeAt(ci) > 0x2000 ? 1 : (/[A-Z0-9]/.test(tx[ci]) ? 0.62 : 0.5); fs = Math.min(fs, Math.floor(e.w * 2.835 / (em * 1.03) * 10) / 10); }
+      h += '<div' + at + ' style="' + pos + 'width:' + e.w + 'mm;font-size:' + fs + 'pt;font-weight:' + (e.b ? 900 : 400) + ';text-align:' + (e.al || "center") + ';line-height:1.12;white-space:nowrap;overflow:hidden">' + esc(tx || (sel ? "(빈칸)" : "")) + '</div>'; }
+    else if(d.t === "qr"){ var src = _ykQrImg(l.qr); h += '<div' + at + ' style="' + pos + 'width:' + e.s + 'mm;height:' + e.s + 'mm">' + (src ? '<img src="' + src + '" style="width:100%;height:100%;display:block;image-rendering:pixelated" draggable="false">' : '<div style="width:100%;height:100%;border:1px solid #000;font-size:6pt;display:flex;align-items:center;justify-content:center">QR</div>') + '</div>'; }
+    else if(d.t === "bc") h += '<div' + at + ' style="' + pos + 'width:' + e.w + 'mm;height:' + e.h + 'mm;line-height:0">' + (l.code ? _ykC39(l.code, 40).replace('style="width:100%;height:40px"', 'style="width:100%;height:100%"') : '') + '</div>';
+  });
+  return h + '</div>';
+}
+
+// ── 🏷 라벨 뽑기 창: 프리셋 고르기 · 색 · 시작 칸 · QZ ──
 function ykPrintLabel(){
   var L = _ykLabels(YK.ed.w);
   if(!L.list.length) return toast("뽑을 라벨이 없어요" + (L.skip.length ? " — " + L.skip.join(", ") : ""), true);
-  var S = _ykLset(), items = {}; L.list.forEach(function(l){ if(!items[l.item]) items[l.item] = { n: 0, col: l.col }; items[l.item].n++; });
-  YK.lc = {}; Object.keys(items).forEach(function(k){ YK.lc[k] = items[k].col || ""; });
-  var R = function(v, lb){ var on = S.paper === v; return '<label style="flex:1;border:2px solid ' + (on ? "#7c3aed" : "#e5e7eb") + ';background:' + (on ? "#f5f3ff" : "#fff") + ';border-radius:8px;padding:8px;cursor:pointer;font-size:13px;font-weight:700"><input type="radio" name="ylp" value="' + v + '" ' + (on ? "checked" : "") + ' onchange="document.getElementById(\'ylA4\').style.display=this.value===\'a4\'?\'\':\'none\'"> ' + lb + '</label>'; };
+  var S = _ykLset(), Ps = _ykLps(), pid = YK.lpid && Ps[YK.lpid] ? YK.lpid : (S.pid && Ps[S.pid] ? S.pid : "a4"), P = _ykLp(pid), items = {};
+  YK.lpid = pid;
+  L.list.forEach(function(l){ if(!items[l.item]) items[l.item] = { n: 0, col: l.col }; items[l.item].n++; });
+  if(!YK.lc) YK.lc = {}; Object.keys(items).forEach(function(k){ if(YK.lc[k] == null) YK.lc[k] = items[k].col || ""; });
   var h = '<h3 style="margin:0 0 10px">🏷 라벨 뽑기 · ' + L.list.length + '장 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3>';
   if(L.skip.length) h += '<div style="font-size:12px;color:#92400e;background:#fffbeb;border-radius:6px;padding:5px 8px;margin-bottom:8px">안 뽑는 품명: ' + L.skip.map(esc).join(" · ") + '</div>';
-  h += '<div style="display:flex;gap:8px">' + R("a4", "📄 A4 27칸 (3×9) · 색 인쇄") + R("roll", "🖨 60×30 라벨 프린터 · 흑백") + '</div>';
-  h += '<div id="ylA4" style="' + (S.paper === "a4" ? "" : "display:none") + '"><div style="font-size:13px;font-weight:700;margin:10px 0 4px">품명별 인쇄 색 <span class="mut" style="font-weight:400;font-size:12px">— 정품표의 라벨 색이 먼저 골라져 있어요</span></div>';
-  Object.keys(items).forEach(function(k){ var c = YK.lc[k]; h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span id="ylS_' + _ykKey(k) + '" style="width:26px;height:18px;border-radius:4px;border:1px solid #94a3b8;background:' + (YK_LCOL[c] || "#fff") + '"></span><b style="min-width:110px">' + esc(k) + '</b><span class="mut" style="font-size:12px;min-width:44px">' + items[k].n + '장</span><select onchange="YK.lc[\'' + esc(k) + '\']=this.value;document.getElementById(\'ylS_' + _ykKey(k) + '\').style.background=YK_LCOL[this.value]||\'#fff\'" style="padding:5px;border:1px solid #cbd5e1;border-radius:6px"><option value="">흰색 (색 없음)</option>' + Object.keys(YK_LCOL).map(function(n){ return '<option' + (n === c ? " selected" : "") + '>' + n + '</option>'; }).join("") + '</select></div>'; });
-  h += '<div style="display:flex;gap:10px;align-items:center;margin-top:8px;font-size:13px">시작 칸 <input id="yl_start" type="number" min="1" max="27" value="1" style="width:70px;padding:5px;border:1px solid #cbd5e1;border-radius:6px"> <span class="mut" style="font-size:12px">쓰다 남은 라벨지면 비어 있는 첫 칸 번호 (왼쪽 위부터 1~27)</span></div>';
-  h += '<details style="margin-top:8px;font-size:12.5px"><summary style="cursor:pointer;color:#475569">라벨지 크기 맞추기 (mm)</summary><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px">' + [["w", "칸 가로"], ["h", "칸 세로"], ["top", "위 여백"], ["left", "왼쪽 여백"], ["gx", "가로 간격"], ["gy", "세로 간격"], ["cols", "가로 칸 수"], ["rows", "세로 칸 수"]].map(function(f){ return '<label>' + f[1] + '<input id="yl_' + f[0] + '" type="number" step="0.1" value="' + S[f[0]] + '" style="width:100%;padding:4px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; }).join("") + '</div></details></div>';
-  h += '<div style="display:flex;justify-content:flex-end;margin-top:12px">' + _bsB("#7c3aed", "🖨 라벨 인쇄", "ykPrintLabelGo()", "padding:9px 22px") + '</div>';
-  openPopup(h, 560);
-}
-function ykPrintLabelGo(){
-  var L = _ykLabels(YK.ed.w), paper = (document.querySelector('input[name="ylp"]:checked') || {}).value || "a4", S = _ykLset(), g = function(k){ return _bsN((document.getElementById("yl_" + k) || {}).value); };
-  if(paper === "a4") ["w", "h", "top", "left", "gx", "gy", "cols", "rows"].forEach(function(k){ var v = g(k); if(v || k === "gx" || k === "gy") S[k] = v; });
-  S.paper = paper; var keep = JSON.parse(JSON.stringify(S)); _ykRef("set/lbl").set(keep).catch(function(){}); YK.D.set = YK.D.set || {}; YK.D.set.lbl = keep;
-  var cell = function(l, col){ return '<div class="lb"' + (col ? ' style="background:' + col + '"' : '') + '><div class="a">' + esc(l.nm) + '</div><div class="b">' + esc(l.lot) + ' <span>(' + l.n + ')</span></div>' + (l.code ? '<div class="bc">' + _ykC39(l.code, paper === "a4" ? 30 : 26) + '</div><div class="c">' + esc(l.code) + ' · ' + esc(l.txt) + '</div>' : '') + '</div>'; };
-  var b, css, PC = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
-  if(paper === "a4"){
-    var per = S.cols * S.rows, start = Math.max(1, Math.min(per, Math.round(g("start")) || 1)), cells = [];
-    for(var i = 1; i < start; i++) cells.push('<div class="lb empty"></div>');
-    L.list.forEach(function(l){ cells.push(cell(l, YK_LCOL[YK.lc[l.item]] || "")); });
-    var pages = []; for(var p = 0; p < cells.length; p += per) pages.push('<div class="sheet">' + cells.slice(p, p + per).join("") + '</div>');
-    b = pages.join("");
-    css = '@page{size:A4;margin:0}body{' + PC + '}.sheet{width:210mm;height:297mm;padding:' + S.top + 'mm 0 0 ' + S.left + 'mm;display:grid;grid-template-columns:repeat(' + S.cols + ',' + S.w + 'mm);grid-auto-rows:' + S.h + 'mm;column-gap:' + S.gx + 'mm;row-gap:' + S.gy + 'mm;break-after:page;overflow:hidden;margin:0 auto}.sheet:last-child{break-after:auto}.lb{' + PC + 'height:' + S.h + 'mm;padding:1mm 2mm;display:flex;flex-direction:column;justify-content:center;text-align:center;overflow:hidden;outline:1px dashed #bbb}.lb.empty{background:none!important}.a{font-size:17px;font-weight:900;line-height:1.1}.b{font-size:11.5px;font-weight:700}.b span{font-weight:400;font-size:10px}.bc{margin:.5mm 0;line-height:0}.bc svg{max-width:100%}.c{font-size:8.5px;color:#222}@media screen{.sheet{box-shadow:0 0 0 1px #94a3b8;margin:10px auto}}@media print{.lb{outline:none}}';
+  h += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b style="font-size:13px">라벨 모양</b><select onchange="YK.lpid=this.value;ykPrintLabel()" style="flex:1;min-width:220px;padding:8px;font-size:14px;font-weight:700;border:2px solid #7c3aed;border-radius:8px;background:#f5f3ff;color:#5b21b6;cursor:pointer">' + Object.keys(Ps).map(function(k){ return '<option value="' + esc(k) + '"' + (k === pid ? " selected" : "") + '>' + (Ps[k].paper === "roll" ? "🖨 " : "📄 ") + esc(Ps[k].nm || k) + '</option>'; }).join("") + '</select>' + (_ykCan() ? _bsB("#7c3aed", "✏ 모양 고치기", "YK.lpBack=1;ykLblEdit('" + esc(pid) + "')", "padding:7px 12px") : "") + '</div>';
+  var s0 = L.list[0];
+  h += '<div style="display:flex;justify-content:center;background:#f1f5f9;border-radius:8px;padding:10px;margin:10px 0"><div style="box-shadow:0 1px 4px rgba(0,0,0,.25);overflow:hidden;width:' + (P.w * 1.6) + 'mm;height:' + (P.h * 1.6) + 'mm"><div style="transform:scale(1.6);transform-origin:0 0">' + _ykLblHtml(P, s0, P.paper === "a4" ? (YK_LCOL[YK.lc[s0.item]] || "") : "") + '</div></div></div>';
+  if(P.paper === "a4"){
+    h += '<div style="font-size:13px;font-weight:700;margin:6px 0 4px">품명별 인쇄 색 <span class="mut" style="font-weight:400;font-size:12px">— 정품표의 라벨 색이 먼저 골라져 있어요</span></div>';
+    Object.keys(items).forEach(function(k){ var c = YK.lc[k]; h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span id="ylS_' + _ykKey(k) + '" style="width:26px;height:18px;border-radius:4px;border:1px solid #94a3b8;background:' + (YK_LCOL[c] || "#fff") + '"></span><b style="min-width:110px">' + esc(k) + '</b><span class="mut" style="font-size:12px;min-width:44px">' + items[k].n + '장</span><select onchange="YK.lc[\'' + esc(k) + '\']=this.value;document.getElementById(\'ylS_' + _ykKey(k) + '\').style.background=YK_LCOL[this.value]||\'#fff\'" style="padding:5px;border:1px solid #cbd5e1;border-radius:6px"><option value="">흰색 (색 없음)</option>' + Object.keys(YK_LCOL).map(function(n){ return '<option' + (n === c ? " selected" : "") + '>' + n + '</option>'; }).join("") + '</select></div>'; });
+    var per = P.cols * P.rows;
+    h += '<div style="display:flex;gap:10px;align-items:center;margin-top:8px;font-size:13px">시작 칸 <input id="yl_start" type="number" min="1" max="' + per + '" value="1" style="width:70px;padding:5px;border:1px solid #cbd5e1;border-radius:6px"> <span class="mut" style="font-size:12px">쓰다 남은 라벨지면 비어 있는 첫 칸 번호 (왼쪽 위부터 1~' + per + ')</span></div>';
+    h += '<div style="display:flex;justify-content:flex-end;margin-top:12px">' + _bsB("#7c3aed", "🖨 A4 라벨 인쇄", "ykPrintLabelGo()", "padding:9px 22px") + '</div>';
   } else {
-    b = L.list.map(function(l){ return cell(l, ""); }).join("");
-    css = '@page{size:60mm 30mm;margin:0}.lb{width:60mm;height:30mm;padding:1.2mm 2mm;display:flex;flex-direction:column;justify-content:center;text-align:center;overflow:hidden;break-after:page;color:#000}.lb:last-child{break-after:auto}.a{font-size:15px;font-weight:900;line-height:1.1}.b{font-size:10.5px;font-weight:700}.b span{font-weight:400;font-size:9.5px}.bc{margin:.4mm 0;line-height:0}.bc svg{max-width:100%}.c{font-size:7.5px}@media screen{.lb{outline:1px dashed #999;margin:6px auto}}';
+    h += '<div id="ml_qz_box" style="border:1px solid #ddd6fe;background:#faf5ff;border-radius:8px;padding:8px 10px;font-size:13px"></div>';
+    h += '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px">' + _bsB("#475569", "브라우저로 인쇄", "ykPrintLabelGo('web')", "padding:9px 14px") + _bsB("#7c3aed", "🖨 라벨 프린터로 출력 (QZ)", "ykPrintLabelGo('qz')", "padding:9px 20px") + '</div>';
   }
-  closePopup(); _ykWin("라벨 " + YK.ed.w.dt + " (" + L.list.length + "장)", css, b);
+  openPopup(h, 620);
+  if(P.paper !== "a4" && typeof _qzUpdateUI === "function"){ try{ _qzUpdateUI(); if(typeof qz !== "undefined" && !(qz.websocket && qz.websocket.isActive()) && typeof qzConnect === "function") qzConnect(); else if(typeof _qzScan === "function") _qzScan(); }catch(e){} }
 }
+function ykPrintLabelGo(how){
+  var L = _ykLabels(YK.ed.w), pid = YK.lpid || "a4", P = _ykLp(pid);
+  var S = _ykLset(); S.pid = pid; _ykRef("set/lbl").set(S).catch(function(){}); YK.D.set = YK.D.set || {}; YK.D.set.lbl = S;
+  var PC = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+  if(P.paper === "a4"){
+    var per = P.cols * P.rows, start = Math.max(1, Math.min(per, Math.round(_bsN((document.getElementById("yl_start") || {}).value)) || 1)), cells = [];
+    for(var i = 1; i < start; i++) cells.push('<div class="cell"></div>');
+    L.list.forEach(function(l){ cells.push('<div class="cell">' + _ykLblHtml(P, l, YK_LCOL[YK.lc[l.item]] || "") + '</div>'); });
+    var pages = []; for(var p = 0; p < cells.length; p += per) pages.push('<div class="sheet">' + cells.slice(p, p + per).join("") + '</div>');
+    var css = '@page{size:A4;margin:0}body{' + PC + '}.sheet{width:210mm;height:297mm;padding:' + P.top + 'mm 0 0 ' + P.left + 'mm;display:grid;grid-template-columns:repeat(' + P.cols + ',' + P.w + 'mm);grid-auto-rows:' + P.h + 'mm;column-gap:' + P.gx + 'mm;row-gap:' + P.gy + 'mm;break-after:page;overflow:hidden;margin:0 auto;box-sizing:border-box}.sheet:last-child{break-after:auto}.cell{width:' + P.w + 'mm;height:' + P.h + 'mm;outline:1px dashed #bbb}@media screen{.sheet{box-shadow:0 0 0 1px #94a3b8;margin:10px auto}}@media print{.cell{outline:none}}';
+    closePopup(); return _ykWin("라벨 " + YK.ed.w.dt + " (" + L.list.length + "장)", css, pages.join(""));
+  }
+  if(how === "qz"){
+    if(typeof qzIsReady !== "function" || !qzIsReady()) return toast("QZ Tray 연결·프린터 선택을 먼저 해 주세요 (위 칸)", true);
+    if(!confirm(L.list.length + "장을 라벨 프린터로 출력할까요?")) return;
+    var useBmp = false, useRaw = false; try{ useBmp = localStorage.getItem("_mlBitmap") === "1"; useRaw = localStorage.getItem("_mlRawShare") === "1"; }catch(e){}
+    var fn = useRaw ? _qzPrintLabelsRaw : (useBmp ? _qzPrintLabelsBitmap : _qzPrintLabels);
+    var def = { key: "yk", columns: [], __html: function(l){ return _ykLblHtml(P, l, ""); } };
+    window.__mlCancel = false; toast("🖨 " + L.list.length + "장 보내는 중...");
+    return Promise.resolve(fn(def, L.list, { w: P.w, h: P.h, gap: 2 })).then(function(ok){ if(ok && ok !== "cancel") closePopup(); });
+  }
+  var b = L.list.map(function(l){ return '<div class="pg">' + _ykLblHtml(P, l, "") + '</div>'; }).join("");
+  var css2 = '@page{size:' + P.w + 'mm ' + P.h + 'mm;margin:0}.pg{width:' + P.w + 'mm;height:' + P.h + 'mm;break-after:page;overflow:hidden}.pg:last-child{break-after:auto}@media screen{.pg{outline:1px dashed #999;margin:6px auto}}';
+  closePopup(); _ykWin("라벨 " + YK.ed.w.dt + " (" + L.list.length + "장)", css2, b);
+}
+
+// ── ✏ 라벨 모양 고치기: 끌어서 옮기기 + 숫자로 정확히 ──
+var YK_LK = 2; // 편집 화면 확대 배율
+function ykLblEdit(pid){
+  if(!_ykCan()) return toast("고칠 권한이 없어요", true);
+  YK.lpE = { id: pid || "a4", p: _ykLp(pid || "a4"), sel: "nm" };
+  _ylpRender();
+}
+function _ylpRender(){
+  var E = YK.lpE, P = E.p, Ps = _ykLps(), l = YK.ed ? (_ykLabels(YK.ed.w).list[0] || _ykLsample()) : _ykLsample();
+  var I = function(lb, f, v, st, w){ return '<label style="font-size:12px;display:inline-flex;flex-direction:column;gap:2px">' + lb + '<input type="number" step="' + (st || 0.1) + '" value="' + v + '" onchange="' + f + '" style="width:' + (w || 70) + 'px;padding:5px;border:1px solid #cbd5e1;border-radius:6px"></label>'; };
+  var h = '<h3 style="margin:0 0 10px">✏ 라벨 모양 고치기 <button class="btn" style="background:#475569;float:right" onclick="_ylpClose()">닫기</button></h3>';
+  h += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select onchange="ykLblEdit(this.value)" style="padding:7px;font-weight:700;border:2px solid #7c3aed;border-radius:8px;background:#f5f3ff;color:#5b21b6">' + Object.keys(Ps).map(function(k){ return '<option value="' + esc(k) + '"' + (k === E.id ? " selected" : "") + '>' + (Ps[k].paper === "roll" ? "🖨 " : "📄 ") + esc(Ps[k].nm || k) + '</option>'; }).join("") + '</select>';
+  h += '<label style="font-size:12px">이름 <input value="' + esc(P.nm || "") + '" oninput="YK.lpE.p.nm=this.value" style="width:200px;padding:6px;border:1px solid #cbd5e1;border-radius:6px"></label>';
+  h += '<select onchange="YK.lpE.p.paper=this.value;_ylpRender()" style="padding:6px;border:1px solid #cbd5e1;border-radius:6px"><option value="a4"' + (P.paper === "a4" ? " selected" : "") + '>📄 A4 여러 칸 (색 인쇄)</option><option value="roll"' + (P.paper === "roll" ? " selected" : "") + '>🖨 라벨 프린터 낱장 (QZ)</option></select></div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">' + I("라벨 가로 mm", "YK.lpE.p.w=+this.value;_ylpRender()", P.w) + I("라벨 세로 mm", "YK.lpE.p.h=+this.value;_ylpRender()", P.h);
+  if(P.paper === "a4") h += I("가로 칸 수", "YK.lpE.p.cols=+this.value", P.cols || 3, 1, 60) + I("세로 칸 수", "YK.lpE.p.rows=+this.value", P.rows || 9, 1, 60) + I("위 여백", "YK.lpE.p.top=+this.value", P.top || 0) + I("왼쪽 여백", "YK.lpE.p.left=+this.value", P.left || 0) + I("가로 간격", "YK.lpE.p.gx=+this.value", P.gx || 0) + I("세로 간격", "YK.lpE.p.gy=+this.value", P.gy || 0);
+  h += '</div>';
+  // 칸 고르기
+  h += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">' + YK_LEL.map(function(d){ var e = P.els[d.k], on = E.sel === d.k; return '<span style="display:inline-flex;align-items:center;gap:4px;border:2px solid ' + (on ? "#7c3aed" : "#e2e8f0") + ';background:' + (on ? "#f5f3ff" : "#fff") + ';border-radius:14px;padding:3px 9px;font-size:12.5px;cursor:pointer" onclick="YK.lpE.sel=\'' + d.k + '\';_ylpRender()"><input type="checkbox" ' + (e.on ? "checked" : "") + ' onclick="event.stopPropagation()" onchange="YK.lpE.p.els.' + d.k + '.on=this.checked;YK.lpE.sel=\'' + d.k + '\';_ylpRender()" title="보이기"><b style="color:' + (e.on ? "#111" : "#94a3b8") + '">' + d.lb + '</b></span>'; }).join("") + '</div>';
+  // 미리보기 (끌어서 옮기기)
+  h += '<div style="background:#e2e8f0;border-radius:8px;padding:14px;overflow:auto;display:flex;justify-content:center"><div id="ylpCv" style="overflow:hidden;width:' + (P.w * YK_LK) + 'mm;height:' + (P.h * YK_LK) + 'mm;box-shadow:0 2px 8px rgba(0,0,0,.3)"><div style="transform:scale(' + YK_LK + ');transform-origin:0 0">' + _ykLblHtml(P, l, P.paper === "a4" ? (YK_LCOL[l.col] || "") : "", E.sel) + '</div></div></div>';
+  h += '<div class="mut" style="font-size:12px;margin:4px 0 8px;text-align:center">칸을 마우스로 끌어서 옮기세요 · 아래 숫자로 정확히 맞출 수 있어요 (단위 mm, 글자는 pt)</div>';
+  // 고른 칸 설정
+  var d = YK_LEL.filter(function(x){ return x.k === E.sel; })[0], e = P.els[E.sel], F = function(f){ return "YK.lpE.p.els." + E.sel + "." + f + "=+this.value;_ylpRender()"; };
+  h += '<div style="border:1px solid #ddd6fe;background:#faf5ff;border-radius:8px;padding:8px 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><b style="font-size:13px;color:#5b21b6;align-self:center">' + d.lb + '</b>' + I("왼쪽 x", F("x"), e.x) + I("위 y", F("y"), e.y);
+  if(d.t === "txt") h += I("가로폭", F("w"), e.w) + I("글자 크기 pt", F("fs"), e.fs, 0.5) + '<label style="font-size:12px"><input type="checkbox" ' + (e.b ? "checked" : "") + ' onchange="YK.lpE.p.els.' + E.sel + '.b=this.checked;_ylpRender()"> 굵게</label><label style="font-size:12px"><input type="checkbox" ' + (e.fit !== false ? "checked" : "") + ' onchange="YK.lpE.p.els.' + E.sel + '.fit=this.checked;_ylpRender()"> 넘치면 글자 줄이기</label><select onchange="YK.lpE.p.els.' + E.sel + '.al=this.value;_ylpRender()" style="padding:5px;border:1px solid #cbd5e1;border-radius:6px">' + [["left", "왼쪽 맞춤"], ["center", "가운데"], ["right", "오른쪽 맞춤"]].map(function(o){ return '<option value="' + o[0] + '"' + ((e.al || "center") === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select>';
+  else if(d.t === "qr") h += I("크기 (정사각)", F("s"), e.s);
+  else h += I("가로폭", F("w"), e.w) + I("높이", F("h"), e.h);
+  h += '</div>';
+  h += '<div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-top:12px"><div style="display:flex;gap:6px">' + _bsB("#64748b", "↺ 엑셀 기본 모양", "_ylpReset()", "padding:8px 12px") + (_ykLpre()[E.id] ? "" : _bsB("#dc2626", "🗑 이 모양 지우기", "_ylpDel()", "padding:8px 12px")) + '</div><div style="display:flex;gap:6px">' + _bsB("#0e7490", "📄 새 모양으로 저장", "_ylpSave(true)", "padding:8px 14px") + _bsB("#16a34a", "💾 저장", "_ylpSave(false)", "padding:8px 22px") + '</div></div>';
+  openPopup(h, 760);
+}
+function _ylpDown(ev, k){
+  ev.preventDefault(); ev.stopPropagation();
+  var E = YK.lpE, e = E.p.els[k], pt = ev.touches ? ev.touches[0] : ev, sx = pt.clientX, sy = pt.clientY, x0 = e.x, y0 = e.y, pxmm = 96 / 25.4 * YK_LK, moved = false;
+  if(E.sel !== k){ E.sel = k; }
+  var el = document.querySelector('#ylpCv [data-k="' + k + '"]');
+  var mv = function(m){ var q = m.touches ? m.touches[0] : m; e.x = Math.round((x0 + (q.clientX - sx) / pxmm) * 10) / 10; e.y = Math.round((y0 + (q.clientY - sy) / pxmm) * 10) / 10; moved = true; if(el){ el.style.left = e.x + "mm"; el.style.top = e.y + "mm"; } if(m.cancelable) m.preventDefault(); };
+  var up = function(){ document.removeEventListener("mousemove", mv); document.removeEventListener("mouseup", up); document.removeEventListener("touchmove", mv); document.removeEventListener("touchend", up); _ylpRender(); };
+  document.addEventListener("mousemove", mv); document.addEventListener("mouseup", up); document.addEventListener("touchmove", mv, { passive: false }); document.addEventListener("touchend", up);
+}
+function _ylpReset(){ var E = YK.lpE, d = _ykLpre()[E.p.paper === "roll" ? "roll" : "a4"]; if(!confirm("이 모양을 엑셀 기본 모양으로 되돌릴까요? (저장해야 반영돼요)")) return; var nm = E.p.nm; E.p = JSON.parse(JSON.stringify(d)); if(!_ykLpre()[E.id]) E.p.nm = nm; _ylpRender(); }
+function _ylpSave(asNew){
+  var E = YK.lpE, P = JSON.parse(JSON.stringify(E.p)), id = E.id;
+  if(!(P.w > 0 && P.h > 0)) return toast("라벨 가로·세로를 넣어 주세요", true);
+  if(asNew){ var nm = prompt("새 모양 이름", (P.nm || "") + " 복사"); if(!nm) return; P.nm = nm.trim(); id = "p" + Date.now().toString(36); }
+  _ykRef("set/lblP/" + id).set(P).then(function(){ YK.D.set = YK.D.set || {}; YK.D.set.lblP = YK.D.set.lblP || {}; YK.D.set.lblP[id] = P; YK.lpid = id; toast("라벨 모양 저장 — " + (P.nm || id)); if(asNew){ E.id = id; } _ylpClose(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+function _ylpDel(){ var E = YK.lpE; if(!confirm((E.p.nm || E.id) + " 모양을 지울까요?")) return; _ykRef("set/lblP/" + E.id).remove().then(function(){ if(YK.D.set && YK.D.set.lblP) delete YK.D.set.lblP[E.id]; if(YK.lpid === E.id) YK.lpid = "a4"; toast("지웠어요"); _ylpClose(); }); }
+function _ylpClose(){ var back = YK.lpBack && YK.ed; YK.lpBack = 0; YK.lpE = null; closePopup(); if(back) ykPrintLabel(); }
 function ykPrintSheet(){
   var w = YK.ed.w, c = _ykCalc(w), names = w.ws;
   var b = '<div class="pg"><h1>작 업 현 황</h1><table class="w"><tr><th>원료명</th><td>' + (w.mats || []).map(function(m){ return esc(m.nm); }).join(", ") + '</td><th>원료 수량</th><td>' + (w.mats || []).map(function(m){ return _bsW(m.qty) + '짝'; }).join(", ") + '</td><th>원산지</th><td>' + esc(w.origin || "") + '</td><th>상자재질</th><td>' + esc(w.boxMat || "") + '</td></tr></table>';

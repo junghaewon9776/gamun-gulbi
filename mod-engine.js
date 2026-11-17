@@ -4107,6 +4107,7 @@ function _mlSuffixKey(def,opt){
 // 칸 이름(제목) 붙이기 — 저장값 없으면 등기우편은 끔, 나머지는 켬(기존 그대로)
 function _mlShowLbl(def,opt){ return (opt.showLbl==null) ? !(def.features&&def.features.epost) : !!opt.showLbl; }
 function _modLabelHtml(def,row,opt){
+  if(def&&typeof def.__html==="function") return def.__html(row,opt); // 다른 화면(엮거리 등)이 자기 라벨 모양으로 QZ 출력할 때
   var allc=(def.columns||[]).filter(function(c){return c.key!=='status'&&!c.hideTable&&c.type!=='file'&&c.type!=='photo'&&c.type!=='consent'});
   var hasFields=!!(opt.fields&&opt.fields.length);
   var cols=hasFields ? allc.filter(function(c){return opt.fields.indexOf(c.key)>=0;}) : allc;
