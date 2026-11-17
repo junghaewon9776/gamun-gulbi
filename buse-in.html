@@ -60,7 +60,7 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #cbd5e1;border-ra
 var CFG = null, PHOTO = "";
 function today(){ var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-function opts(){ return '<option value="">품목 고르기</option>' + ((CFG && CFG.items) || []).map(function(i){ return '<option value="' + esc(i.k) + '">' + esc(i.k) + (i.nm ? ' (' + esc(i.nm) + ')' : '') + '</option>'; }).join("") + '<option value="__etc">기타 (직접 적기)</option>'; }
+function opts(){ return '<option value="">품목 고르기</option>' + ((CFG && CFG.items) || []).map(function(i){ return '<option value="' + esc(i.k) + '">' + esc(String(i.k).replace(/·[\d_]+kg$/, "")) + (i.kg ? ' · ' + esc(i.kg) + 'kg' : '') + (i.nm ? ' (' + esc(i.nm) + ')' : '') + '</option>'; }).join("") + '<option value="__etc">기타 (직접 적기)</option>'; }
 function addLine(){
   var d = document.createElement("div"); d.className = "line";
   d.innerHTML = '<select onchange="if(this.value===\'__etc\'){var v=prompt(\'품목 (예: 27미)\');if(v){var o=document.createElement(\'option\');o.value=o.textContent=v.trim().slice(0,20);this.insertBefore(o,this.lastChild);this.value=o.value}else this.value=\'\'}calc()">' + opts() + '</select><input type="number" inputmode="numeric" min="0" placeholder="수량" oninput="calc()"><button class="x" onclick="this.parentNode.remove();calc()">✕</button>';
