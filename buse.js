@@ -1,7 +1,7 @@
 // ============================================================================
 // 🐟 부세 작업 — 시즌(년도)별 건조 작업 일정 · 원료 입고·재고 · 건조장 자리
 //   (엑셀 '부세입출고작업현황표' 작업순서표·현황·전개도를 웹으로)
-//   /main/Buse/{시즌} = { work:{id:{thaw,dry,item,qty,dur,loc,note, qtyA(실제 작업 수량), walkA(실제 걷은 날), hold(널기 보류·얼려 둠)}}, inb:{id:{dt,item,qty,note}},
+//   /main/Buse/{시즌} = { work:{id:{thaw,dry,item,qty,dur,loc,note, qtyA(실제 작업 수량), walkA(실제 걷은 날), hold(널기 보류·얼려 둠), locs[{loc,doo}](여러 구역에 나눠 널기 — 마지막 구역은 나머지)}}, inb:{id:{dt,item,qty,note}},
 //                         ord:{id:{dt,item,qty,note}}(발주), items:{품목:{nm,kg,order(엑셀에서 온 발주),real}}, zones:[{nm,cap}] }
 //   품목 = 미수 + 상자 kg (같은 미수라도 kg 다르면 따로: '27미' 8.8kg / '27미·8_2kg' — DB 칸 이름에 점(.) 못 써서 _ · 화면엔 '27미 · 8.2kg') · 품명은 작업마다(건조 일수·kg 따라 달라짐 — 전에 쓴 품명 자동 채움)
 //   거래처 입고 양식(buse-in.html, 로그인 없음): /busePub/{시즌}/{id} 보내기만 → 직원이 확인하면 입고로 · 양식용 품목 목록 /busePubCfg
@@ -76,12 +76,19 @@ function _bsLoad(){
 }
 
 // ── 계산 ──
+// 작업이 걸린 구역별 두름 [{loc, doo}] — 여러 곳이면 앞 구역은 적은 대로, 마지막 구역은 나머지 (수량이 바뀌어도 합계 맞음)
+function _bsParts(r){
+  var L = r.locs && r.locs.length ? r.locs : (r.loc ? [{ loc: r.loc }] : []), out = [], used = 0;
+  L.forEach(function(p, i){ var d = i === L.length - 1 ? Math.max(0, r.doo - used) : Math.min(_bsN(p.doo), Math.max(0, r.doo - used)); used += d; out.push({ loc: p.loc, doo: d }); });
+  return out;
+}
+function _bsLocTxt(r, html){ var P = r.parts || _bsParts(r); if(P.length < 2) return html ? esc(r.loc || "") : (r.loc || ""); return P.map(function(p){ return html ? esc(p.loc) + ' <span style="font-size:11px;color:#475569">' + _bsW(p.doo) + '</span>' : p.loc + "(" + Math.round(p.doo * 10) / 10 + ")"; }).join(html ? "<br>" : "·"); }
 function _bsQE(w){ return (w.qtyA === "" || w.qtyA == null) ? _bsN(w.qty) : _bsN(w.qtyA); }   // 실제 작업 수량이 있으면 그걸로
 function _bsWork(){
   var W = _bsS().work || {}, rows = Object.keys(W).map(function(id){ var w = W[id], q = _bsQE(w), wp = w.dry ? _bsAdd(w.dry, w.dur) : "";
     return Object.assign({ id: id }, w, { qp: _bsN(w.qty), qty: q, doo: _bsDoo(w.item, q), walkP: wp, walk: w.hold ? "" : (w.walkA || wp), days: w.walkA && w.dry ? _bsDiff(w.walkA, w.dry) : _bsN(w.dur) }); });
   rows.sort(function(a, b){ return String(a.thaw).localeCompare(String(b.thaw)) || String(a.dry).localeCompare(String(b.dry)) || String(a.id).localeCompare(String(b.id)); });
-  rows.forEach(function(r, i){ r._o = i; });
+  rows.forEach(function(r, i){ r._o = i; r.parts = _bsParts(r); if(r.locs && r.locs.length) r.loc = r.parts.map(function(p){ return p.loc; }).join("·"); });
   rows.slice().sort(function(a, b){ return String(a.walk || "9").localeCompare(String(b.walk || "9")) || a._o - b._o; }).forEach(function(r, i){ r.seq = i + 1; });   // 걷는 순번
   return rows;
 }
@@ -151,7 +158,9 @@ function _bsSummary(){
 }
 // 그 날 그 구역에 걸린 두름 (건조일 ≤ 날짜 < 걷는 날)
 function _bsOcc(zone, dt, skip, rows){
-  var z = _bsZK(zone), list = (rows || _bsWork()).filter(function(r){ return r.id !== skip && r.loc && _bsZK(r.loc) === z && r.dry && r.dry <= dt && dt < r.walk; });
+  var z = _bsZK(zone), list = [];   // 여러 구역에 나눠 넌 작업은 이 구역 몫만
+  (rows || _bsWork()).forEach(function(r){ if(r.id === skip || !r.dry || !(r.dry <= dt && dt < r.walk)) return;
+    (r.parts || _bsParts(r)).forEach(function(p){ if(_bsZK(p.loc) === z) list.push(Object.assign({}, r, { doo: p.doo, fullDoo: r.doo })); }); });
   return { doo: list.reduce(function(s, r){ return s + r.doo; }, 0), list: list };
 }
 // 이 구역에 이 두름을 dur 일 동안 널 수 있는 가장 빠른 날 (from 부터 150일 안)
@@ -217,7 +226,7 @@ function dBsWork(){
     h += '<td ' + C + '>' + _bsW(r.doo) + '</td><td ' + C + '>' + (r.days ? r.days + "일" : "-") + (r.walkA && r.days !== _bsN(r.dur) ? '<div style="font-size:10.5px;color:#7c3aed">예정 ' + r.dur + '일</div>' : '') + '</td>';
     h += '<td ' + C + '><b>' + (r.hold ? '<span style="color:#7c3aed">보류</span>' : _bsDH(r.walk)) + '</b>' + (r.walkA ? '<div style="font-size:10.5px;color:#16a34a">실제</div>' : '') + '</td>';
     h += '<td ' + C + '>' + (dd == null ? "" : dd === 0 ? '<b style="color:#dc2626">오늘</b>' : dd > 0 ? '<b style="color:' + (dd <= 3 ? "#d97706" : "#0e7490") + '">D-' + dd + '</b>' : '<span style="font-size:11px">지남</span>') + '</td>';
-    h += '<td ' + C + '>' + esc(r.loc || "") + '</td><td ' + C + '><span style="background:' + st[1] + ';color:#fff;border-radius:9px;padding:1px 8px;font-size:11.5px;font-weight:700">' + st[0] + '</span></td>';
+    h += '<td ' + C + '>' + _bsLocTxt(r, true) + '</td><td ' + C + '><span style="background:' + st[1] + ';color:#fff;border-radius:9px;padding:1px 8px;font-size:11.5px;font-weight:700">' + st[0] + '</span></td>';
     h += '<td style="padding:6px;border-bottom:1px solid #f1f5f9;font-size:12px;max-width:160px">' + esc(r.note || "") + '</td><td ' + C + '>' + (can ? _bsActs(r, t) : "") + '</td></tr>';
   });
   _bsAlertPop();
@@ -272,17 +281,45 @@ function bsWorkEdit(id){
   h += '<div style="margin-top:10px;font-size:13px">건조 기간 ';
   BS_DUR.forEach(function(n){ h += '<button class="btn" style="background:#0e7490;color:#fff;padding:5px 12px;margin-right:4px" onclick="document.getElementById(\'bw_dur\').value=' + n + ';_bsWorkCalc(\'' + (id || "") + '\')">' + n + '일</button>'; });
   h += '<input id="bw_dur" type="number" value="' + esc(d.dur == null ? "" : d.dur) + '" oninput="_bsWorkCalc(\'' + (id || "") + '\')" style="width:70px;padding:6px;border:1px solid #cbd5e1;border-radius:6px"> 일 <span class="mut" style="font-size:11.5px">(0 = 건조 안 함)</span></div>';
-  h += '<label style="font-size:13px;display:block;margin-top:10px">작업 위치 <select id="bw_loc" onchange="_bsWorkCalc(\'' + (id || "") + '\')" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px"><option value="">(정하지 않음)</option>';
-  var hasLoc = !d.loc;
-  zones.forEach(function(z){ var on = _bsZK(z.nm) === _bsZK(d.loc); if(on) hasLoc = true; h += '<option value="' + esc(z.nm) + '"' + (on ? " selected" : "") + '>' + esc(z.nm) + ' (최대 ' + _bsW(z.cap) + '두름)</option>'; });
-  if(!hasLoc) h += '<option value="' + esc(d.loc) + '" selected>' + esc(d.loc) + ' (구역 목록에 없음)</option>';
-  h += '</select></label>' + '<label style="font-size:13px;display:block;margin-top:10px">비고<input id="bw_note" value="' + esc(d.note || "") + '" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>';
+  window._bwLocs = (d.locs && d.locs.length ? d.locs : (d.loc ? [{ loc: d.loc }] : [])).map(function(p){ return { loc: p.loc, doo: p.doo == null ? "" : p.doo }; });
+  var zl = zones.map(function(z){ return z.nm; }); window._bwLocs.forEach(function(p){ if(!zones.some(function(z){ return _bsZK(z.nm) === _bsZK(p.loc); })) zl.push(p.loc); });
+  h += '<div style="font-size:13px;margin-top:10px">작업 위치 <span class="mut" style="font-size:11.5px">— 한 곳에 다 안 들어가면 여러 곳 체크해서 나눠 널기</span><div id="bwZones" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">';
+  zl.forEach(function(nm){ var z = zones.filter(function(x){ return _bsZK(x.nm) === _bsZK(nm); })[0], on = window._bwLocs.some(function(p){ return _bsZK(p.loc) === _bsZK(nm); });
+    h += '<label style="display:inline-flex;align-items:center;gap:3px;border:1px solid ' + (on ? "#0e7490" : "#cbd5e1") + ';background:' + (on ? "#ecfeff" : "#fff") + ';border-radius:14px;padding:3px 9px;cursor:pointer;font-size:12.5px"><input type="checkbox" class="bwZ" value="' + esc(nm) + '"' + (on ? " checked" : "") + ' onchange="_bsLocToggle(this,\'' + (id || "") + '\')"> ' + esc(nm) + (z ? ' <span style="color:#64748b;font-size:11px">' + _bsW(z.cap) + '</span>' : ' <span style="color:#a16207;font-size:11px">목록에 없음</span>') + '</label>'; });
+  h += '</div><div id="bwSplit"></div></div>' + '<label style="font-size:13px;display:block;margin-top:10px">비고<input id="bw_note" value="' + esc(d.note || "") + '" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>';
   h += '<div id="bwCalc" style="margin-top:12px"></div><div style="display:flex;justify-content:space-between;margin-top:12px">' + (id ? _bsB("#dc2626", "🗑 삭제", "bsWorkDel('" + id + "')") : "<span></span>") + _bsB("#16a34a", "💾 저장", "bsWorkSave('" + (id || "") + "')", "padding:9px 24px;font-size:14px") + '</div>';
-  openPopup(h, 560); _bsWorkCalc(id || "");
+  openPopup(h, 600); _bsLocUI(id || ""); _bsWorkCalc(id || "");
+}
+function _bsLocToggle(cb, id){
+  var L = window._bwLocs || [], k = _bsZK(cb.value);
+  if(cb.checked){ if(!L.some(function(p){ return _bsZK(p.loc) === k; })) L.push({ loc: cb.value, doo: "" }); }
+  else window._bwLocs = L.filter(function(p){ return _bsZK(p.loc) !== k; });
+  var lb = cb.parentNode; lb.style.borderColor = cb.checked ? "#0e7490" : "#cbd5e1"; lb.style.background = cb.checked ? "#ecfeff" : "#fff";
+  _bsLocUI(id); _bsWorkCalc(id);
+}
+function _bsLocSet(nm, id){ window._bwLocs = [{ loc: nm, doo: "" }]; Array.prototype.forEach.call(document.querySelectorAll(".bwZ"), function(c){ c.checked = _bsZK(c.value) === _bsZK(nm); c.parentNode.style.borderColor = c.checked ? "#0e7490" : "#cbd5e1"; c.parentNode.style.background = c.checked ? "#ecfeff" : "#fff"; }); _bsLocUI(id); _bsWorkCalc(id); }
+// 2곳 이상이면 구역별 두름 칸 (마지막은 나머지 자동)
+function _bsLocUI(id){
+  var el = document.getElementById("bwSplit"), L = window._bwLocs || []; if(!el) return;
+  if(L.length < 2){ el.innerHTML = ""; return; }
+  var h = '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-top:6px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:12.5px">구역별 두름 나누기</b>' + _bsB("#0e7490", "빈 자리대로 나누기", "_bsLocAuto('" + (id || "") + "')", "padding:3px 9px;font-size:12px") + '</div>';
+  L.forEach(function(p, i){ var last = i === L.length - 1;
+    h += '<div style="display:flex;align-items:center;gap:6px;margin:3px 0;font-size:13px"><span style="min-width:90px"><b>' + esc(p.loc) + '</b></span>' + (last ? '<span id="bwRem" style="font-weight:800;color:#0e7490"></span> <span class="mut" style="font-size:11.5px">두름 (나머지 자동)</span>' : '<input type="number" inputmode="decimal" value="' + esc(p.doo) + '" oninput="window._bwLocs[' + i + '].doo=this.value;_bsWorkCalc(\'' + (id || "") + '\')" style="width:100px;padding:5px;border:1px solid #cbd5e1;border-radius:5px;text-align:right"> 두름') + '</div>'; });
+  el.innerHTML = h + '</div>';
+}
+// 빈 자리대로 나누기: 건조 기간 동안 각 구역의 가장 적은 여유만큼 앞에서부터
+function _bsLocAuto(id){
+  var v = _bsWorkVal(), L = window._bwLocs || [], q = v.qtyA != null ? v.qtyA : v.qty, left = _bsDoo(v.item, q); if(!v.dry) return toast("건조일을 먼저 넣어 주세요", true);
+  var rows = _bsWork(), n = Math.max(1, v.dur || 1);
+  L.forEach(function(p, i){ if(i === L.length - 1) return;
+    var cap = _bsCap(p.loc), mx = 0; for(var j = 0; j < n; j++){ var o = _bsOcc(p.loc, _bsAdd(v.dry, j), id, rows).doo; if(o > mx) mx = o; }
+    var give = Math.max(0, Math.min(left, (cap || left) - mx)); p.doo = Math.round(give * 10) / 10; left -= give; });
+  _bsLocUI(id); _bsWorkCalc(id); toast("빈 자리대로 나눴어요" + (left > 0 ? " — 마지막 구역에 " + _bsW(left) + "두름" : ""));
 }
 function _bsWorkVal(){
   var g = function(k){ var e = document.getElementById("bw_" + k); return e ? e.value.trim() : ""; };
-  var v = { thaw: g("thaw"), dry: g("dry"), item: g("item"), qty: _bsN(g("qty")), dur: Math.max(0, Math.round(_bsN(g("dur")))), loc: g("loc"), note: g("note"), nm: g("nm") };
+  var L = window._bwLocs || [], v = { thaw: g("thaw"), dry: g("dry"), item: g("item"), qty: _bsN(g("qty")), dur: Math.max(0, Math.round(_bsN(g("dur")))), loc: L.map(function(p){ return p.loc; }).join("·"), note: g("note"), nm: g("nm") };
+  if(L.length > 1) v.locs = L.map(function(p){ return { loc: p.loc, doo: _bsN(p.doo) }; });
   if(g("qtyA") !== "") v.qtyA = _bsN(g("qtyA"));
   if(g("walkA")) v.walkA = g("walkA");
   var hb = document.getElementById("bw_hold"); if(hb && hb.checked) v.hold = true;
@@ -303,23 +340,30 @@ function _bsWorkCalc(id){
     var bus = (_bsOrd()[v.item] || 0) - _bsLedger().filter(function(e){ return e.t === "in" && e.item === v.item; }).reduce(function(a, e){ return a + e.qty; }, 0);
     if(stock - q < 0) warn.push("냉장고 재고가 모자라요 — " + _bsMS(v.thaw) + " 기준 " + esc(v.item) + " " + _bsW(stock) + "개 남음 (" + _bsW(q - stock) + "개 부족)" + (bus > 0 ? " · 거래처에 " + _bsW(bus) + "개 있음 → 그 전에 입고 필요" : " · 거래처에도 없음"));
   }
-  // 구역 자리: 건조 기간 동안 가장 많이 찬 날
-  var capTxt = "", fit = "";
-  if(v.loc && v.dry && v.dur && !v.hold){
-    var cap = _bsCap(v.loc), mx = 0, mxd = v.dry;
-    for(var i = 0; i < v.dur; i++){ var dd = _bsAdd(v.dry, i), o = _bsOcc(v.loc, dd, id).doo; if(o > mx){ mx = o; mxd = dd; } }
-    capTxt = esc(v.loc) + ": 다른 작업 최대 " + _bsW(mx) + "두름(" + _bsMS(mxd) + ") + 이번 " + _bsW(doo) + " = <b>" + _bsW(mx + doo) + "</b>" + (cap ? " / " + _bsW(cap) + "두름" : "");
-    if(cap && mx + doo > cap){
-      warn.push(esc(v.loc) + " 자리가 넘쳐요 (" + _bsW(mx + doo) + " / " + _bsW(cap) + "두름)");
-      var f = _bsFit(v.loc, doo, v.dry, v.dur, id);
-      fit += f === "over" ? '<div>📌 ' + esc(v.loc) + '은(는) 최대 ' + _bsW(cap) + '두름이라 한 번에 못 널어요 — 나눠서 널기</div>' : f ? '<div>📌 <b>' + esc(v.loc) + '은(는) ' + _bsMS(f) + '부터 널 수 있어요</b> <button class="btn" style="background:#0e7490;color:#fff;padding:2px 8px" onclick="document.getElementById(\'bw_dry\').value=\'' + f + '\';_bsWorkCalc(\'' + (id || "") + '\')">그 날로</button></div>' : '';
-    }
+  // 구역 자리: 구역마다 건조 기간 동안 가장 많이 찬 날 + 이번 몫
+  var capTxt = "", fit = "", parts = _bsParts({ doo: doo, loc: v.loc, locs: v.locs }), rows0 = _bsWork();
+  var rem = document.getElementById("bwRem"); if(rem && parts.length > 1) rem.textContent = _bsW(parts[parts.length - 1].doo);
+  if(parts.length && v.dry && v.dur && !v.hold){
+    parts.forEach(function(pt){
+      var cap = _bsCap(pt.loc), mx = 0, mxd = v.dry;
+      for(var i = 0; i < v.dur; i++){ var dd = _bsAdd(v.dry, i), o = _bsOcc(pt.loc, dd, id, rows0).doo; if(o > mx){ mx = o; mxd = dd; } }
+      capTxt += (capTxt ? "<br>" : "") + esc(pt.loc) + ": 다른 작업 최대 " + _bsW(mx) + "두름(" + _bsMS(mxd) + ") + 이번 " + _bsW(pt.doo) + " = <b" + (cap && mx + pt.doo > cap ? ' style="color:#dc2626"' : '') + ">" + _bsW(mx + pt.doo) + "</b>" + (cap ? " / " + _bsW(cap) + "두름" : "");
+      if(cap && mx + pt.doo > cap){
+        warn.push(esc(pt.loc) + " 자리가 넘쳐요 (" + _bsW(mx + pt.doo) + " / " + _bsW(cap) + "두름)");
+        if(parts.length === 1){
+          var f = _bsFit(pt.loc, pt.doo, v.dry, v.dur, id);
+          fit += f === "over" ? '<div>📌 ' + esc(pt.loc) + '은(는) 최대 ' + _bsW(cap) + '두름이라 한 번에 못 널어요 — 구역을 더 체크해서 나눠 널기</div>' : f ? '<div>📌 <b>' + esc(pt.loc) + '은(는) ' + _bsMS(f) + '부터 널 수 있어요</b> <button class="btn" style="background:#0e7490;color:#fff;padding:2px 8px" onclick="document.getElementById(\'bw_dry\').value=\'' + f + '\';_bsWorkCalc(\'' + (id || "") + '\')">그 날로</button></div>' : '';
+        }
+      }
+    });
   }
-  // 그 날 바로 널 수 있는 다른 구역
-  if(v.dry && doo && !v.hold && (!v.loc || warn.some(function(x){ return /넘쳐요/.test(x); }))){
-    var free = _bsZones().filter(function(z){ return _bsZK(z.nm) !== _bsZK(v.loc) && _bsFit(z.nm, doo, v.dry, v.dur || 1, id) === v.dry; });
-    if(free.length) fit += '<div>🟢 ' + _bsMS(v.dry) + '에 바로 널 수 있는 곳: ' + free.map(function(z){ return '<a href="javascript:void 0" onclick="document.getElementById(\'bw_loc\').value=\'' + esc(z.nm) + '\';_bsWorkCalc(\'' + (id || "") + '\')"><b>' + esc(z.nm) + '</b></a>'; }).join(", ") + '</div>';
+  // 그 날 바로 널 수 있는 다른 구역 (한 곳만 골랐거나 안 골랐을 때)
+  if(v.dry && doo && !v.hold && parts.length <= 1 && (!parts.length || warn.some(function(x){ return /넘쳐요/.test(x); }))){
+    var free = _bsZones().filter(function(z){ return !parts.some(function(pt){ return _bsZK(pt.loc) === _bsZK(z.nm); }) && _bsFit(z.nm, doo, v.dry, v.dur || 1, id) === v.dry; });
+    if(free.length) fit += '<div>🟢 ' + _bsMS(v.dry) + '에 바로 널 수 있는 곳: ' + free.map(function(z){ return '<a href="javascript:void 0" onclick="_bsLocSet(\'' + esc(z.nm) + '\',\'' + (id || "") + '\')"><b>' + esc(z.nm) + '</b></a>'; }).join(", ") + '</div>';
+    else if(!parts.length || warn.some(function(x){ return /넘쳐요/.test(x); })) fit += '<div>💡 한 곳에 다 들어가는 구역이 없으면, 구역을 여러 개 체크하고 <b>빈 자리대로 나누기</b></div>';
   }
+  if(parts.length > 1){ var sum = 0; parts.forEach(function(pt, i){ if(i < parts.length - 1) sum += pt.doo; }); var ent = (v.locs || []).slice(0, -1).reduce(function(a, x){ return a + x.doo; }, 0); if(ent > doo) warn.push("앞 구역에 적은 두름(" + _bsW(ent) + ")이 전체(" + _bsW(doo) + ")보다 많아요 — 줄여 주세요"); }
   el.innerHTML = '<div style="background:#ecfeff;border-radius:8px;padding:9px 12px;font-size:13.5px;line-height:1.8">두름 <b style="font-size:16px">' + _bsW(doo) + '</b> · 걷는 날 <b style="font-size:16px;color:#dc2626">' + (walk ? _bsMD(walk) : "-") + '</b>' + (walk ? ' (D-' + _bsDiff(walk, _bsToday()) + ')' : '') + (capTxt ? '<br><span style="font-size:12.5px">' + capTxt + '</span>' : '') + (v.hold ? '<br><b style="color:#7c3aed">🧊 보류 중 — 자리 계산에서 빠짐</b>' : '') + '</div>' + (fit ? '<div style="background:#f0fdf4;border-radius:8px;padding:8px 12px;margin-top:6px;font-size:13px;line-height:1.8">' + fit + '</div>' : '') +
     (warn.length ? '<div style="background:#fef3c7;border-radius:8px;padding:8px 12px;margin-top:6px;font-size:13px;color:#92400e">⚠️ ' + warn.join("<br>⚠️ ") + '</div>' : '');
 }
@@ -459,7 +503,7 @@ function dBsZone(){
     h += '<td style="padding:7px;border-bottom:1px solid #f1f5f9;font-size:12.5px">' + (o.list.length ? o.list.map(function(r){ return '<b>' + esc(_bsLbl(r.item)) + '</b> ' + _bsW(r.doo) + '두름 <span style="color:#dc2626">(' + _bsMS(r.walk) + ')</span>'; }).join("<br>") : '<span class="mut">비어 있음</span>') + '</td></tr>'; });
   // 구역 목록에 없는 위치
   var known = {}; zones.forEach(function(z){ known[_bsZK(z.nm)] = 1; });
-  var other = _bsWork().filter(function(r){ return r.loc && !known[_bsZK(r.loc)] && r.dry && r.dry <= dt && dt < r.walk; });
+  var other = []; _bsWork().forEach(function(r){ if(r.dry && r.dry <= dt && dt < r.walk) r.parts.forEach(function(p){ if(!known[_bsZK(p.loc)]) other.push({ loc: p.loc, item: r.item, doo: p.doo }); }); });
   if(other.length && !BS.zsel) h += '<tr><td style="padding:7px;font-weight:700;color:#a16207">구역 목록에 없는 위치</td><td colspan="2" style="padding:7px;font-size:12.5px">' + other.map(function(r){ return esc(r.loc) + ': <b>' + esc(_bsLbl(r.item)) + '</b> ' + _bsW(r.doo) + '두름'; }).join("<br>") + '</td></tr>';
   h += '</tbody></table></div>';
   return h;
@@ -505,9 +549,9 @@ async function bsExcel(){
   };
   var W = _bsWork();
   sheet("작업순서표", BS.cur + " 시즌 건조 작업 현황 (" + t + ")", ["해동일자", "건조일자", "품목", "상자kg", "품명", "수량", "두름수", "걷는일자", "걷는 순번", "건조기간", "D-Day", "작업라인(위치)", "비고"],
-    W.map(function(r){ return [_bsMD(r.thaw), _bsMD(r.dry), _bsBase(r.item), _bsKg(r.item) || "", r.nm || "", _bsN(r.qty), r.doo, _bsMD(r.walk), r.seq, r.days, r.walk ? _bsDiff(r.walk, t) : "", r.loc || "", r.note || ""]; }), [15, 15, 10, 7, 12, 8, 9, 15, 8, 8, 7, 14, 20], [6, 7]);
+    W.map(function(r){ return [_bsMD(r.thaw), _bsMD(r.dry), _bsBase(r.item), _bsKg(r.item) || "", r.nm || "", _bsN(r.qty), r.doo, _bsMD(r.walk), r.seq, r.days, r.walk ? _bsDiff(r.walk, t) : "", _bsLocTxt(r), r.note || ""]; }), [15, 15, 10, 7, 12, 8, 9, 15, 8, 8, 7, 22, 20], [6, 7]);
   sheet("걷는순서", BS.cur + " 시즌 걷는 순번 순 (" + t + ")", ["걷는 순번", "걷는일자", "품목", "수량", "두름수", "해동일자", "건조일자", "건조기간", "작업라인(위치)"],
-    W.slice().sort(function(a, b){ return a.seq - b.seq; }).map(function(r){ return [r.seq, r.walk, r.item, _bsN(r.qty), r.doo, r.thaw, r.dry, r.dur, r.loc || ""]; }), [8, 12, 10, 8, 9, 12, 12, 8, 14], [4, 5]);
+    W.slice().sort(function(a, b){ return a.seq - b.seq; }).map(function(r){ return [r.seq, r.walk, r.item, _bsN(r.qty), r.doo, r.thaw, r.dry, r.dur, _bsLocTxt(r)]; }), [8, 12, 10, 8, 9, 12, 12, 8, 22], [4, 5]);
   sheet("현황", BS.cur + " 시즌 원료 입출고 현황", ["일자", "품목", "상자kg", "가문 입고수량", "작업수량", "냉장고 재고수량", "거래처 남은 재고수량", "거래처", "비고"],
     _bsLedger().map(function(e){ var nt = e.t === "in" ? String(e.note || "").replace(e.from ? new RegExp("^" + e.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( · )?") : /^$/, "") : "해동 " + (e.note || ""); return [_bsMD(e.dt), _bsBase(e.item), _bsKg(e.item) || "", e.t === "in" ? e.qty : "", e.t === "work" ? e.qty : "", e.fridge, e.t === "in" ? e.busan : "", e.from || "", nt]; }), [15, 10, 7, 12, 10, 13, 15, 16, 30], [4, 5, 6, 7]);
   sheet("품목", BS.cur + " 시즌 품목별 현황", ["품목", "품명", "상자kg", "마리당 g", "총 발주", "입고", "거래처 남은", "작업", "작업 남은", "냉장고 재고", "실재고", "오차", "총 두름", "키로수"],
@@ -538,7 +582,9 @@ function _bsGantt(sel){
     h += '<div style="width:' + W + 'px;flex:none;text-align:center;font-size:10px;line-height:1.25;padding:2px 0;' + (d === t ? "background:#dc2626;color:#fff;font-weight:800;" : d === sel ? "background:#0e7490;color:#fff;" : wk === 0 ? "color:#dc2626;font-weight:700;" : wk === 6 ? "color:#2563eb;font-weight:700;" : "") + '">' + (dd === 1 || i === 0 ? '<b>' + (+d.slice(5, 7)) + '월</b><br>' : '<br>') + dd + '<br>' + _bsWd(d) + '</div>'; }
   h += '</div>';
   zones.forEach(function(z){
-    var zk = _bsZK(z.nm), cap = _bsN(z.cap), mine = live.filter(function(r){ return r.loc && _bsZK(r.loc) === zk; }).sort(function(a, b){ return a.dry.localeCompare(b.dry); });
+    var zk = _bsZK(z.nm), cap = _bsN(z.cap), mine = [];
+    live.forEach(function(r){ r.parts.forEach(function(p){ if(_bsZK(p.loc) === zk) mine.push(Object.assign({}, r, { doo: p.doo, split: r.parts.length > 1 })); }); });
+    mine.sort(function(a, b){ return a.dry.localeCompare(b.dry); });
     // 줄(레인) 나누기 — 겹치는 막대는 아래 줄로
     var lanes = []; mine.forEach(function(r){ for(var L = 0; L < lanes.length; L++){ if(lanes[L] <= r.dry){ lanes[L] = r.walk; r._ln = L; return; } } r._ln = lanes.length; lanes.push(r.walk); });
     var nl = Math.max(1, lanes.length), H = Math.max(64, 16 + nl * 22 + 4);
@@ -553,12 +599,12 @@ function _bsGantt(sel){
     // 오늘 선
     if(t >= st && t <= en) h += '<div style="position:absolute;left:' + (X(t) + W / 2) + 'px;top:0;bottom:0;border-left:2px dashed #dc2626;z-index:1"></div>';
     mine.forEach(function(r){ var s2 = _bsState(r, t), left = X(r.dry), w = Math.max(W, X(r.walk) - left);
-      h += '<div' + (can ? ' onclick="bsWorkEdit(\'' + r.id + '\')"' : '') + ' title="' + esc(_bsLbl(r.item)) + ' ' + _bsW(r.qty) + '개 · ' + _bsW(r.doo) + '두름\n' + _bsMD(r.dry) + ' 널기 → ' + _bsMD(r.walk) + ' 걷기 (' + r.days + '일)" style="position:absolute;left:' + left + 'px;top:' + (15 + r._ln * 22) + 'px;width:' + (w - 2) + 'px;height:19px;background:' + s2[1] + ';color:#fff;border-radius:5px;font-size:11px;line-height:19px;padding:0 5px;overflow:hidden;white-space:nowrap;' + (can ? "cursor:pointer;" : "") + 'box-shadow:0 1px 2px rgba(0,0,0,.2)"><b>' + esc(_bsBase(r.item)) + '</b> ' + _bsW(r.doo) + ' · ' + _bsMS(r.dry) + '~' + _bsMS(r.walk) + '</div>'; });
+      h += '<div' + (can ? ' onclick="bsWorkEdit(\'' + r.id + '\')"' : '') + ' title="' + esc(_bsLbl(r.item)) + ' ' + _bsW(r.qty) + '개 · ' + _bsW(r.doo) + '두름\n' + _bsMD(r.dry) + ' 널기 → ' + _bsMD(r.walk) + ' 걷기 (' + r.days + '일)" style="position:absolute;left:' + left + 'px;top:' + (15 + r._ln * 22) + 'px;width:' + (w - 2) + 'px;height:19px;background:' + s2[1] + ';color:#fff;border-radius:5px;font-size:11px;line-height:19px;padding:0 5px;overflow:hidden;white-space:nowrap;' + (can ? "cursor:pointer;" : "") + 'box-shadow:0 1px 2px rgba(0,0,0,.2)"><b>' + esc(_bsBase(r.item)) + '</b> ' + _bsW(r.doo) + (r.split ? '(나눔)' : '') + ' · ' + _bsMS(r.dry) + '~' + _bsMS(r.walk) + '</div>'; });
     h += '</div></div>';
   });
   // 구역 목록에 없는 위치 · 보류
   var known = {}; zones.forEach(function(z){ known[_bsZK(z.nm)] = 1; });
-  var other = live.filter(function(r){ !r.loc && 0; return !r.loc || !known[_bsZK(r.loc)]; }), hold = rows.filter(function(r){ return r.hold; });
+  var other = live.filter(function(r){ return !r.parts.length || r.parts.some(function(p){ return !known[_bsZK(p.loc)]; }); }), hold = rows.filter(function(r){ return r.hold; });
   h += '</div></div>';
   if(other.length) h += '<div style="font-size:12px;margin-top:6px;color:#a16207">구역이 없거나 목록에 없는 위치: ' + other.map(function(r){ return esc(r.loc || "위치 없음") + ' ' + esc(_bsLbl(r.item)) + ' ' + _bsMS(r.dry) + '~' + _bsMS(r.walk); }).join(" · ") + '</div>';
   if(hold.length) h += '<div style="font-size:12px;margin-top:4px;color:#7c3aed">🧊 널기 보류(얼려 둠): ' + hold.map(function(r){ return esc(_bsLbl(r.item)) + ' ' + _bsW(r.qty) + '개' + (r.loc ? ' (' + esc(r.loc) + ')' : ''); }).join(" · ") + '</div>';
@@ -753,8 +799,11 @@ function _bsParseWb(wb, fname){
         if(!item || !qty) continue;
         var th = _bsXd(R3.getCell(w.thaw).value), dr = _bsXd(R3.getCell(w.dry).value);
         if(!th || !dr){ out.warn.push(nm + " " + r3 + "줄: 해동일·건조일이 날짜가 아니라 뺐어요 (" + item + ")"); continue; }
-        var loc = w.loc ? _bsXs(R3.getCell(w.loc).value) : ""; if(loc === "0") loc = "";
-        out.work.push({ thaw: th, dry: dr, item: item, kg: w.kg ? _bsXn(R3.getCell(w.kg).value) : 0, nm: w.nm ? _bsXs(R3.getCell(w.nm).value) : "", qty: qty, dur: w.dur ? Math.max(0, Math.round(_bsXn(R3.getCell(w.dur).value))) : 0, loc: loc, note: w.note ? _bsXs(R3.getCell(w.note).value) : "", _r: nm + " " + r3 + "줄" }); }
+        var loc = w.loc ? _bsXs(R3.getCell(w.loc).value) : "", locs = null; if(loc === "0") loc = "";
+        var pcs = loc.split(/\s*[·,\/]\s*/).filter(function(x){ return x; });   // '마당1(1000)·마당2(860)' → 여러 구역
+        if(pcs.length > 1){ locs = pcs.map(function(x){ var m2 = /^(.*?)\s*\(([\d.]+)\)$/.exec(x); return m2 ? { loc: m2[1].trim(), doo: _bsN(m2[2]) } : { loc: x.trim(), doo: 0 }; }); loc = locs.map(function(x){ return x.loc; }).join("·"); }
+        else loc = loc.replace(/\s*\([\d.]+\)$/, "");
+        out.work.push({ thaw: th, dry: dr, item: item, kg: w.kg ? _bsXn(R3.getCell(w.kg).value) : 0, nm: w.nm ? _bsXs(R3.getCell(w.nm).value) : "", qty: qty, dur: w.dur ? Math.max(0, Math.round(_bsXn(R3.getCell(w.dur).value))) : 0, loc: loc, locs: locs, note: w.note ? _bsXs(R3.getCell(w.note).value) : "", _r: nm + " " + r3 + "줄" }); }
       used = true;
     }
     // 입고 (원래 현황 왼쪽 · 현황 시트)
@@ -828,7 +877,7 @@ function _bsImportPreview(P, fname){
 function _bsImpSeason(P, old){
   var v = { work: {}, inb: {}, items: P.items, zones: P.zones.length ? P.zones : ((old && old.zones) || BS_ZONES.map(function(a){ return { nm: a[0], cap: a[1] }; })) }, n = 0;
   var id = function(p){ n++; return p + Date.now().toString(36) + ("00" + n).slice(-3); };
-  P.work.forEach(function(w){ var o = { thaw: w.thaw, dry: w.dry, item: w.item, qty: w.qty, dur: w.dur, loc: w.loc, note: w.note }; if(w.nm) o.nm = w.nm; v.work[id("w")] = o; });
+  P.work.forEach(function(w){ var o = { thaw: w.thaw, dry: w.dry, item: w.item, qty: w.qty, dur: w.dur, loc: w.loc, note: w.note }; if(w.nm) o.nm = w.nm; if(w.locs) o.locs = w.locs; v.work[id("w")] = o; });
   P.inb.forEach(function(x){ v.inb[id("i")] = { dt: x.dt, item: x.item, qty: x.qty, from: x.from || "", note: x.note }; });
   return v;
 }
