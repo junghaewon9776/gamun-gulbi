@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>부세 입고 보내기 · 가문굴비</title>
-<!-- 🐟 부산 → 가문 부세 입고 양식 (로그인 없음). /busePub/{시즌} 에 '보내기만' — 읽기·고치기는 가문 직원만 (DB 규칙) -->
+<!-- 🐟 거래처 → 가문 부세 입고 양식 (로그인 없음). /busePub/{시즌} 에 '보내기만' — 읽기·고치기는 가문 직원만 (DB 규칙) -->
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:#ecfeff;color:#0f172a}
@@ -32,8 +32,8 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #cbd5e1;border-ra
   <div id="form">
     <div class="card">
       <label>보낸 날 (가문 도착일)</label><input id="dt" type="date">
-      <label>보내는 곳 · 이름</label><input id="from" placeholder="예: 부산 ○○수산 김○○" maxlength="40">
-      <label>차량번호 · 기사님 연락처 (선택)</label><input id="car" placeholder="예: 부산 12가 3456 / 010-..." maxlength="40">
+      <label>거래처 (보내는 곳) · 이름</label><input id="from" list="froms" placeholder="예: 대영물산" maxlength="40"><datalist id="froms"></datalist>
+      <label>차량번호 · 기사님 연락처 (선택)</label><input id="car" placeholder="예: 12가 3456 / 010-..." maxlength="40">
     </div>
     <div class="card">
       <label style="margin-top:0">품목 · 수량 (개)</label>
@@ -84,7 +84,7 @@ function send(){
   if(!CFG || !CFG.season) return e.textContent = "아직 준비 중이에요 — 잠시 후 다시 열어 주세요";
   var v = { dt: document.getElementById("dt").value, from: document.getElementById("from").value.trim(), car: document.getElementById("car").value.trim(), lines: lines(), memo: document.getElementById("memo").value.trim(), at: new Date().toISOString() };
   if(!v.dt) return e.textContent = "보낸 날을 골라 주세요";
-  if(!v.from) return e.textContent = "보내는 곳 · 이름을 적어 주세요";
+  if(!v.from) return e.textContent = "거래처 (보내는 곳) 이름을 적어 주세요";
   if(!v.lines.length) return e.textContent = "품목과 수량을 하나 이상 넣어 주세요";
   if(v.lines.length > 30) return e.textContent = "품목 줄은 30개까지예요";
   if(PHOTO) v.photo = PHOTO;
@@ -97,6 +97,7 @@ function send(){
 document.getElementById("dt").value = today();
 fbDb.ref("/busePubCfg").once("value").then(function(s){
   CFG = s.val() || {}; document.getElementById("seasonTxt").textContent = CFG.season ? "(" + CFG.season + " 시즌)" : "";
+  document.getElementById("froms").innerHTML = (CFG.froms || []).map(function(f){ return '<option value="' + esc(f) + '">'; }).join("");
   addLine(); addLine(); calc();
 }).catch(function(x){ document.getElementById("err").textContent = "불러오기 실패: " + x.message; addLine(); });
 </script>
