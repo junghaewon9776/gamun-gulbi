@@ -320,19 +320,19 @@ function dYkSet(){
   h += '</div><div class="mut" style="font-size:12px;margin-top:6px">우리 인건비는 작업마다 금액으로 넣어요 · 잡비도 작업에서 직접 고칠 수 있어요</div></div>';
   // 이모 명단
   var pe = Object.keys(S.people || {}).sort();
-  h += '<div class="card" style="margin-bottom:10px"><b>👵 이모 명단</b> <span class="mut" style="font-size:12px">— <b style="color:#7c3aed">체크 = 📌 고정</b>: 새 작업을 만들면 체크한 이모가 저절로 들어가요 · 작업 표에 처음 넣은 이모는 명단에만 추가돼요(고정 안 됨)</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
+  h += '<div class="card" style="margin-bottom:10px"><b>👵 이모 명단</b>' + (can ? ' <span style="display:inline-flex;gap:4px">' + _bsB("#15803d", "📥 엑셀 양식", "ykXlTpl('people')", "padding:5px 9px") + _bsB("#0e7490", "📤 엑셀로 등록", "ykXlPick('people')", "padding:5px 9px") + '</span>' : '') + ' <span class="mut" style="font-size:12px">— <b style="color:#7c3aed">체크 = 📌 고정</b>: 새 작업을 만들면 체크한 이모가 저절로 들어가요 · 작업 표에 처음 넣은 이모는 명단에만 추가돼요(고정 안 됨)</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
   pe.forEach(function(n){ var on = S.people[n].on !== false; h += '<label style="border:1px solid ' + (on ? "#b45309" : "#cbd5e1") + ';background:' + (on ? "#fff7ed" : "#f1f5f9") + ';border-radius:14px;padding:3px 10px;font-size:13px;cursor:pointer"><input type="checkbox" ' + (on ? "checked" : "") + (can ? '' : ' disabled') + ' onchange="ykPerson(\'' + esc(n) + '\',this.checked)"> ' + esc(n) + '</label>'; });
   h += (can ? '<input id="ykNewP" placeholder="이름" style="width:90px;padding:4px;border:1px solid #cbd5e1;border-radius:5px">' + _bsB("#b45309", "+", "var v=document.getElementById('ykNewP').value.trim();if(v)ykPerson(v,true)", "padding:3px 10px") : "") + '</div>' + _ykInfoBox() + '</div>';
   // 정품
   var I = S.items || {}, ik = Object.keys(I).sort(function(a, b){ return String(I[a].code || "z").localeCompare(String(I[b].code || "z")) || a.localeCompare(b); });
-  h += '<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px"><b>📦 정품 (품명 · 가격 · 라벨) ' + ik.length + '개</b>' + (can ? _bsB("#b45309", "+ 정품", "ykItemEdit('')") : "") + '</div><div style="overflow-x:auto;max-height:420px"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:900px"><thead><tr style="background:#fff7ed;position:sticky;top:0">';
+  h += '<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px"><b>📦 정품 (품명 · 가격 · 라벨) ' + ik.length + '개</b><span>' + (can ? ' <span style="display:inline-flex;gap:4px">' + _bsB("#15803d", "📥 엑셀 양식", "ykXlTpl('item')", "padding:5px 9px") + _bsB("#0e7490", "📤 엑셀로 등록", "ykXlPick('item')", "padding:5px 9px") + '</span>' : '') + '' + (can ? _bsB("#b45309", "+ 정품", "ykItemEdit('')") : "") + '</span></div><div style="overflow-x:auto;max-height:420px"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:900px"><thead><tr style="background:#fff7ed;position:sticky;top:0">';
   ["품명", "박스당 두름", "두름 마리수", "판매가", "도매가", "원가표", "무게(g)", "라벨 색", "라벨", "바코드", "메모", ""].forEach(function(x, i){ h += '<th style="padding:5px;text-align:' + (i >= 1 && i <= 6 ? "right" : "left") + ';white-space:nowrap">' + x + '</th>'; });
   h += '</tr></thead><tbody>';
   ik.forEach(function(k){ var x = I[k]; h += '<tr><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-weight:700">' + esc(x.nm) + '</td>' + ["box", "mi", "sale", "whole", "cost", "wt"].map(function(f){ return '<td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;text-align:right">' + (x[f] ? _ykWon(x[f]) : '') + '</td>'; }).join("") + '<td style="padding:4px 5px;border-bottom:1px solid #f1f5f9">' + esc(x.color || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px">' + (x.noLbl ? '<span style="color:#dc2626">안 뽑음</span>' : x.under ? x.under + '박스 이하 안 뽑음' : '뽑음') + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px">' + esc(x.code || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px;color:#7c3aed">' + esc(x.msg || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9">' + (can ? _bsB("#2563eb", "수정", "ykItemEdit('" + esc(k) + "')", "padding:2px 8px") : "") + '</td></tr>'; });
   h += '</tbody></table></div></div>';
   // 원료
   var M = S.mats || {}, mk = Object.keys(M).sort();
-  h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px"><b>🐟 원료 (짝당 마리수 · 무게 · 값) ' + mk.length + '개</b>' + (can ? _bsB("#b45309", "+ 원료", "ykMatEdit('')") : "") + '</div><div style="overflow-x:auto;max-height:360px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#fff7ed;position:sticky;top:0"><th style="padding:5px;text-align:left">원료명</th><th style="text-align:right">짝당 마리수</th><th style="text-align:right">짝당 무게(kg)</th><th style="text-align:right">짝당 값</th><th></th></tr></thead><tbody>';
+  h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px"><b>🐟 원료 (짝당 마리수 · 무게 · 값) ' + mk.length + '개</b><span>' + (can ? ' <span style="display:inline-flex;gap:4px">' + _bsB("#15803d", "📥 엑셀 양식", "ykXlTpl('mat')", "padding:5px 9px") + _bsB("#0e7490", "📤 엑셀로 등록", "ykXlPick('mat')", "padding:5px 9px") + '</span>' : '') + '' + (can ? _bsB("#b45309", "+ 원료", "ykMatEdit('')") : "") + '</span></div><div style="overflow-x:auto;max-height:360px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#fff7ed;position:sticky;top:0"><th style="padding:5px;text-align:left">원료명</th><th style="text-align:right">짝당 마리수</th><th style="text-align:right">짝당 무게(kg)</th><th style="text-align:right">짝당 값</th><th></th></tr></thead><tbody>';
   mk.forEach(function(k){ var x = M[k]; h += '<tr><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-weight:700">' + esc(x.nm) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + _bsW(x.mi) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + (x.kg ? _bsW(x.kg) : '') + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + (x.price ? _ykWon(x.price) : '') + '</td><td style="border-bottom:1px solid #f1f5f9">' + (can ? _bsB("#2563eb", "수정", "ykMatEdit('" + esc(k) + "')", "padding:2px 8px") : "") + '</td></tr>'; });
   return h + '</tbody></table></div></div>';
 }
@@ -704,4 +704,82 @@ function ykPrintProd(L){
       pages.push(b); }); });
   var T = pages.length === 1 ? L[0].dt : pages.length + "장";
   _ykWin("생산작업일지 " + T, '@page{size:A4;margin:12mm}.pg{width:186mm;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;letter-spacing:10px;font-size:24px;margin:2mm 0 6mm}.w{width:100%}.w td,.w th{border:1px solid #333;padding:5px 7px;font-size:13px}.w th{background:#eef2f7}.r{text-align:right}', pages.join(""));
+}
+
+// ════════ 📥📤 엑셀로 한꺼번에 등록 — 정품 · 원료 · 이모(명단 + 신고 정보) ════════
+//   양식 = 지금 목록이 들어 있는 엑셀 → 고치거나 줄 더해서 올리면 이름(첫 칸) 기준으로 새로 추가·고침. 빈 칸은 안 지움, 목록에서 빼도 안 지움
+var YK_XL = {
+  item: { nm: "정품", path: "items", cols: [["nm", "품명", "s", 1], ["box", "박스당 두름", "n"], ["mi", "두름 마리수 (10미/20미)", "n"], ["sale", "판매가 (두름당)", "n"], ["whole", "도매가 (두름당)", "n"], ["cost", "원가표 (두름당)", "n"], ["wt", "무게 (g)", "n"], ["color", "라벨 색", "s"], ["code", "바코드 (GA0005)", "s"], ["under", "N박스 이하 라벨 안 뽑음", "n"], ["noLbl", "라벨 안 뽑음 (O/X)", "b"], ["msg", "메모", "s"]] },
+  mat: { nm: "원료", path: "mats", cols: [["nm", "원료명", "s", 1], ["mi", "짝당 마리수", "n"], ["kg", "짝당 무게 (kg)", "n"], ["price", "짝당 값 (원)", "n"]] },
+  people: { nm: "이모", cols: [["nick", "이모 이름 (별명)", "s", 1], ["on", "📌 고정 (O/X)", "b"]] }
+};
+function _ykXlCols(t){ var c = YK_XL[t].cols.slice(); if(t === "people" && _ykBoss()) YK_INFO_F.forEach(function(f){ c.push([f[0], f[1], "s", 0, 1]); }); return c; }
+async function ykXlTpl(t){
+  var D = YK_XL[t], C = _ykXlCols(t), S = _ykS(), EJ;
+  if(t === "people" && _ykBoss() && (!YK.info || YK.info.__err)){ try{ YK.info = (await fbDb.ref("/YkInfo").once("value")).val() || {}; }catch(e){ return toast("이모 신고 정보를 못 읽었어요: " + e.message, true); } }
+  showLoading("엑셀 만드는 중..."); try { EJ = await _loadExcelJS(); } catch(e){ hideLoading(); return toast(e.message, true); }
+  var wb = new EJ.Workbook(), ws = wb.addWorksheet(D.nm), rows = [];
+  if(t === "item") _ykItemKeys().forEach(function(k){ rows.push(S.items[k]); });
+  else if(t === "mat") _ykMatKeys().forEach(function(k){ rows.push(S.mats[k]); });
+  else { var P = S.people || {}, I = YK.info || {}, nk = {}; Object.keys(P).forEach(function(n){ nk[n] = 1; }); Object.keys(I).forEach(function(n){ if(n !== "__err") nk[n] = 1; });
+    Object.keys(nk).sort().forEach(function(n){ rows.push(Object.assign({ nick: n, on: (P[n] || {}).on !== false && !!P[n] }, I[n] || {})); }); }
+  ws.columns = C.map(function(c){ return { header: c[1], key: c[0], width: c[3] ? 18 : c[2] === "n" ? 13 : c[0] === "addr" ? 30 : 15 }; });
+  rows.forEach(function(r){ var o = {}; C.forEach(function(c){ var v = r[c[0]]; o[c[0]] = c[2] === "b" ? (v ? "O" : "") : (v == null ? "" : v); }); ws.addRow(o); });
+  var hr = ws.getRow(1); hr.font = { bold: true, color: { argb: "FFFFFFFF" } }; hr.height = 22;
+  C.forEach(function(c, i){ var cell = hr.getCell(i + 1); cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: c[3] ? "FFB45309" : c[4] ? "FF7C3AED" : "FF334155" } }; cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true }; if(c[2] !== "n") ws.getColumn(i + 1).numFmt = "@"; });
+  ws.views = [{ state: "frozen", ySplit: 1 }];
+  var g = wb.addWorksheet("쓰는 법");
+  ["· 첫 번째 칸(" + C[0][1] + ")이 같으면 그 줄을 고치고, 없는 이름이면 새로 추가해요", "· 빈 칸은 그대로 둬요 (지우지 않아요) · 목록에서 줄을 빼도 지워지지 않아요", "· O/X 칸은 O 또는 1 이면 켜짐", "· 줄 머리(1번째 줄) 이름은 바꾸지 마세요 — 칸 순서는 바꿔도 돼요"].concat(t === "people" && _ykBoss() ? ["· 보라색 칸(실명·주민번호·계좌 등)은 신고용 정보 — 사장님·관리자만 보고 올릴 수 있어요"] : []).forEach(function(x){ g.addRow([x]); });
+  g.getColumn(1).width = 90;
+  var buf = await wb.xlsx.writeBuffer(), a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })); a.download = "엮거리_" + D.nm + "_양식_" + _bsToday() + ".xlsx"; document.body.appendChild(a); a.click(); a.remove(); hideLoading();
+  toast("📥 " + D.nm + " 양식 (지금 목록 " + rows.length + "줄)");
+}
+function ykXlPick(t){ var i = document.createElement("input"); i.type = "file"; i.accept = ".xlsx"; i.onchange = function(){ if(i.files[0]) ykXlRead(t, i.files[0]); }; i.click(); }
+async function ykXlRead(t, file){
+  var D = YK_XL[t], C = _ykXlCols(t), S = _ykS(), EJ;
+  if(t === "people" && _ykBoss() && (!YK.info || YK.info.__err)){ try{ YK.info = (await fbDb.ref("/YkInfo").once("value")).val() || {}; }catch(e){ return toast("이모 신고 정보를 못 읽었어요: " + e.message, true); } }
+  showLoading("엑셀 읽는 중..."); try { EJ = await _loadExcelJS(); } catch(e){ hideLoading(); return toast(e.message, true); }
+  var wb = new EJ.Workbook(); try { await wb.xlsx.load(await file.arrayBuffer()); } catch(e){ hideLoading(); return toast("엑셀(.xlsx)을 못 읽었어요: " + e.message, true); }
+  var ws = wb.worksheets[0], col = {}, val = function(c){ var v = c && c.value; if(v && typeof v === "object"){ if(v.richText) v = v.richText.map(function(x){ return x.text; }).join(""); else if(v.result != null) v = v.result; else if(v.text != null) v = v.text; } return v == null ? "" : String(v).trim(); };
+  ws.getRow(1).eachCell(function(c, n){ var h = val(c).replace(/\s+/g, ""); C.forEach(function(x){ if(h === x[1].replace(/\s+/g, "")) col[x[0]] = n; }); });
+  hideLoading();
+  if(!col[C[0][0]]) return toast("첫 줄에 「" + C[0][1] + "」 칸이 없어요 — 📥 엑셀 양식으로 받은 파일에 적어 주세요", true);
+  var list = [], bad = [];
+  for(var r = 2; r <= ws.rowCount; r++){ var row = ws.getRow(r), o = {}, any = false;
+    C.forEach(function(x){ if(!col[x[0]]) return; var v = val(row.getCell(col[x[0]])); if(v === "") return; any = true;
+      if(x[2] === "n"){ var n = _bsN(String(v).replace(/[,원\s]/g, "")); o[x[0]] = n; } else if(x[2] === "b") o[x[0]] = /^(o|ㅇ|1|y|yes|true|예|네|켬)$/i.test(v); else o[x[0]] = v; });
+    if(!any) continue; var key = o[C[0][0]];
+    if(!key){ bad.push(r + "번째 줄: " + C[0][1] + " 비어 있음"); continue; }
+    if(t === "people" && /[.#$\[\]\/]/.test(key)){ bad.push(r + "번째 줄: 이름에 . # $ [ ] / 못 씀 (" + key + ")"); continue; }
+    if(t === "mat" && !o.mi && !(S.mats || {})[_ykKey(key)]){ bad.push(r + "번째 줄: 새 원료는 짝당 마리수 필요 (" + key + ")"); continue; }
+    list.push(o); }
+  var cur = t === "item" ? S.items || {} : t === "mat" ? S.mats || {} : S.people || {}, isNew = function(o){ return t === "people" ? !cur[o.nick] && !(YK.info || {})[o.nick] : !cur[_ykKey(o.nm)]; };
+  // 바뀐 게 없는 줄은 '그대로' — 등록에서 빼요
+  var curOf = function(o){ return t === "people" ? Object.assign({ nick: o.nick, on: !!cur[o.nick] && cur[o.nick].on !== false }, (YK.info || {})[o.nick] || {}) : cur[_ykKey(o.nm)] || {}; };
+  var same = function(o){ if(isNew(o)) return false; var c = curOf(o); return Object.keys(o).every(function(k){ var a = o[k], b = c[k]; return typeof a === "boolean" ? a === !!b : String(a) === String(b == null ? "" : b); }); };
+  list.forEach(function(o){ o.__st = isNew(o) ? "new" : same(o) ? "same" : "chg"; });
+  var nN = list.filter(function(o){ return o.__st === "new"; }).length, nC = list.filter(function(o){ return o.__st === "chg"; }).length, nS = list.length - nN - nC;
+  list.sort(function(a, b){ var r = { new: 0, chg: 1, same: 2 }; return r[a.__st] - r[b.__st]; });
+  YK.xl = { t: t, list: list.filter(function(o){ return o.__st !== "same"; }) };
+  var h = '<h3 style="margin:0 0 10px">📤 ' + D.nm + ' 엑셀로 등록 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3>';
+  h += '<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1;background:#ecfdf5;border-radius:8px;padding:8px;text-align:center"><div class="mut" style="font-size:12px">새로 추가</div><b style="font-size:20px;color:#15803d">' + nN + '</b></div><div style="flex:1;background:#eff6ff;border-radius:8px;padding:8px;text-align:center"><div class="mut" style="font-size:12px">바뀜</div><b style="font-size:20px;color:#1d4ed8">' + nC + '</b></div><div style="flex:1;background:#f8fafc;border-radius:8px;padding:8px;text-align:center"><div class="mut" style="font-size:12px">그대로 (안 바뀜)</div><b style="font-size:20px;color:#64748b">' + nS + '</b></div>' + (bad.length ? '<div style="flex:1;background:#fef2f2;border-radius:8px;padding:8px;text-align:center"><div class="mut" style="font-size:12px">못 넣는 줄</div><b style="font-size:20px;color:#dc2626">' + bad.length + '</b></div>' : '') + '</div>';
+  if(bad.length) h += '<div style="font-size:12px;color:#b91c1c;background:#fef2f2;border-radius:6px;padding:6px 8px;margin-bottom:8px;max-height:90px;overflow:auto">' + bad.map(esc).join("<br>") + '</div>';
+  var shown = C.filter(function(x){ return list.some(function(o){ return o[x[0]] != null; }); });
+  h += '<div style="max-height:46vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#f8fafc;position:sticky;top:0"><th></th>' + shown.map(function(x){ return '<th style="padding:5px;text-align:left;white-space:nowrap">' + esc(x[1]) + '</th>'; }).join("") + '</tr></thead><tbody>';
+  list.forEach(function(o){ var st = o.__st, oc = st === "chg" ? curOf(o) : {}; h += '<tr style="border-top:1px solid #f1f5f9' + (st === "same" ? ';color:#94a3b8' : '') + '"><td style="padding:4px;white-space:nowrap"><span style="font-size:11px;font-weight:800;padding:1px 6px;border-radius:8px;background:' + (st === "new" ? "#dcfce7;color:#15803d" : st === "chg" ? "#dbeafe;color:#1d4ed8" : "#f1f5f9;color:#94a3b8") + '">' + (st === "new" ? "새로" : st === "chg" ? "바뀜" : "그대로") + '</span></td>' + shown.map(function(x){ var v = o[x[0]], ch = st === "chg" && v != null && (typeof v === "boolean" ? v !== !!oc[x[0]] : String(v) !== String(oc[x[0]] == null ? "" : oc[x[0]])); return '<td style="padding:4px;white-space:nowrap' + (ch ? ';background:#fef9c3;font-weight:800" title="지금: ' + esc(oc[x[0]] == null ? "" : oc[x[0]]) : '') + '">' + (v == null ? '<span style="color:#cbd5e1">-</span>' : x[2] === "b" ? (v ? "O" : "X") : x[0] === "rrn" ? esc(String(v).slice(0, 8) + "******") : esc(v)) + '</td>'; }).join("") + '</tr>'; });
+  h += '</tbody></table></div><div class="mut" style="font-size:12px;margin-top:6px">빈 칸은 지금 값 그대로 · 엑셀에 없는 ' + D.nm + '은 안 지워요</div>';
+  h += '<div style="display:flex;justify-content:flex-end;margin-top:10px">' + (YK.xl.list.length ? _bsB("#16a34a", "💾 " + YK.xl.list.length + "개 등록 (새로 " + nN + " · 바뀜 " + nC + ")", "ykXlSave()", "padding:9px 22px") : '<span class="mut">바뀐 게 없어요</span>') + '</div>';
+  openPopup(h, 760);
+}
+function ykXlSave(){
+  var X = YK.xl; if(!X) return; var t = X.t, S = _ykS(), up = {}, info = {};
+  X.list.forEach(function(o){
+    if(t === "people"){ var n = o.nick, p = (S.people || {})[n]; up["people/" + n] = { on: o.on != null ? !!o.on : (p ? p.on !== false : false) };
+      var f = {}; YK_INFO_F.forEach(function(x){ if(o[x[0]] != null && o[x[0]] !== "") f[x[0]] = String(o[x[0]]); }); if(f.rrn && /^\d{13}$/.test(f.rrn)) f.rrn = f.rrn.slice(0, 6) + "-" + f.rrn.slice(6); if(Object.keys(f).length && _ykBoss()) info[n] = f; return; }
+    var path = YK_XL[t].path, key = _ykKey(o.nm), old = (S[path] || {})[key] || (t === "item" ? { box: 10, mi: 10 } : {}), v = Object.assign({}, old);
+    Object.keys(o).forEach(function(k){ if(k !== "__st") v[k] = o[k]; }); up[path + "/" + key] = v; });
+  showLoading("등록 중...");
+  _ykRef().update(up).then(function(){ var ps = Object.keys(info).map(function(n){ return fbDb.ref("/YkInfo/" + n).update(info[n]).then(function(){ YK.info = YK.info || {}; YK.info[n] = Object.assign({}, YK.info[n] || {}, info[n]); }); }); return Promise.all(ps); })
+    .then(function(){ Object.keys(up).forEach(function(p){ var a = p.split("/"); YK.D[a[0]] = YK.D[a[0]] || {}; YK.D[a[0]][a[1]] = up[p]; }); hideLoading(); closePopup(); YK.xl = null; toast("📤 " + YK_XL[t].nm + " " + X.list.length + "개 등록했어요"); draw(); })
+    .catch(function(e){ hideLoading(); toast("등록 실패: " + e.message, true); });
 }
