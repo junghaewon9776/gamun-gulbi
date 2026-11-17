@@ -345,17 +345,30 @@ function _bsWorkCalc(id){
   var rem = document.getElementById("bwRem"); if(rem && parts.length > 1) rem.textContent = _bsW(parts[parts.length - 1].doo);
   if(parts.length && v.dry && v.dur && !v.hold){
     parts.forEach(function(pt){
-      var cap = _bsCap(pt.loc), mx = 0, mxd = v.dry;
-      for(var i = 0; i < v.dur; i++){ var dd = _bsAdd(v.dry, i), o = _bsOcc(pt.loc, dd, id, rows0).doo; if(o > mx){ mx = o; mxd = dd; } }
-      capTxt += (capTxt ? "<br>" : "") + esc(pt.loc) + ": 다른 작업 최대 " + _bsW(mx) + "두름(" + _bsMS(mxd) + ") + 이번 " + _bsW(pt.doo) + " = <b" + (cap && mx + pt.doo > cap ? ' style="color:#dc2626"' : '') + ">" + _bsW(mx + pt.doo) + "</b>" + (cap ? " / " + _bsW(cap) + "두름" : "");
-      if(cap && mx + pt.doo > cap){
-        var clash = _bsOcc(pt.loc, mxd, id, rows0).list.map(function(c){ return _bsMS(c.dry) + "~" + _bsMS(c.walk) + " " + esc(_bsLbl(c.item)) + " " + _bsW(c.doo) + "두름"; });
-        warn.push(esc(pt.loc) + " 자리가 넘쳐요 (" + _bsMS(mxd) + " " + _bsW(mx + pt.doo) + " / " + _bsW(cap) + "두름)" + (clash.length ? "<br>　└ 겹치는 작업: " + clash.join(", ") + " — 다른 구역으로 옮기거나 나눠 널기" : ""));
+      var cap = _bsCap(pt.loc), n = v.dur, zk = _bsZK(pt.loc), firstOver = null, wk = _bsAdd(v.dry, n);
+      var occ0 = _bsOcc(pt.loc, v.dry, id, rows0).doo;
+      // 너는 날 즈음(3일 전~당일)에 걷혀서 자리가 빈 작업
+      var freed = rows0.filter(function(r){ return r.id !== id && r.walk && r.walk <= v.dry && r.walk >= _bsAdd(v.dry, -3) && (r.parts || []).some(function(q){ return _bsZK(q.loc) === zk; }); });
+      for(var i = 0; i < n; i++){ var dd = _bsAdd(v.dry, i); if(cap && _bsOcc(pt.loc, dd, id, rows0).doo + pt.doo > cap){ firstOver = dd; break; } }
+      var line = '<b>' + esc(pt.loc) + '</b>' + (parts.length > 1 ? ' <span style="color:#475569">(이번 ' + _bsW(pt.doo) + '두름)</span>' : '');
+      if(!cap) line += ': 최대 두름이 정해지지 않은 구역이에요';
+      else if(occ0 + pt.doo <= cap) line += ': <b style="color:#16a34a">✅ ' + _bsMS(v.dry) + ' 널기 가능</b> — 그날 여유 ' + _bsW(cap - occ0) + '두름' + (freed.length ? ' <span style="color:#16a34a">(' + freed.map(function(r){ return _bsMS(r.walk) + ' ' + esc(_bsLbl(r.item)) + ' 걷어서 비었어요'; }).join(", ") + ')</span>' : '');
+      else line += ': <b style="color:#dc2626">❌ ' + _bsMS(v.dry) + '엔 자리가 없어요</b> — 그날 여유 ' + _bsW(Math.max(0, cap - occ0)) + ' / 이번 ' + _bsW(pt.doo) + '두름';
+      var news = [];
+      if(firstOver){
+        var o1 = _bsOcc(pt.loc, firstOver, id, rows0);
+        news = o1.list.filter(function(c){ return c.dry > v.dry; });   // 이번 작업보다 뒤에 들어오는 것
+        var who = (news.length ? news : o1.list).map(function(c){ return _bsMS(c.dry) + "~" + _bsMS(c.walk) + " " + esc(_bsLbl(c.item)) + " " + _bsW(c.doo) + "두름"; });
+        if(firstOver > v.dry) line += '<br>　<b style="color:#dc2626">⚠️ ' + _bsMS(firstOver) + '부터 넘쳐요</b> (' + _bsW(o1.doo + pt.doo) + ' / ' + _bsW(cap) + ') — 그날 ' + (news.length ? '들어오는 ' : '걸려 있는 ') + who.join(", ") + ' 때문 · 이번 작업은 ' + _bsMS(wk) + '까지 말려야 해서';
+        warn.push(esc(pt.loc) + (firstOver > v.dry ? " — 널 수는 있지만 " + _bsMS(firstOver) + "부터 넘쳐요" : " — " + _bsMS(v.dry) + "엔 자리가 없어요") + " (" + _bsW(o1.doo + pt.doo) + " / " + _bsW(cap) + "두름)<br>　└ " + (news.length ? "뒤에 들어오는 작업: " : "겹치는 작업: ") + who.join(", "));
         if(parts.length === 1){
           var f = _bsFit(pt.loc, pt.doo, v.dry, v.dur, id);
-          fit += f === "over" ? '<div>📌 ' + esc(pt.loc) + '은(는) 최대 ' + _bsW(cap) + '두름이라 한 번에 못 널어요 — 구역을 더 체크해서 나눠 널기</div>' : f ? '<div>📌 <b>' + esc(pt.loc) + '은(는) ' + _bsMS(f) + '부터 널 수 있어요</b> <span style="font-size:12px;color:#475569">(말리는 ' + v.dur + '일 내내 자리가 되는 날)</span> <button class="btn" style="background:#0e7490;color:#fff;padding:2px 8px" onclick="document.getElementById(\'bw_dry\').value=\'' + f + '\';_bsWorkCalc(\'' + (id || "") + '\')">그 날로</button></div>' : '';
+          if(news.length) fit += '<div>👉 <b>' + who.join(", ") + '</b> 을(를) 다른 구역으로 옮기거나 나눠 널면 ' + _bsMS(v.dry) + '에 그대로 널 수 있어요</div>';
+          fit += f === "over" ? '<div>📌 ' + esc(pt.loc) + '은(는) 최대 ' + _bsW(cap) + '두름이라 한 번에 못 널어요 — 구역을 더 체크해서 나눠 널기</div>' : f ? '<div>📌 이번 작업을 미룬다면: <b>' + esc(pt.loc) + ' ' + _bsMS(f) + '부터</b> ' + n + '일 내내 자리가 돼요 <button class="btn" style="background:#0e7490;color:#fff;padding:2px 8px" onclick="document.getElementById(\'bw_dry\').value=\'' + f + '\';_bsWorkCalc(\'' + (id || "") + '\')">그 날로</button></div>' : '';
         }
       }
+      if(cap) line += _bsStrip(pt.loc, v.dry, n, pt.doo, id, rows0, cap);
+      capTxt += (capTxt ? '<div style="height:6px"></div>' : '') + line;
     });
   }
   // 그 날 바로 널 수 있는 다른 구역 (한 곳만 골랐거나 안 골랐을 때)
@@ -367,6 +380,15 @@ function _bsWorkCalc(id){
   if(parts.length > 1){ var sum = 0; parts.forEach(function(pt, i){ if(i < parts.length - 1) sum += pt.doo; }); var ent = (v.locs || []).slice(0, -1).reduce(function(a, x){ return a + x.doo; }, 0); if(ent > doo) warn.push("앞 구역에 적은 두름(" + _bsW(ent) + ")이 전체(" + _bsW(doo) + ")보다 많아요 — 줄여 주세요"); }
   el.innerHTML = '<div style="background:#ecfeff;border-radius:8px;padding:9px 12px;font-size:13.5px;line-height:1.8">두름 <b style="font-size:16px">' + _bsW(doo) + '</b> · 걷는 날 <b style="font-size:16px;color:#dc2626">' + (walk ? _bsMD(walk) : "-") + '</b>' + (walk ? ' (D-' + _bsDiff(walk, _bsToday()) + ')' : '') + (capTxt ? '<br><span style="font-size:12.5px">' + capTxt + '</span>' : '') + (v.hold ? '<br><b style="color:#7c3aed">🧊 보류 중 — 자리 계산에서 빠짐</b>' : '') + '</div>' + (fit ? '<div style="background:#f0fdf4;border-radius:8px;padding:8px 12px;margin-top:6px;font-size:13px;line-height:1.8">' + fit + '</div>' : '') +
     (warn.length ? '<div style="background:#fef3c7;border-radius:8px;padding:8px 12px;margin-top:6px;font-size:13px;color:#92400e">⚠️ ' + warn.join("<br>⚠️ ") + '</div>' : '');
+}
+function _bsStrip(loc, dry, n, mine, id, rows, cap){
+  var st = _bsAdd(dry, -3), N = n + 5, wk = _bsAdd(dry, n), h = '<div style="display:flex;gap:1px;margin-top:4px;overflow-x:auto;padding-bottom:2px">';
+  for(var i = 0; i < N; i++){
+    var d = _bsAdd(st, i), o = _bsOcc(loc, d, id, rows).doo, inW = d >= dry && d < wk, tot = o + (inW ? mine : 0), w = _bsWd(d);
+    var bg = tot > cap ? "#dc2626" : inW ? "#0e7490" : o >= cap * 0.7 ? "#fbbf24" : o > 0 ? "#bbf7d0" : "#e2e8f0", fg = tot > cap || inW ? "#fff" : "#334155";
+    h += '<div title="' + _bsMD(d) + ' · 다른 작업 ' + _bsW(o) + (inW ? ' + 이번 ' + _bsW(mine) : '') + ' = ' + _bsW(tot) + ' / ' + _bsW(cap) + '두름" style="flex:none;width:23px;text-align:center;font-size:9.5px;line-height:1.15;padding:2px 0;border-radius:3px;background:' + bg + ';color:' + fg + ';' + (d === dry || d === wk ? "outline:2px solid #0f172a;outline-offset:-2px;" : "") + '">' + (+d.slice(8)) + '<br><span style="' + (w === "토" ? "color:" + (inW || tot > cap ? "#bfdbfe" : "#2563eb") : w === "일" ? "color:" + (inW || tot > cap ? "#fecaca" : "#dc2626") : "") + '">' + w + '</span></div>';
+  }
+  return h + '</div><div style="font-size:10.5px;color:#64748b">칸 = 하루 · <span style="color:#0e7490">■ 이번 작업 말리는 날</span> · <span style="color:#dc2626">■ 넘침</span> · <span style="color:#16a34a">■ 다른 작업 있음</span> · 굵은 테두리 = 너는 날·걷는 날</div>';
 }
 function bsWorkSave(id){
   var v = _bsWorkVal();
