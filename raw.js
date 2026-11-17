@@ -59,7 +59,9 @@ function _rwComp(r, C){
     if(i === 0 && comp.length){ comp.forEach(function(x){ add(x.mat, _bsN(l.qty) * _bsN(x.pct) / cs, "base"); }); }
     else add(l.mat, _bsN(l.qty), r && r.mode === "add" && i > 0 ? "add" : "base"); });
   var tot = ord.reduce(function(a, k){ return a + m[k].kg; }, 0);
-  return { has: comp.length > 0, compSum: cs, total: tot, lines: ord.map(function(k){ var x = m[k]; x.pct = tot ? x.kg / tot : 0; x.both = x.src.base && x.src.add; return x; }).sort(function(a, b){ return b.kg - a.kg; }) };
+  // compAll: % 가 더한 원료까지 다 섞은 완제품 기준(예전 엑셀 배합) → 총량 × % 그대로
+  if(comp.length && r.base.compAll){ m = {}; ord = []; comp.forEach(function(x){ add(x.mat, tot * _bsN(x.pct) / cs, "all"); }); }
+  return { all: !!(comp.length && r.base.compAll), has: comp.length > 0, compSum: cs, total: tot, lines: ord.map(function(k){ var x = m[k]; x.pct = tot ? x.kg / tot : 0; x.both = x.src.base && x.src.add; return x; }).sort(function(a, b){ return b.kg - a.kg; }) };
 }
 // ── 원가: 사 오는 원료(통·더하는 원료) kg × 단가 ──
 function _rwCost(r, C){
@@ -71,9 +73,9 @@ function _rwWon(n){ return Math.round(_bsN(n)).toLocaleString("ko-KR"); }
 function _rwCompHtml(r, C){
   var X = _rwComp(r, C), K = _rwCost(r, C), pack = _bsN(r.pack), F = _rwFac(r), tong = r.mode === "add" ? C.base / (F.unit || 1) : 0, h = "";
   if(r.mode === "add"){
-    h += '<div style="margin-top:12px;font-weight:800;font-size:14px">🧾 완제품 원료 구성 <span class="mut" style="font-weight:400;font-size:12px">— ' + (X.has ? esc(F.base) + ' 통 안의 원료%까지 풀어서 계산' : '<span style="color:#c2410c">' + esc(F.base) + ' 통 안의 원료%를 배합표에 넣으면 풀어서 보여 줘요</span>') + '</span></div>';
+    h += '<div style="margin-top:12px;font-weight:800;font-size:14px">🧾 완제품 원료 구성 <span class="mut" style="font-weight:400;font-size:12px">— ' + (X.all ? '총량 × 완제품 배합 % (더한 원료 포함된 %)' : X.has ? esc(F.base) + ' 통 안의 원료%까지 풀어서 계산' : '<span style="color:#c2410c">' + esc(F.base) + ' 통 안의 원료%를 배합표에 넣으면 풀어서 보여 줘요</span>') + '</span></div>';
     h += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:4px"><tr style="background:#fff7ed"><th style="padding:5px;text-align:left">원료</th><th style="text-align:right">kg</th><th style="text-align:right">완제품 대비 %</th><th style="text-align:left;padding-left:8px">어디서</th></tr>';
-    X.lines.forEach(function(x){ h += '<tr><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-weight:700">' + esc(x.mat) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + _rwKg(x.kg) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9;font-weight:800;color:#c2410c">' + (Math.round(x.pct * 10000) / 100) + '%</td><td style="padding-left:8px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#475569">' + (x.both ? '통 + 더함' : x.src.add ? '우리가 더함' : X.has ? esc(F.base) + ' 통 안' : '사 온 통') + '</td></tr>'; });
+    X.lines.forEach(function(x){ h += '<tr><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-weight:700">' + esc(x.mat) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + _rwKg(x.kg) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9;font-weight:800;color:#c2410c">' + (Math.round(x.pct * 10000) / 100) + '%</td><td style="padding-left:8px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#475569">' + (X.all ? '완제품 배합 %' : x.both ? '통 + 더함' : x.src.add ? '우리가 더함' : X.has ? esc(F.base) + ' 통 안' : '사 온 통') + '</td></tr>'; });
     h += '<tr style="font-weight:900;background:#f1f5f9"><td style="padding:5px">합계</td><td style="text-align:right">' + _rwKg(X.total) + '</td><td style="text-align:right">100%</td><td></td></tr></table>';
     if(X.has && Math.abs(X.compSum - 1) > 0.0001) h += '<div style="font-size:12px;color:#dc2626;margin-top:3px">⚠ 통 안 원료% 합이 ' + Math.round(X.compSum * 100000) / 1000 + '% 예요 — 100% 로 맞춰서 나눴어요</div>';
   }
@@ -272,6 +274,7 @@ function _rwRecipeUI(){
     var cs = r.base.comp.reduce(function(a, x){ return a + _bsN(x.pct); }, 0);
     h += '<div style="font-size:13px;font-weight:700;margin:10px 0 4px">' + esc(r.base.mat || "기본 원료") + ' 한 통 안의 원료 % <span class="mut" style="font-weight:400;font-size:11.5px">— 사 오는 제품 표시사항(원재료명 및 함량)대로. 완제품 원료 구성·% 계산에 써요 (재고는 통째로 빠짐)</span></div>';
     r.base.comp.forEach(function(x, i){ h += '<div style="display:flex;gap:6px;margin-bottom:5px">' + I(x.mat, "window._rwRE.r.base.comp[" + i + "].mat=this.value", "60%", 'list="reMats" placeholder="원료 (예: 갈치)"') + I(x.pct === "" ? "" : Math.round(_bsN(x.pct) * 100000) / 1000, "window._rwRE.r.base.comp[" + i + "].pct=_bsN(this.value)/100;_rwCompSum()", "30%", 'type="number" step="any" placeholder="%"') + '<button class="btn" style="background:#dc2626;color:#fff" onclick="window._rwRE.r.base.comp.splice(' + i + ',1);_rwRecipeUI()">✕</button></div>'; });
+    h += '<label style="display:block;font-size:12.5px;margin:2px 0 6px;color:#7c2d12"><input type="checkbox" ' + (r.base.compAll ? "checked" : "") + ' onchange="window._rwRE.r.base.compAll=this.checked"> 이 % 는 <b>더하는 원료까지 다 섞은 완제품</b> 기준 (예전 엑셀 배합처럼) → 총량에 % 를 그대로 곱해요</label>';
     h += _bsB("#b45309", "+ 통 안 원료 줄", "window._rwRE.r.base.comp.push({mat:'',pct:''});_rwRecipeUI()") + ' <span id="rwCSum" style="font-size:13px;font-weight:800;margin-left:8px;color:' + (!r.base.comp.length ? "#94a3b8" : Math.abs(cs - 1) < 0.0001 ? "#16a34a" : "#dc2626") + '">합 ' + Math.round(cs * 100000) / 1000 + '%</span>';
     h += '<div style="font-size:13px;font-weight:700;margin:12px 0 4px">한 통에 더하는 원료 (kg)</div>';
     r.adds.forEach(function(a, i){ h += '<div style="display:flex;gap:6px;margin-bottom:5px">' + I(a.mat, "window._rwRE.r.adds[" + i + "].mat=this.value", "60%", 'list="reMats" placeholder="원료"') + I(a.per, "window._rwRE.r.adds[" + i + "].per=this.value", "30%", 'type="number" step="any" placeholder="kg"') + '<button class="btn" style="background:#dc2626;color:#fff" onclick="window._rwRE.r.adds.splice(' + i + ',1);_rwRecipeUI()">✕</button></div>'; });
@@ -328,7 +331,7 @@ function rwPrintProdIds(ids, ret){
     (p.lines || []).forEach(function(l){ var pc = l.pct != null && l.pct !== "" ? _bsN(l.pct) : (tot ? _bsN(l.qty) / tot : 0); h += '<tr><td>' + esc(l.mat) + '</td><td class="r">' + (Math.round(pc * 10000) / 100) + '</td><td class="r v">' + _rwKg(l.qty) + '</td><td></td></tr>'; });
     h += '<tr style="font-weight:800"><td class="c">합 계</td><td class="r">100</td><td class="r v">' + _rwKg(tot) + '</td><td></td></tr></table>';
     var rr = (_rwS().recipes || {})[p.rid], X = rr && rr.mode === "add" ? _rwComp(rr, { lines: p.lines || [] }) : null;
-    if(X && X.has){ h += '<div style="margin:5mm 0 2mm;font-weight:800">완제품 원재료 배합비율 (' + esc((rr.base || {}).mat || "") + ' 통 안 원료 포함)</div><table><tr><th>원재료명</th><th style="width:20%">배합비율(%)</th><th style="width:22%">중량(kg)</th></tr>';
+    if(X && X.has){ h += '<div style="margin:5mm 0 2mm;font-weight:800">완제품 원재료 배합비율' + (X.all ? '' : ' (' + esc((rr.base || {}).mat || "") + ' 통 안 원료 포함)') + '</div><table><tr><th>원재료명</th><th style="width:20%">배합비율(%)</th><th style="width:22%">중량(kg)</th></tr>';
       X.lines.forEach(function(x){ h += '<tr><td>' + esc(x.mat) + '</td><td class="r">' + (Math.round(x.pct * 10000) / 100) + '</td><td class="r v">' + _rwKg(x.kg) + '</td></tr>'; });
       h += '<tr style="font-weight:800"><td class="c">합 계</td><td class="r">100</td><td class="r v">' + _rwKg(X.total) + '</td></tr></table>'; }
     h += '<table style="margin-top:5mm"><tr><th style="width:18%">기 타</th><td class="v" colspan="3" style="height:16mm;vertical-align:top">' + esc(p.note || "") + '</td></tr><tr><th>포장방법 및 단위</th><td style="width:32%">' + (p.pack ? p.pack + 'g' : '') + '</td><th style="width:18%">가생산량(개)</th><td class="v">' + (p.units ? _rwKg(p.units) : '') + '</td></tr><tr><th>작 업 자</th><td class="v">' + esc(p.worker || "") + '</td><th>유통기한</th><td>' + esc(p.life || ((_rwS().recipes || {})[p.rid] || {}).life || "") + '</td></tr></table></div>';
