@@ -33,7 +33,7 @@ function _vdVs(kind){ var V = _vdS().v || {}; return Object.keys(V).filter(funct
 function _vdNoTag(v){ return v.no ? '<span style="background:#1e293b;color:#fff;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:900;margin-right:6px">' + esc(v.no) + '</span>' : ''; }
 // 장부 줄 (날짜순) + 합계 누계 + 원료 재고 누계
 function _vdRows(vid){
-  var R = (_vdS().r || {})[vid] || {}, ids = Object.keys(R).sort(function(a, b){ var x = R[a], y = R[b]; return String(x.dt || "").localeCompare(String(y.dt || "")) || _vdN(x.at) - _vdN(y.at) || (a < b ? -1 : 1); });
+  var R = (_vdS().r || {})[vid] || {}, ids = Object.keys(R).sort(function(a, b){ var x = R[a], y = R[b]; return String(x.dt || "").localeCompare(String(y.dt || "")) || (y.carry ? 1 : 0) - (x.carry ? 1 : 0) || _vdN(x.at) - _vdN(y.at) || (a < b ? -1 : 1); });
   var bal = 0, st = {};
   return ids.map(function(id){ var x = R[id], am = _vdAm(x); bal += am + _vdN(x.tax) - _vdN(x.pay);
     var nm = String(x.nm || "").trim(); if(nm && (_vdN(x.qty) || _vdN(x.out))){ st[nm] = (st[nm] || 0) + _vdN(x.qty) - _vdN(x.out); }
@@ -88,6 +88,7 @@ function _vdLedger(vid){
     h += _vdB("#2563eb", "💵 결제 (낸 돈)", "vdREdit('" + vid + "','','pay')"); }
   else if(can && raw) h += _vdB("#16a34a", "📥 입고 (산 것)", "vdREdit('" + vid + "','','in')", "padding:8px 14px;font-weight:800") + _vdB("#7c3aed", "📤 출고 (가져온 것)", "vdREdit('" + vid + "','','out')", "padding:8px 14px;font-weight:800") + _vdB("#2563eb", "💵 결제 (낸 돈)", "vdREdit('" + vid + "','','pay')", "padding:8px 14px;font-weight:800");
   else if(can) h += _vdB("#16a34a", "+ 산 것 적기", "vdREdit('" + vid + "','','buy')") + _vdB("#2563eb", "💵 결제(낸 돈) 적기", "vdREdit('" + vid + "','','pay')");
+  if(can) h += _vdB("#7c3aed", "📌 이월(기초)", "vdCarry('" + vid + "')");
   h += _vdB("#475569", "🖨 장부 인쇄", "vdPrint('" + vid + "')") + '</div>';
   var cols = raw ? ["일자", "품명", "규격", "입고", "단가", "출고", "금액", "입출금내역", "합계", "비고", "재고", ""] : ["일자", "품명", "규격", "수량", "단가", "금액", "세액", "입출금내역", "합계", "비고", ""];
   var R = { 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1 }; if(raw) R[10] = 1;
@@ -97,6 +98,10 @@ function _vdLedger(vid){
   h += '<datalist id="vdNms">' + _vdNmList(vid).map(function(nm){ var f = _vdPriceOf(vid, nm); return '<option value="' + esc(nm) + '">' + (f ? esc(_vdW(f.price) + "원") : "") + '</option>'; }).join("") + '</datalist>';
   var td = function(v, st){ return '<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (st || "") + '">' + v + '</td>'; }, n = function(v){ return _vdN(v) ? _vdQ(v) : ""; }, pc = pcx;
   list.forEach(function(o){ var x = o.x, pay = _vdN(x.pay), isPay = pay && !o.am && !_vdN(x.qty) && !_vdN(x.out);
+    if(x.carry){ h += '<tr style="background:#f5f3ff;' + (can ? "cursor:pointer" : "") + '"' + (can ? ' title="눌러서 이월 고치기" onclick="vdCarry(\'' + vid + '\')"' : '') + '>' + td(esc(String(x.dt || "").replace(/-/g, ".")), "white-space:nowrap;color:#6d28d9") + td('📌 ' + esc(x.nm || "전기이월"), "font-weight:800;color:#6d28d9") + td(esc(x.spec || ""), "color:#475569");
+      if(raw) h += td(n(x.qty), "text-align:right;color:#6d28d9;font-weight:800") + td(n(x.price), "text-align:right") + td("") + td(o.am ? _vdW(o.am) : "", "text-align:right;color:#6d28d9;font-weight:800");
+      else h += td("") + td("") + td(o.am ? _vdW(o.am) : "", "text-align:right;color:#6d28d9;font-weight:800") + td("");
+      h += td(pay ? _vdW(pay) : "", "text-align:right") + td(_vdW(o.bal), "text-align:right;font-weight:800;color:" + (o.bal > 0 ? "#b91c1c" : "#475569")) + td(esc(x.note || "이월"), "font-size:12px;color:#6d28d9") + (raw ? td(o.stock == null ? "" : _vdQ(o.stock), "text-align:right;color:#0369a1") : "") + td(can ? '<span style="color:#a78bfa;font-size:12px">이월</span>' : "", "text-align:right") + '</tr>'; return; }
     if(pc && VD.edit === o.id){ h += _vdInRow(vid, o.id, x, raw); return; }
     h += '<tr style="' + (isPay ? "background:#f0fdf4;" : "") + (can ? "cursor:pointer" : "") + '"' + (can ? ' title="' + (pc ? "누르면 이 줄을 바로 고쳐요" : "누르면 고쳐요") + '" onclick="' + (pc ? "VD.edit='" + o.id + "';VD.focus='ve_nm';draw()" : "vdREdit('" + vid + "','" + o.id + "')") + '"' : '') + '>' + td(esc(String(x.dt || "").replace(/-/g, ".")), "white-space:nowrap") + td(esc(x.nm || ""), "font-weight:700") + td(esc(x.spec || ""), "color:#475569");
     if(raw) h += td(n(x.qty), "text-align:right") + td(n(x.price), "text-align:right") + td(n(x.out), "text-align:right;color:#7c3aed") + td(o.am ? _vdW(o.am) : "", "text-align:right");
@@ -192,6 +197,43 @@ function vdBtSave(){
 }
 var VD_WON = { price: 1, am: 1, tax: 1, pay: 1 };
 function _vdWonId(id){ return VD_WON[String(id).replace(/^v[rneb]_/, "")] && /^v[rneb]_/.test(id); }
+// 📌 이월(기초) — 예전 장부 없이 '기준일 + 남은 미수금 + 품목별 남은 재고'만 넣고 시작
+//   r/{vid}/{id} = { dt: 기준일, nm: "전기이월", carry: 1, am: 이월 미수금 }  (원료는 품목마다 { nm: 품명, carry: 1, qty: 이월 재고, price?, am: 0 })
+//   다시 열면 기존 이월 줄을 불러와서 고치고, 저장하면 이월 줄만 통째로 바꿔요 (다른 장부 줄은 그대로)
+function vdCarry(vid){
+  var v = _vdS().v[vid], raw = v.kind === "raw", R = (_vdS().r || {})[vid] || {}, old = Object.keys(R).filter(function(k){ return R[k].carry; }).map(function(k){ return R[k]; });
+  var first = _vdRows(vid).filter(function(o){ return !o.x.carry; })[0], money = old.filter(function(x){ return !_vdN(x.qty); })[0] || {}, st = old.filter(function(x){ return _vdN(x.qty); });
+  var dt = (old[0] || {}).dt || (first ? _bsAdd ? _bsAdd(first.x.dt, -1) : first.x.dt : _vdToday().slice(0, 4) + "-01-01");
+  VD.cy = { vid: vid, rows: st.map(function(x){ return { nm: x.nm, qty: x.qty, price: x.price || "" }; }) }; if(raw && !VD.cy.rows.length) VD.cy.rows.push({ nm: "", qty: "", price: "" });
+  var h = '<h3 style="margin:0 0 4px">📌 ' + _vdNoTag(v) + esc(v.nm) + ' — 이월 (기초 자료)</h3><div class="mut" style="font-size:12.5px;margin-bottom:12px">예전 장부를 다 안 넣고, <b>기준일에 남아 있던 것</b>만 넣고 시작해요. 장부 맨 위에 📌 줄로 들어가고, 그 뒤 거래가 이어서 더해져요.</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px"><label style="font-size:13.5px;font-weight:700;display:flex;flex-direction:column;gap:3px">기준일 (이 날까지의 잔액)<input id="cy_dt" type="date" value="' + esc(dt) + '" style="padding:9px;font-size:15px;border:1px solid #cbd5e1;border-radius:7px"></label>';
+  h += '<label style="font-size:13.5px;font-weight:700;display:flex;flex-direction:column;gap:3px">이월 미수금 (우리가 줄 돈 남은 것)<input id="cy_am" type="text" inputmode="numeric" data-won value="' + esc(money.am ? _wonFmt(money.am) : "") + '" placeholder="예: 75,851,983" style="padding:9px;font-size:15px;border:1px solid #cbd5e1;border-radius:7px;text-align:right"></label></div>';
+  h += '<div class="mut" style="font-size:11.5px;margin-top:4px">미리 준 돈(선급)이 있으면 앞에 − 를 붙여 주세요</div>';
+  if(raw) h += '<div style="margin-top:14px"><b style="font-size:14px">📦 이월 재고 (거래처 창고에 남아 있던 것)</b><div id="cy_rows" style="margin-top:6px"></div>' + _vdB("#0369a1", "+ 품목 줄 추가", "_vdCyAdd()", "padding:6px 12px;margin-top:6px") + '</div>';
+  h += '<datalist id="cyNms">' + _vdNmList(vid).map(function(n){ return '<option value="' + esc(n) + '">'; }).join("") + '</datalist>';
+  h += '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:16px;flex-wrap:wrap"><span>' + (old.length ? _vdB("#dc2626", "이월 지우기", "vdCarrySave('" + vid + "',true)") : "") + '</span><span style="display:flex;gap:6px">' + _vdB("#475569", "닫기", "closePopup()") + _vdB("#7c3aed", "📌 이월 저장", "vdCarrySave('" + vid + "')", "padding:10px 22px;font-weight:800") + '</span></div>';
+  openPopup(h, 640); if(raw) _vdCyDraw();
+}
+function _vdCyDraw(){
+  var el = document.getElementById("cy_rows"); if(!el) return;
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13.5px"><tr style="background:#f5f3ff"><th style="padding:5px;text-align:left">품명</th><th style="padding:5px;text-align:right;width:110px">이월 재고 (수량)</th><th style="padding:5px;text-align:right;width:120px">단가 <span style="font-weight:400;font-size:11px">(몰라도 됨)</span></th><th style="width:40px"></th></tr>' + VD.cy.rows.map(function(r, i){
+    return '<tr><td style="padding:3px"><input list="cyNms" autocomplete="off" value="' + esc(r.nm) + '" oninput="VD.cy.rows[' + i + '].nm=this.value" placeholder="예: 부세19미(8.8)" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></td><td style="padding:3px"><input type="number" step="any" value="' + esc(r.qty) + '" oninput="VD.cy.rows[' + i + '].qty=this.value" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;text-align:right"></td><td style="padding:3px"><input type="text" inputmode="numeric" data-won value="' + esc(r.price ? _wonFmt(r.price) : "") + '" oninput="VD.cy.rows[' + i + '].price=this.value" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;text-align:right"></td><td style="text-align:center"><button class="btn" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:3px 8px" onclick="VD.cy.rows.splice(' + i + ',1);_vdCyDraw()">✕</button></td></tr>'; }).join("") + '</table>';
+}
+function _vdCyAdd(){ VD.cy.rows.push({ nm: "", qty: "", price: "" }); _vdCyDraw(); var ins = document.querySelectorAll("#cy_rows input[list]"); if(ins.length) ins[ins.length - 1].focus(); }
+function vdCarrySave(vid, del){
+  var R = (_vdS().r || {})[vid] || {}, up = {}, dt = (document.getElementById("cy_dt") || {}).value, am = _vdN((document.getElementById("cy_am") || {}).value), by = ME ? ME.n || ME.id || "" : "";
+  Object.keys(R).forEach(function(k){ if(R[k].carry) up["r/" + vid + "/" + k] = null; });
+  if(del){ if(!confirm("이월(기초) 줄을 모두 지울까요?")) return; }
+  else {
+    if(!dt) return toast("기준일을 넣어 주세요", true);
+    var rows = (VD.cy && VD.cy.rows || []).filter(function(r){ return String(r.nm || "").trim() && _vdN(r.qty); }), t0 = 1;
+    if(!am && !rows.length) return toast("이월 미수금이나 이월 재고를 넣어 주세요", true);
+    if(am) up["r/" + vid + "/cy_money"] = { dt: dt, nm: "전기이월", carry: 1, am: am, at: t0, by: by, note: "이월 미수금" };
+    rows.forEach(function(r, i){ var o = { dt: dt, nm: String(r.nm).trim(), carry: 1, qty: _vdN(r.qty), am: 0, at: t0 + 1 + i, by: by, note: "이월 재고" }; if(_vdN(r.price)) o.price = _vdN(r.price); up["r/" + vid + "/cy_s" + ("00" + i).slice(-3)] = o; });
+  }
+  _vdRef().update(up).then(function(){ VD.D.r = VD.D.r || {}; VD.D.r[vid] = VD.D.r[vid] || {}; Object.keys(up).forEach(function(p){ var id = p.split("/")[2]; if(up[p] === null) delete VD.D.r[vid][id]; else VD.D.r[vid][id] = up[p]; }); closePopup(); toast(del ? "이월 지웠어요" : "📌 이월 저장했어요"); draw(); })
+    .catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
 function _vdPc(){ return (window.innerWidth || 1200) >= 760; }
 // PC 표 안 입력 줄 — P: "vn_"(새 줄) / "ve_"(고치는 줄)
 function _vdInRow(vid, rid, x, raw){
@@ -366,6 +408,7 @@ async function vdXlRead(files){
         if(!x.dt || !(x.qty || x.out || x.am || x.pay || x.tax)) continue; last = x.dt;
         if(x.am == null && x.qty && x.price) x.am = Math.round(x.qty * x.price);
         if(/^(결제|입금|송금)/.test(x.nm || "") && x.am && !x.pay && !x.qty){ x.pay = x.am; delete x.am; }
+        if(/이월/.test((x.nm || "") + " " + (x.note || ""))){ x.carry = 1; if(x.qty && !/전기이월/.test(x.nm || "")) x.am = 0; }   // 엑셀의 이월 줄 = 📌 이월
         rows.push(x); }
       var vid = byNm[nm], have = {}; if(vid) Object.keys(((_vdS().r || {})[vid]) || {}).forEach(function(k){ var g = _vdSig(_vdS().r[vid][k]); have[g] = (have[g] || 0) + 1; });
       var neu = rows.filter(function(x){ var s = _vdSig(x); if(have[s] > 0){ have[s]--; return false; } return true; });
