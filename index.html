@@ -525,7 +525,11 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="raw.js?v=20261117g"></script>
 <script src="haccp.js?v=20261117b"></script>
 <script src="yk.js?v=20261118n"></script>
-<script src="vend.js?v=20261118b"></script>
+<script src="vend.js?v=20261118c"></script>
+<script>
+// 🖱 숫자 칸 위에서 휠 굴려도 숫자 안 바뀌게 (화면만 내려가요) — 시스템 전체
+document.addEventListener("wheel",function(e){var a=document.activeElement;if(a&&a.tagName==="INPUT"&&a.type==="number"&&(e.target===a||a.contains(e.target)))a.blur();},{passive:true});
+</script>
 
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="console.warn('XLSX CDN load failed')"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" onerror="console.warn('xlsx-js-style CDN load failed')"></script>
