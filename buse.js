@@ -595,6 +595,39 @@ function bsItemDel(k){
 }
 
 // ════════ 🗺 건조장 자리 ════════
+// 🎨 품목 색 (같은 품목은 어디서나 같은 색)
+var BS_ICOL = ["#2563eb", "#16a34a", "#ea580c", "#9333ea", "#0891b2", "#ca8a04", "#db2777", "#4f46e5", "#65a30d", "#dc2626", "#0d9488", "#7c2d12", "#475569"];
+function _bsIcol(item){ var ks = _bsSummary().map(function(r){ return r.k; }), i = ks.indexOf(item); if(i < 0){ var hsh = 0; String(item).split("").forEach(function(c){ hsh = (hsh * 31 + c.charCodeAt(0)) >>> 0; }); i = hsh; } return BS_ICOL[i % BS_ICOL.length]; }
+// 배치도 칸 안 두름 막대 — 품목별 색으로 나눔 · 숫자 크게
+function _bsZBar(o, cap){
+  var p = cap ? o.doo / cap : 0, by = {}; o.list.forEach(function(r){ by[r.item] = (by[r.item] || 0) + r.doo; });
+  var full = Math.max(cap, o.doo) || 1, seg = Object.keys(by).map(function(it){ return '<div title="' + esc(_bsLbl(it)) + ' ' + _bsW(by[it]) + '두름" style="width:' + (by[it] / full * 100) + '%;background:' + _bsIcol(it) + ';height:100%"></div>'; }).join("");
+  var capMark = o.doo > cap && cap ? '<div style="position:absolute;left:' + (cap / full * 100) + '%;top:-2px;bottom:-2px;width:2px;background:#0f172a"></div>' : '';
+  var h = '<div style="position:relative;height:12px;border-radius:4px;background:#e2e8f0;overflow:visible;margin:2px 2px 0"><div style="display:flex;height:100%;border-radius:4px;overflow:hidden">' + seg + '</div>' + capMark + '</div>';
+  h += '<div style="font-size:15px;font-weight:900;line-height:1.1;color:' + (p > 1 + BS_SLIGHT ? "#dc2626" : p > 1 ? "#c2410c" : "#0f172a") + '">' + _bsW(o.doo) + '<span style="font-size:10.5px;font-weight:600;color:#64748b"> / ' + _bsW(cap) + ' · ' + (cap ? Math.round(p * 100) : 0) + '%</span></div>';
+  if(o.list.length) h += '<div style="font-size:10px;line-height:1.25;color:#334155">' + Object.keys(by).map(function(it){ return '<span style="white-space:nowrap"><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:' + _bsIcol(it) + ';margin-right:2px"></span>' + esc(_bsBase(it)) + ' ' + _bsW(by[it]) + '</span>'; }).join(" ") + '</div>';
+  return h;
+}
+// ③ 날짜별 두름 흐름 — 날마다 건조장 전체에 몇 두름 걸렸나 (품목 색으로 쌓음) · 막대 누르면 그 날 배치도
+function _bsFlow(dt){
+  var rows = _bsWork().filter(function(r){ return r.dry && r.walk; }); if(!rows.length) return "";
+  var st = rows.reduce(function(a, r){ return r.dry < a ? r.dry : a; }, rows[0].dry), en = rows.reduce(function(a, r){ return r.walk > a ? r.walk : a; }, rows[0].walk);
+  st = _bsAdd(st, -1); en = _bsAdd(en, 1);
+  var N = _bsDiff(en, st) + 1, tot = _bsZones().reduce(function(a, z){ return a + _bsN(z.cap); }, 0), days = [], mx = tot, t = _bsToday();
+  for(var i = 0; i < N; i++){ var d = _bsAdd(st, i), by = {}, sum = 0; rows.forEach(function(r){ if(r.dry <= d && d < r.walk){ by[r.item] = (by[r.item] || 0) + r.doo; sum += r.doo; } }); days.push({ d: d, by: by, sum: sum }); if(sum > mx) mx = sum; }
+  var W = 26, CH = 170, X = 46, h = '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:center"><b style="font-size:15px">📈 날짜별 두름 흐름 — 건조장 전체에 몇 두름 걸려 있나</b><span class="mut" style="font-size:12px">막대 = 그날 걸린 두름 (품목 색) · 빨간 점선 = 건조장 전체 최대 ' + _bsW(tot) + '두름 · 막대를 누르면 그 날 배치도</span></div>';
+  h += '<div style="overflow-x:auto;margin-top:8px"><svg width="' + (X + N * W + 10) + '" height="' + (CH + 46) + '" style="display:block;font-family:inherit">';
+  [0, 0.25, 0.5, 0.75, 1].forEach(function(f){ var v = Math.round(mx * f), y = 8 + CH - CH * f; h += '<line x1="' + X + '" x2="' + (X + N * W) + '" y1="' + y + '" y2="' + y + '" stroke="#e2e8f0"/><text x="' + (X - 4) + '" y="' + (y + 3) + '" font-size="10" text-anchor="end" fill="#64748b">' + _bsW(v) + '</text>'; });
+  var yc = 8 + CH - CH * tot / mx; h += '<line x1="' + X + '" x2="' + (X + N * W) + '" y1="' + yc + '" y2="' + yc + '" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5 3"/>';
+  days.forEach(function(o, i){ var x = X + i * W + 3, y = 8 + CH, wk = new Date(o.d + "T00:00:00").getDay();
+    h += '<g style="cursor:pointer" onclick="BS.zdt=\'' + o.d + '\';draw()"><title>' + o.d + ' · ' + _bsW(o.sum) + '두름' + Object.keys(o.by).map(function(it){ return '\n' + _bsLbl(it) + ' ' + _bsW(o.by[it]); }).join("") + '</title><rect x="' + (x - 3) + '" y="0" width="' + W + '" height="' + (CH + 44) + '" fill="' + (o.d === dt ? "#0e749022" : "transparent") + '"/>';
+    Object.keys(o.by).forEach(function(it){ var hh = CH * o.by[it] / mx; y -= hh; h += '<rect x="' + x + '" y="' + y + '" width="' + (W - 6) + '" height="' + hh + '" fill="' + _bsIcol(it) + '"/>'; });
+    h += '<text x="' + (x + (W - 6) / 2) + '" y="' + (CH + 22) + '" font-size="10" text-anchor="middle" fill="' + (o.d === t ? "#dc2626" : wk === 0 ? "#dc2626" : wk === 6 ? "#2563eb" : "#475569") + '" font-weight="' + (o.d === dt || o.d === t ? 800 : 400) + '">' + (+o.d.slice(8)) + '</text>' + (+o.d.slice(8) === 1 || i === 0 ? '<text x="' + (x + (W - 6) / 2) + '" y="' + (CH + 36) + '" font-size="10" text-anchor="middle" fill="#0f172a" font-weight="800">' + (+o.d.slice(5, 7)) + '월</text>' : '') + '</g>'; });
+  h += '</svg></div>';
+  var its = {}; rows.forEach(function(r){ its[r.item] = 1; });
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin-top:4px">' + Object.keys(its).map(function(it){ return '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + _bsIcol(it) + ';margin-right:3px;vertical-align:-1px"></span>' + esc(_bsLbl(it)) + '</span>'; }).join("") + '</div></div>';
+  return h;
+}
 function dBsZone(){
   var g = _bsGate(); if(g) return g;
   var dt = BS.zdt || _bsToday(), can = _bsCan(), zones = _bsZones(), tot = 0, used = 0;
@@ -606,7 +639,7 @@ function dBsZone(){
   h += '</div>';
   var occ = {}; zones.forEach(function(z){ var o = _bsOcc(z.nm, dt); occ[_bsZK(z.nm)] = o; tot += _bsN(z.cap); used += o.doo; });
   var col = function(p){ return p > 1 + BS_SLIGHT ? "#dc2626" : p > 1 ? "#f59e0b" : p > 0 ? "#16a34a" : "#e2e8f0"; };
-  h += _bsGantt(dt, ovf);
+  h += _bsFlow(dt) + _bsGantt(dt, ovf);
   // 배치도
   h += '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px"><b>건조장 배치도</b><span style="font-size:13px">전체 <b>' + _bsW(used) + '</b> / ' + _bsW(tot) + '두름 (' + (tot ? Math.round(used / tot * 100) : 0) + '%)</span></div>';
   h += '<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(9,minmax(78px,1fr));grid-auto-rows:minmax(52px,auto);gap:4px;min-width:720px">';
@@ -614,7 +647,7 @@ function dBsZone(){
     var st = 'grid-row:' + m[2] + '/span ' + m[4] + ';grid-column:' + m[3] + '/span ' + m[5] + ';border-radius:6px;padding:4px;font-size:12px;text-align:center;display:flex;flex-direction:column;justify-content:center;';
     if(!m[1]){ h += '<div style="' + st + 'background:' + (/도 로/.test(m[0]) ? "#475569;color:#fff;font-weight:700" : "#f1f5f9;color:#64748b;border:1px dashed #cbd5e1") + '">' + esc(m[0]) + '</div>'; return; }
     var k = _bsZK(m[1]), cap = _bsCap(m[1]), o = occ[k] || { doo: 0, list: [] }, p = cap ? o.doo / cap : (o.doo ? 1 : 0), sel = BS.zsel === k;
-    h += '<div onclick="BS.zsel=(BS.zsel===\'' + k + '\'?\'\':\'' + k + '\');draw()" style="' + st + 'cursor:pointer;background:linear-gradient(to top,' + col(p) + '33 ' + Math.min(100, Math.round(p * 100)) + '%,#fff 0);border:' + (p > 1 || o.list.length > 1 ? "3px" : "2px") + ' solid ' + (sel ? "#0f172a" : col(p)) + (p > 1 + BS_SLIGHT ? ";background:#fee2e2" : p > 1 ? ";background:#fff7ed" : "") + '"><b>' + esc(m[0]) + '</b>' + (p > 1 ? '<span style="background:' + col(p) + ';color:#fff;border-radius:6px;font-size:11px;font-weight:800;padding:0 4px">' + (p > 1 + BS_SLIGHT ? '⚠ 넘침' : '≈ 살짝 넘침') + ' +' + _bsW(o.doo - cap) + '</span>' : o.list.length > 1 ? '<span style="background:#16a34a;color:#fff;border-radius:6px;font-size:11px;font-weight:800;padding:0 4px">↔ 겹침 OK</span>' : '') + '<span style="font-size:11.5px">' + _bsW(o.doo) + ' / ' + _bsW(cap) + '</span>' + (o.list.length ? '<span style="font-size:10.5px;color:#475569">' + o.list.map(function(r){ return esc(_bsBase(r.item)); }).join(", ") + '</span>' : '') + '</div>';
+    h += '<div onclick="BS.zsel=(BS.zsel===\'' + k + '\'?\'\':\'' + k + '\');draw()" style="' + st + 'cursor:pointer;justify-content:flex-start;gap:2px;background:' + (p > 1 + BS_SLIGHT ? "#fee2e2" : p > 1 ? "#fff7ed" : "#fff") + ';border:' + (p > 1 || o.list.length > 1 ? "3px" : "2px") + ' solid ' + (sel ? "#0f172a" : col(p)) + '"><b>' + esc(m[0]) + '</b>' + _bsZBar(o, cap) + (p > 1 ? '<span style="background:' + col(p) + ';color:#fff;border-radius:6px;font-size:11px;font-weight:800;padding:0 4px">' + (p > 1 + BS_SLIGHT ? '⚠ 넘침' : '≈ 살짝 넘침') + ' +' + _bsW(o.doo - cap) + '</span>' : o.list.length > 1 ? '<span style="background:#16a34a;color:#fff;border-radius:6px;font-size:11px;font-weight:800;padding:0 4px">↔ 겹침 OK</span>' : '') + '</div>';
   });
   h += '</div></div><div class="mut" style="font-size:11.5px;margin-top:6px">칸 색: <span style="color:#16a34a">● 최대 안</span> <span style="color:#f59e0b">● 살짝 넘침(' + Math.round(BS_SLIGHT * 100) + '% 이내 · 널 수 있겠음)</span> <span style="color:#dc2626">● 넘침</span> · 굵은 테두리 = 겹침 · 칸을 누르면 아래에 그 구역 작업이 나와요</div></div>';
   // 구역별 표
