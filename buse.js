@@ -548,6 +548,7 @@ function dBsStock(){
   return h;
 }
 function bsInEdit(id){
+  if(!id) return bsInBatch();   // 새 입고는 '그 날짜에 품목 추가' 창
   var x = id ? _bsS().inb[id] : { dt: _bsToday(), item: BS.item || "", qty: "", note: "" }, items = _bsSummary().map(function(r){ return r.k; });
   var h = '<h3 style="margin:0 0 10px">🚚 ' + (id ? "입고 고치기" : "입고 등록") + '<button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
   h += '<label style="font-size:13px">날짜<input id="bi_dt" type="date" value="' + esc(x.dt) + '" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>';
@@ -566,6 +567,48 @@ function bsInSave(id){
   var ref = id ? _bsRef("inb/" + id) : _bsRef("inb").push(), key = id || ref.key, S = BS.ALL[BS.cur], newItem = !(S.items || {})[v.item];
   var up = {}; up["inb/" + key] = v; if(newItem) up["items/" + v.item] = { nm: "", kg: 8.8, order: 0, real: "" };
   _bsRef().update(up).then(function(){ S.inb = S.inb || {}; S.inb[key] = v; if(newItem){ S.items = S.items || {}; S.items[v.item] = up["items/" + v.item]; } closePopup(); toast("입고 저장했어요" + (newItem ? " (새 품목 " + v.item + " 추가됨 — 발주 수량을 넣어 주세요)" : "")); draw(); })
+    .catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+// 🚚 입고 등록 (여러 품목) — 날짜·거래처 한 번 → 품목·수량 한 줄씩 [추가] → 아래 쌓임 → 한 번에 등록
+function bsInBatch(){ BS.ib = { dt: BS.ibDt || _bsToday(), from: BS.ibFrom || "", rows: [] }; _bsIbDraw(); }
+function _bsIbDraw(keep){
+  var B = BS.ib, items = _bsSummary(), by = {}; items.forEach(function(r){ by[r.k] = r; });
+  var inS = 'padding:9px;font-size:15px;border:2px solid #93c5fd;border-radius:7px;box-sizing:border-box;width:100%';
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h3 style="margin:0">🚚 원료 입고 등록</h3><span style="display:flex;gap:8px;flex-wrap:wrap"><label style="font-size:14px;font-weight:800">날짜 <input id="ib_dt" type="date" value="' + esc(B.dt) + '" onchange="BS.ib.dt=this.value" style="padding:7px;font-size:15px;border:2px solid #0e7490;border-radius:7px"></label><label style="font-size:14px;font-weight:800">거래처 <input id="ib_from" value="' + esc(B.from) + '" list="biFroms" placeholder="예: 대영물산" oninput="BS.ib.from=this.value" style="width:150px;padding:7px;font-size:15px;border:2px solid #0e7490;border-radius:7px"></label></span></div>' + _bsFromList("biFroms");
+  h += '<datalist id="biItems">' + items.map(function(r){ return '<option value="' + esc(r.k) + '">' + esc(_bsLbl(r.k)) + (r.order ? ' · 거래처 남은 ' + _bsW(r.order - r.inq) : '') + '</option>'; }).join("") + '</datalist>';
+  h += '<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col><col style="width:130px"><col style="width:34%"><col style="width:86px"></colgroup><tr style="background:#ecfeff;font-size:12.5px"><th style="padding:6px;text-align:left">품목</th><th style="padding:6px;text-align:right">입고 수량 (개)</th><th style="padding:6px;text-align:left">비고</th><th></th></tr>';
+  h += '<tr onkeydown="if(event.key===\'Enter\'){event.preventDefault();bsIbAdd()}"><td style="padding:4px 2px"><input id="ib_item" list="biItems" autocomplete="off" placeholder="품목 (예: 30미)" oninput="_bsIbHint()" style="' + inS + '"></td><td style="padding:4px 2px"><input id="ib_qty" type="number" inputmode="numeric" placeholder="수량" style="' + inS + ';text-align:right"></td><td style="padding:4px 2px"><input id="ib_note" placeholder="비고" style="' + inS + '"></td><td style="padding:4px 2px">' + _bsB("#0e7490", "＋ 추가", "bsIbAdd()", "width:100%;padding:10px 4px;font-weight:800") + '</td></tr></table>';
+  h += '<div id="ib_hint" style="font-size:12.5px;min-height:18px;margin:4px 2px;color:#475569"></div><div class="mut" style="font-size:12px;margin-bottom:6px">⌨ 품목·수량 적고 <b>Enter</b> (또는 ＋ 추가) → 아래에 쌓여요 · 쌓인 줄을 누르면 다시 위로 올려서 고쳐요 · 다 적으면 <b>등록</b></div>';
+  var tq = 0;
+  h += '<div style="max-height:44vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"><table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px"><colgroup><col><col style="width:130px"><col style="width:34%"><col style="width:86px"></colgroup><thead><tr style="background:#f1f5f9;position:sticky;top:0"><th style="padding:6px;text-align:left;font-size:12.5px">품목</th><th style="padding:6px;text-align:right;font-size:12.5px">입고 수량</th><th style="padding:6px;text-align:left;font-size:12.5px">비고</th><th style="font-size:12px;color:#64748b">빼기</th></tr></thead><tbody>';
+  if(!B.rows.length) h += '<tr><td colspan="4" style="padding:22px;text-align:center;color:#94a3b8">아직 추가한 품목이 없어요</td></tr>';
+  B.rows.forEach(function(x, i){ tq += x.qty; var r = by[x.item];
+    h += '<tr style="cursor:pointer;' + (i % 2 ? "background:#f8fafc" : "") + '" onclick="bsIbBack(' + i + ')" title="누르면 위로 올려서 고쳐요"><td style="padding:8px 6px;border-bottom:1px solid #f1f5f9;font-weight:800">' + esc(_bsLbl(x.item)) + (r ? '' : ' <span style="background:#fef3c7;color:#92400e;border-radius:6px;font-size:11px;padding:0 5px">새 품목</span>') + '</td><td style="padding:8px 6px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:800">' + _bsW(x.qty) + '</td><td style="padding:8px 6px;border-bottom:1px solid #f1f5f9;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(x.note || "") + '</td><td style="text-align:center;border-bottom:1px solid #f1f5f9"><button class="btn" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:2px 8px" onclick="event.stopPropagation();BS.ib.rows.splice(' + i + ',1);_bsIbDraw()">✕</button></td></tr>'; });
+  h += '</tbody></table></div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px"><div style="font-size:14px"><b>' + B.rows.length + '품목</b> · 합계 <b>' + _bsW(tq) + '개</b></div><div style="display:flex;gap:6px">' + _bsB("#475569", "닫기", "bsIbClose()") + (B.rows.length ? _bsB("#16a34a", "💾 " + B.rows.length + "품목 등록", "bsIbSave()", "padding:10px 24px;font-size:15px;font-weight:800") : '') + '</div></div>';
+  openPopup(h, 760);
+  if(keep){ ["item", "qty", "note"].forEach(function(k){ var e = document.getElementById("ib_" + k); if(e && keep[k] != null) e.value = keep[k]; }); _bsIbHint(); }
+  setTimeout(function(){ var e = document.getElementById("ib_item"); if(e) e.focus(); }, 30);
+}
+function _bsIbHint(){ var e = document.getElementById("ib_item"), el = document.getElementById("ib_hint"); if(!e || !el) return; var k = e.value.trim(), r = _bsSummary().filter(function(x){ return x.k === k; })[0];
+  el.innerHTML = !k ? "" : r ? '💡 <b>' + esc(_bsLbl(k)) + '</b> · 총 발주 ' + _bsW(r.order) + ' · 지금까지 입고 ' + _bsW(r.inq) + ' · <b>거래처 남은 ' + _bsW(r.order - r.inq) + '</b> · 냉장고 재고 ' + _bsW(r.fridge) : '<span style="color:#92400e">목록에 없는 품목이에요 — 등록하면 새 품목으로 추가돼요 (상자 8.8kg)</span>'; }
+function bsIbAdd(){
+  var g = function(k){ var e = document.getElementById("ib_" + k); return e ? e.value.trim() : ""; }, it = g("item"), q = _bsN(g("qty"));
+  if(!it || !q) return toast("품목과 수량을 넣어 주세요", true);
+  if(/[.#$\[\]\/]/.test(it)) return toast("품목 이름에 . # $ [ ] / 는 못 써요", true);
+  var d = document.getElementById("ib_dt"), f = document.getElementById("ib_from"); if(d) BS.ib.dt = d.value; if(f) BS.ib.from = f.value.trim();
+  BS.ib.rows.push({ item: it, qty: q, note: g("note") }); _bsIbDraw();
+}
+function bsIbBack(i){ var x = BS.ib.rows.splice(i, 1)[0]; _bsIbDraw(x); }
+function bsIbClose(){ if(BS.ib && BS.ib.rows.length && !confirm("추가한 " + BS.ib.rows.length + "품목을 등록하지 않고 닫을까요?")) return; BS.ib = null; closePopup(); }
+function bsIbSave(){
+  var B = BS.ib; if(!B || !B.rows.length) return; var d = document.getElementById("ib_dt"), f = document.getElementById("ib_from"); if(d) B.dt = d.value; if(f) B.from = f.value.trim();
+  if(!B.dt) return toast("날짜를 넣어 주세요", true);
+  var S = BS.ALL[BS.cur], up = {}, newIt = [], saved = [];
+  B.rows.forEach(function(x){ var key = _bsRef("inb").push().key, v = { dt: B.dt, item: x.item, qty: x.qty, from: B.from, note: x.note || "" }; up["inb/" + key] = v; saved.push([key, v]);
+    if(!(S.items || {})[x.item] && !up["items/" + x.item]){ up["items/" + x.item] = { nm: "", kg: 8.8, order: 0, real: "" }; newIt.push(x.item); } });
+  _bsRef().update(up).then(function(){ S.inb = S.inb || {}; saved.forEach(function(p){ S.inb[p[0]] = p[1]; }); newIt.forEach(function(k){ S.items = S.items || {}; S.items[k] = up["items/" + k]; });
+    BS.ibDt = B.dt; BS.ibFrom = B.from; BS.ib = null; closePopup(); toast("입고 " + saved.length + "품목 등록했어요" + (newIt.length ? " (새 품목 " + newIt.join(", ") + " — 발주 수량을 넣어 주세요)" : "")); draw(); })
     .catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 function bsInDel(id){ if(!confirm("이 입고 기록을 지울까요?")) return; _bsRef("inb/" + id).remove().then(function(){ delete BS.ALL[BS.cur].inb[id]; closePopup(); toast("지웠어요"); draw(); }); }
