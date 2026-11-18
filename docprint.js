@@ -4,8 +4,9 @@
 //   _docPrint({ title, html, landscape, key, xl: "부모 창에서 부를 함수 호출 글" })
 // ============================================================================
 function _docPrintBoot(KEY, ORI, TTL){
-  var Z = 100, M = 12, SD = false, SP = false, W = ORI === "landscape" ? 297 : 210, H = ORI === "landscape" ? 210 : 297;
-  try { var sv = JSON.parse(localStorage.getItem(KEY) || "{}"); if(sv.z) Z = sv.z; if(sv.m != null) M = sv.m; SD = !!sv.sd; SP = !!sv.sp; } catch(e){}
+  var Z = 100, M = 12, SD = false, SP = false, W, H;
+  try { var sv = JSON.parse(localStorage.getItem(KEY) || "{}"); if(sv.z) Z = sv.z; if(sv.m != null) M = sv.m; SD = !!sv.sd; SP = !!sv.sp; if(sv.o === "portrait" || sv.o === "landscape") ORI = sv.o; } catch(e){}
+  function wh(){ W = ORI === "landscape" ? 297 : 210; H = ORI === "landscape" ? 210 : 297; } wh();
   var td = new Date(), DT = td.getFullYear() + "-" + ("0" + (td.getMonth() + 1)).slice(-2) + "-" + ("0" + td.getDate()).slice(-2);
   var $ = function(id){ return document.getElementById(id); };
   function px(mm){ return mm * 96 / 25.4; }
@@ -20,12 +21,14 @@ function _docPrintBoot(KEY, ORI, TTL){
     var d = $("doc"), pw = px(W - 2 * M);
     d.style.zoom = Z / 100; d.style.width = (pw / (Z / 100)) + "px";
     $("zv").textContent = Z + "%"; $("mv").value = M;
+    ["portrait", "landscape"].forEach(function(o){ var b = $("ori_" + o); if(b){ b.style.background = ORI === o ? "#f59e0b" : "#475569"; } });
     var h = d.getBoundingClientRect().height, ph = px(H - 2 * M), n = Math.max(1, Math.ceil(h / ph - 0.01));
     $("pv").textContent = "약 " + n + "장";
     window._docFit = function(){ if(n <= 1 && h <= ph){ alert("이미 한 장이에요"); return; } var want = Math.max(1, Math.ceil(h / ph - 0.01) - 1); Z = Math.max(50, Math.floor(Z * (want * ph) / h * 0.97)); ap(); };
-    try { localStorage.setItem(KEY, JSON.stringify({ z: Z, m: M, sd: SD, sp: SP })); } catch(e){}
+    try { localStorage.setItem(KEY, JSON.stringify({ z: Z, m: M, sd: SD, sp: SP, o: ORI })); } catch(e){}
   }
   window._docZ = function(d){ Z = Math.min(150, Math.max(50, Z + d)); ap(); };
+  window._docOri = function(o){ ORI = o; wh(); ap(); };
   window._docZ0 = function(){ Z = 100; ap(); };
   window._docOpt = function(){ SD = $("cd").checked; SP = $("cp").checked; ap(); };
   window._docM = function(v){ M = Math.max(0, Math.min(30, Number(v) || 0)); ap(); };
@@ -168,6 +171,7 @@ function _docPrint(o){
     + '.bar input{width:52px;font-size:14px;padding:4px;border-radius:5px;border:0}'
     + '@media print{body{background:#fff}.bar,.noprint,.no-print{display:none!important}#doc{box-shadow:none;margin:0}}';
   var bar = '<div class="bar"><button style="' + B + '#1d4ed8" onclick="window.print()">🖨️ 인쇄 / PDF</button>'
+    + '<span style="margin-left:6px">방향</span><button id="ori_portrait" style="' + B + '#475569" onclick="_docOri(\'portrait\')">▯ 세로</button><button id="ori_landscape" style="' + B + '#475569" onclick="_docOri(\'landscape\')">▭ 가로</button>'
     + '<span style="margin-left:6px">크기</span><button style="' + B + '#475569" onclick="_docZ(-5)">➖</button><b id="zv" style="min-width:44px;text-align:center">100%</b><button style="' + B + '#475569" onclick="_docZ(5)">➕</button><button style="' + B + '#334155;font-size:12px" onclick="_docZ0()">원래대로</button>'
     + '<span style="margin-left:6px">여백</span><input id="mv" type="number" min="0" max="30" step="1" onchange="_docM(this.value)">mm'
     + '<b id="pv" style="margin-left:6px;color:#fde68a"></b><button style="' + B + '#b45309" onclick="_docFit()">📏 한 장 줄이기</button>'

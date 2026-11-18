@@ -525,7 +525,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="raw.js?v=20261117g"></script>
 <script src="haccp.js?v=20261117b"></script>
 <script src="yk.js?v=20261118v"></script>
-<script src="docprint.js?v=20261118b"></script>
+<script src="docprint.js?v=20261118c"></script>
 <script src="vend.js?v=20261118r"></script>
 <script>
 // 🖱 숫자 칸 위에서 휠 굴려도 숫자 안 바뀌게 (화면만 내려가요) — 시스템 전체
@@ -977,6 +977,30 @@ function openPopup(html,w){var b=document.getElementById("popBody");b.innerHTML=
 // 2단계 팝업 (기존 팝업 위에 오버레이로 표시)
 function openPopup2(html,w){var b=document.getElementById("popBody2");b.innerHTML=html;b.style.width=w?(w+"px"):"";b.style.maxWidth="100%";document.getElementById("popup2").className="popup show";document.getElementById("popup2").style.zIndex="1000";}
 function closePopup2(){document.getElementById("popup2").className="popup";document.getElementById("popBody2").innerHTML="";}
+// 🖨 모든 인쇄 창에 '세로 / 가로' 버튼 (A4 문서만 · 라벨처럼 mm 크기 종이·공통 인쇄창은 빼고) — 고른 방향은 문서 종류마다 기억
+(function(){ var o0 = window.open;
+  window.open = function(u){ var w = o0.apply(window, arguments); if(!w || u) return w;
+    try { var d = w.document, buf = "", wr = d.write, cl = d.close;
+      d.write = function(h){ buf += h; return wr.apply(d, arguments); };
+      d.close = function(){ var r = cl.apply(d, arguments); setTimeout(function(){ try { _oriInject(w, buf); } catch(e){} }, 80); return r; };
+    } catch(e){}
+    return w; };
+})();
+function _oriInject(w, html){
+  var d = w.document; if(!d || !d.body || d.getElementById("gmOriBar")) return;
+  if(/_docPrintBoot|id="pg"/.test(html)) return;   // 공통 인쇄창은 자체 버튼 있음
+  if(/@page\s*\{[^}]*size\s*:\s*[\d.]+\s*mm/i.test(html)) return;   // 라벨 같은 mm 종이
+  var key = "gm_ori_" + String(d.title || "").replace(/[\d\s.()~\-:\/·,]+/g, "").slice(0, 24);
+  var st = d.createElement("style"); st.id = "gmOri"; d.head.appendChild(st);
+  var cur = ""; try { cur = localStorage.getItem(key) || ""; } catch(e){}
+  var set = function(o){ cur = o; st.textContent = o ? "@page{size:A4 " + o + "}" : ""; try { if(o) localStorage.setItem(key, o); else localStorage.removeItem(key); } catch(e){} paint(); };
+  var bar = d.createElement("div"); bar.id = "gmOriBar";
+  bar.innerHTML = '<style>@media print{#gmOriBar{display:none!important}}#gmOriBar{position:fixed;right:10px;bottom:10px;z-index:99999;background:#0f172a;color:#fff;border-radius:10px;padding:6px 8px;display:flex;gap:5px;align-items:center;font:700 13px "Malgun Gothic",sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.35)}#gmOriBar button{border:none;border-radius:6px;padding:6px 10px;font:800 13px "Malgun Gothic",sans-serif;color:#fff;cursor:pointer;background:#475569}</style>인쇄 방향 <button data-o="portrait">▯ 세로</button><button data-o="landscape">▭ 가로</button><button data-o="" title="원래 문서 설정대로">원래대로</button>';
+  d.body.appendChild(bar);
+  var paint = function(){ [].forEach.call(bar.querySelectorAll("button"), function(b){ b.style.background = b.getAttribute("data-o") === cur ? "#f59e0b" : "#475569"; }); };
+  bar.addEventListener("click", function(e){ var b = e.target.closest("button"); if(b) set(b.getAttribute("data-o")); });
+  set(cur);
+}
 // 🔑 저장하다 PERMISSION_DENIED (로그인이 풀림) → 그 자리에서 비번만 다시 넣고 이어서 저장 (입력하던 창은 그대로)
 (function(){ var t0 = toast, shown = 0;
   toast = function(m, e){ if(e && /PERMISSION_DENIED|permission.denied/i.test(String(m))){ m = "로그인이 풀려서 저장이 안 됐어요 — 비밀번호를 다시 넣으면 이어서 저장할 수 있어요"; if(Date.now() - shown > 1500){ shown = Date.now(); setTimeout(_reloginPop, 50); } } return t0(m, e); };
