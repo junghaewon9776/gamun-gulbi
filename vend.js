@@ -387,13 +387,13 @@ function vdPrint(vid){
   var cols = raw ? ["일자", "품명", "규격", "입고", "단가", "출고", "금액", "입출금내역", "합계", "비고", "재고"] : ["일자", "품명", "규격", "수량", "단가", "금액", "세액", "입출금내역", "합계", "비고"];
   var n = function(x){ return _vdN(x) ? _vdQ(x) : ""; }, h = '<style>#doc{font-size:11px}#doc table{border-collapse:collapse;width:100%}#doc td,#doc th{border:1px solid #555;padding:3px 4px;font-size:11px}#doc th{background:#eee}#doc .r{text-align:right}#doc .top td{font-size:12px}</style><div style="padding:2mm">';
   h += '<table class="top" style="margin-bottom:8px"><tr><td rowspan="3" style="font-size:20px;font-weight:bold;width:45%">' + (v.no ? esc(v.no) + ' ' : '') + esc(v.nm) + (VD.y ? ' <span style="font-size:12px">(' + VD.y + '년)</span>' : '') + '</td><td>전화번호및담당</td><td>' + esc(v.tel || "") + '</td><td>총금액</td><td class="r">' + _vdW(s.tot) + '</td></tr><tr><td>계좌번호</td><td>' + esc(v.acct || "") + '</td><td>결제금액</td><td class="r">' + _vdW(s.pay) + '</td></tr><tr><td>위 치</td><td>' + esc(v.loc || "") + '</td><td>미수금액</td><td class="r"><b>' + _vdW(s.rest) + '</b></td></tr></table>';
-  h += '<table><tr>' + cols.map(function(c){ return '<th>' + c + '</th>'; }).join("") + '</tr>';
+  h += '<table><thead><tr>' + cols.map(function(c){ return '<th>' + c + '</th>'; }).join("") + '</tr></thead><tbody>';   // thead = 장마다 제목 줄 다시
   rows.forEach(function(o){ var x = o.x; h += '<tr><td>' + esc(String(x.dt || "").replace(/-/g, ".")) + '</td><td>' + esc(x.nm || "") + '</td><td>' + esc(x.spec || "") + '</td>';
     if(raw && x.fee) h += '<td class="r">' + esc(x.spec || "") + '</td><td class="r">' + _vdW(x._base) + '</td><td></td><td class="r">' + _vdW(o.am) + '</td>';
     else if(raw) h += '<td class="r">' + n(x.qty) + '</td><td class="r">' + n(x.price) + '</td><td class="r">' + n(x.out) + '</td><td class="r">' + (o.am ? _vdW(o.am) : "") + '</td>';
     else h += '<td class="r">' + n(x.qty) + '</td><td class="r">' + n(x.price) + '</td><td class="r">' + (o.am ? _vdW(o.am) : "") + '</td><td class="r">' + n(x.tax) + '</td>';
     h += '<td class="r">' + (_vdN(x.pay) ? _vdW(x.pay) : "") + '</td><td class="r">' + _vdW(o.bal) + '</td><td>' + esc(x.note || "") + '</td>' + (raw ? '<td class="r">' + (o.stock == null ? "" : _vdQ(o.stock)) + '</td>' : '') + '</tr>'; });
-  h += '</table></div>';
+  h += '</tbody></table></div>';
   VD.sel = vid;
   _docPrint({ title: (v.no ? v.no + " " : "") + v.nm + " 거래처 장부" + (VD.y ? " (" + VD.y + "년)" : ""), html: h, landscape: true, key: "vd_" + (v.kind || "bp"), xl: "vdXlTpl()" });
 }
@@ -415,7 +415,8 @@ async function vdXlTpl(){
     rows.forEach(function(o){ var x = o.x, row = ws.getRow(r++); C.forEach(function(c, i){ var val = x.fee && c[0] === "qty" ? _vdN(x.fee) : x.fee && c[0] === "price" ? _vdN(x._base) : c[0] === "bal" ? o.bal : c[0] === "st" ? (o.stock == null ? "" : o.stock) : c[0] === "am" ? (o.am || "") : c[0] === "dt" ? (x.dt ? new Date(x.dt + "T00:00:00Z") : "") : x[c[0]]; row.getCell(i + 1).value = val == null ? "" : val; }); });
     if(!vid) ws.getRow(7).values = kind === "raw" ? [new Date(_vdToday() + "T00:00:00Z"), "부세19미(8.8)", "", 100, 68000, "", 6800000, "", "", "예시 줄 — 지우고 쓰세요"] : [new Date(_vdToday() + "T00:00:00Z"), "박스 3kg", "", 500, 900, 450000, 45000, "", "", "예시 줄 — 지우고 쓰세요"];
     C.forEach(function(c, i){ var col = ws.getColumn(i + 1); col.width = c[0] === "nm" ? 22 : c[0] === "note" ? 24 : c[0] === "dt" ? 12 : 13; if(c[0] === "dt") col.numFmt = "yyyy-mm-dd"; else if(!/^(nm|spec|note)$/.test(c[0])) col.numFmt = "#,##0.##"; });
-    ws.views = [{ state: "frozen", ySplit: 6 }]; });
+    ws.views = [{ state: "frozen", ySplit: 6 }];
+    ws.pageSetup = { orientation: "landscape", paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "6:6", margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } }; });   // 엑셀에서 뽑아도 장마다 제목 줄
   var g = wb.addWorksheet("쓰는 법");
   ["· 시트 하나 = 거래처 하나 — I1 '상호' 칸이 거래처 이름, I2 '관리번호' 칸이 화일철 번호 (비품 A-01~ · 원료 C-01~). 거래처 늘리려면 시트를 복사해서 상호·번호만 바꾸세요",
    "· 관리번호를 비우면 다음 번호를 저절로 붙여요",

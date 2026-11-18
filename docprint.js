@@ -93,14 +93,14 @@ function _docPrintBoot(KEY, ORI, TTL){
         [].forEach.call(r.cells, function(c){
           var bg = colInt(getComputedStyle(c).backgroundColor), va = getComputedStyle(c).verticalAlign;
           var lines = textOf(c);
-          out += '<CELL BorderFill="' + bf(bg) + '" ColAddr="' + c._ca + '" ColSpan="' + c.colSpan + '" Dirty="false" Editable="false" HasMargin="true" Header="false" Height="' + (lines.trim() ? 282 : Math.max(282, Math.round(c.offsetHeight * tScale))) + '" Protect="false" RowAddr="' + c._ra + '" RowSpan="' + c.rowSpan + '" Width="' + Math.round(c.offsetWidth * tScale) + '">'
+          out += '<CELL BorderFill="' + bf(bg) + '" ColAddr="' + c._ca + '" ColSpan="' + c.colSpan + '" Dirty="false" Editable="false" HasMargin="true" Header="' + (r.parentNode && r.parentNode.tagName === "THEAD" ? "true" : "false") + '" Height="' + (lines.trim() ? 282 : Math.max(282, Math.round(c.offsetHeight * tScale))) + '" Protect="false" RowAddr="' + c._ra + '" RowSpan="' + c.rowSpan + '" Width="' + Math.round(c.offsetWidth * tScale) + '">'
             + '<CELLMARGIN Bottom="170" Left="340" Right="340" Top="170"/><PARALIST LineWrap="Break" LinkListID="0" LinkListIDNext="0" TextDirection="0" VertAlign="' + (va === "top" ? "Top" : va === "bottom" ? "Bottom" : "Center") + '">'
             + '<P ParaShape="' + psOf(c) + '" Style="0"><TEXT CharShape="' + cs(fpx(c), fw(c) || (c.parentNode && fw(c.parentNode))) + '"><CHAR>' + runs(lines) + '</CHAR></TEXT></P></PARALIST></CELL>';
         });
         out += "</ROW>";
       });
       iid++;
-      return '<P ParaShape="0" Style="0"><TEXT CharShape="0"><TABLE BorderFill="3" CellSpacing="0" ColCount="' + nC + '" PageBreak="Cell" RepeatHeader="false" RowCount="' + rows.length + '">'
+      return '<P ParaShape="0" Style="0"><TEXT CharShape="0"><TABLE BorderFill="3" CellSpacing="0" ColCount="' + nC + '" PageBreak="Cell" RepeatHeader="' + (t.tHead ? "true" : "false") + '" RowCount="' + rows.length + '">'
         + '<SHAPEOBJECT InstId="' + iid + '" Lock="false" NumberingType="Table" TextWrap="TopAndBottom" ZOrder="' + iid + '"><SIZE Height="' + Math.round(t.offsetHeight * tScale) + '" HeightRelTo="Absolute" Protect="false" Width="' + tw + '" WidthRelTo="Absolute"/>'
         + '<POSITION AffectLSpacing="false" AllowOverlap="false" FlowWithText="true" HoldAnchorAndSO="false" HorzAlign="' + (right ? "Right" : "Left") + '" HorzOffset="0" HorzRelTo="Para" TreatAsChar="false" VertAlign="Top" VertOffset="0" VertRelTo="Para"/><OUTSIDEMARGIN Bottom="141" Left="0" Right="0" Top="141"/></SHAPEOBJECT>'
         + '<INSIDEMARGIN Bottom="100" Left="280" Right="280" Top="100"/>' + out + '</TABLE><CHAR/></TEXT></P>';
@@ -159,7 +159,7 @@ function _docPrint(o){
   var B = 'border:none;border-radius:6px;padding:7px 12px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;background:';
   var css = 'body{font-family:"맑은 고딕","Malgun Gothic",sans-serif;margin:0;color:#000;background:#e5e7eb}'
     + '#doc{background:#fff;margin:0 auto 30px;box-shadow:0 0 0 1px #cbd5e1}'
-    + 'table{page-break-inside:auto}tr{page-break-inside:avoid}'
+    + 'table{page-break-inside:auto}tr{page-break-inside:avoid}thead{display:table-header-group}tfoot{display:table-footer-group}'
     + '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     // 표 선·회색 글씨 진하게 (인쇄하면 연하게 나오던 것)
     + '#doc td,#doc th{border-color:#000!important}'
