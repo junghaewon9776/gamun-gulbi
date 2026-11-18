@@ -73,10 +73,10 @@ function dYkWork(){
   if(YK.ed) return _ykEditor();
   var S = _ykS(), W = S.works || {}, ids = Object.keys(W).sort(function(a, b){ return String(W[b].dt).localeCompare(String(W[a].dt)); }), can = _ykCan();
   var yms = {}; ids.forEach(function(k){ yms[String(W[k].dt).slice(0, 7)] = 1; });
-  var list = ids.filter(function(k){ return !YK.ym || String(W[k].dt).slice(0, YK.ym.length) === YK.ym; });
+  var WP = _ykWPer(), list = ids.filter(function(k){ return _ykInPer(W[k].dt, WP[0], WP[1]); });
   var h = _ykHead("🪢 엮거리 작업", "원료 → 이모들 두름 → 박스·라벨 · 원가·마진율", can ? _bsB("#b45309", "+ 새 작업", "ykNew()", "padding:9px 18px") : "");
   if(!Object.keys(S.items || {}).length) h += '<div class="card" style="margin-bottom:10px;background:#fef3c7;color:#92400e;font-size:13px">⚠️ <b>⚙️ 엮거리 설정</b>에서 정품(품명·박스당 두름·가격)과 원료(짝당 마리수·무게)를 먼저 넣어 주세요.</div>';
-  h += '<div class="card" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>보기</b>' + _ykYmPick(YK.ym || "", "ykYm", yms) + '<span class="mut" style="font-size:12px">' + list.length + '건</span></div>';
+  h += _ykRangeBar(WP[0], WP[1], "ykWPer", "ykWPerYm", '<b style="color:#9a3412">' + _ykPerTxt(WP[0], WP[1]) + ' · ' + list.length + '건</b>' + (list.length ? '' : ' — 이 기간엔 작업이 없어요. ◀ 로 지난달을 보거나 [전체]를 누르세요'));
   YK.sel = YK.sel || {}; Object.keys(YK.sel).forEach(function(k){ if(!W[k]) delete YK.sel[k]; });
   h += '<div class="card" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#f5f3ff;border:1px solid #ddd6fe"><b style="color:#5b21b6">☑ 고른 작업 <span id="ykSelN">' + Object.keys(YK.sel).length + '</span>건</b>' + _bsB("#7c3aed", "🖨 생산작업일지 한번에", "ykPrintSel('prod')") + _bsB("#0e7490", "🖨 작업현황표 한번에", "ykPrintSel('sheet')") + _bsB("#b45309", "📊 원가분석표 한번에", "ykPrintSel('anal')") + _bsB("#64748b", "선택 풀기", "YK.sel={};draw()", "padding:6px 10px") + '<span class="mut" style="font-size:12px">왼쪽 칸 체크 · Shift 누르고 체크하면 사이 것 다 골라져요</span></div>';
   YK.selVis = list.slice();
@@ -235,28 +235,38 @@ function dYkPay(){
 function _ykYmAdd(ym, d){ var y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1 + d; y += Math.floor(m / 12); m = ((m % 12) + 12) % 12; return y + "-" + ("0" + (m + 1)).slice(-2); }
 function _ykYmLast(ym){ return ym + "-" + ("0" + new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate()).slice(-2); }
 function _ykYmPick(cur, fn, has){
-  var y0 = _bsToday().slice(0, 4), ys = {}; Object.keys(has || {}).forEach(function(k){ ys[k.slice(0, 4)] = 1; }); ys[y0] = 1;
-  var Y = cur ? cur.slice(0, 4) : (YK.pickY || y0); if(cur) YK.pickY = Y;
-  var nav = function(d){ if(cur && cur.length === 7) return _ykYmAdd(cur, d); if(cur && cur.length === 4) return String(+cur + d); return _ykYmAdd(_bsToday().slice(0, 7), d < 0 ? -1 : 0); };
-  var btn = function(lb, v, on, st){ return '<button class="btn" style="padding:5px 10px;font-size:12.5px;background:' + (on ? "#ea580c" : "#fff") + ';color:' + (on ? "#fff" : "#9a3412") + ';border:1px solid #fdba74;' + (st || "") + '" onclick="' + fn + '(\'' + v + '\')">' + lb + '</button>'; };
-  var h = btn("전체", "", cur === "");
-  h += '<select onchange="YK.pickY=this.value;' + fn + '(this.value)" style="width:auto;padding:6px 8px;font-weight:800;border:2px solid ' + (cur && cur.length === 4 ? "#ea580c" : "#fdba74") + ';border-radius:8px;color:#9a3412;background:#fff7ed;cursor:pointer">' + Object.keys(ys).sort().reverse().map(function(y){ return '<option value="' + y + '"' + (y === Y ? " selected" : "") + '>' + y + '년' + (cur === y ? " (1년 전체)" : "") + '</option>'; }).join("") + '</select>';
-  h += btn("◀", nav(-1), false, "font-weight:900") + '<span style="display:inline-flex;gap:3px;flex-wrap:wrap">';
-  for(var m = 1; m <= 12; m++){ var ym = Y + "-" + ("0" + m).slice(-2), on = cur === ym, hd = has && has[ym]; h += '<button class="btn" style="padding:5px 0;width:40px;font-size:12.5px;' + (on ? "background:#ea580c;color:#fff;border:1px solid #ea580c" : "background:#fff;color:" + (hd ? "#9a3412;font-weight:800" : "#cbd5e1") + ";border:1px solid " + (hd ? "#fdba74" : "#e5e7eb")) + '" onclick="' + fn + '(\'' + ym + '\')">' + m + '월</button>'; }
-  return h + '</span>' + btn("▶", nav(1), false, "font-weight:900");
+  var m0 = _bsToday().slice(0, 7), ms = {}; Object.keys(has || {}).forEach(function(k){ ms[k] = 1; }); ms[m0] = 1; if(cur && cur.length === 7) ms[cur] = 1;
+  var ys = {}; Object.keys(ms).forEach(function(k){ ys[k.slice(0, 4)] = 1; }); if(cur && cur.length === 4) ys[cur] = 1;
+  var nav = function(d){ if(cur && cur.length === 7) return _ykYmAdd(cur, d); if(cur && cur.length === 4) return String(+cur + d); return _ykYmAdd(m0, d < 0 ? -1 : 1); };
+  var btn = function(lb, v, on, st, tt){ return '<button class="btn" title="' + (tt || "") + '" style="padding:6px 12px;font-size:13px;background:' + (on ? "#ea580c" : "#fff") + ';color:' + (on ? "#fff" : "#9a3412") + ';border:1px solid #fdba74;' + (st || "") + '" onclick="' + fn + '(\'' + v + '\')">' + lb + '</button>'; };
+  var h = btn("전체", "", cur === "") + btn("◀", nav(-1), false, "font-weight:900;padding:6px 10px", cur && cur.length === 4 ? "지난해" : "지난달");
+  h += '<select onchange="' + fn + '(this.value)" style="width:auto;min-width:150px;padding:7px 10px;font-size:14.5px;font-weight:900;border:2px solid #ea580c;border-radius:8px;color:#9a3412;background:#fff7ed;cursor:pointer">';
+  if(cur === "") h += '<option value="" selected>전체 기간</option>';
+  if(cur === null) h += '<option value="" selected disabled>직접 고른 기간</option>';
+  Object.keys(ys).sort().reverse().forEach(function(y){
+    h += '<optgroup label="' + y + '년"><option value="' + y + '"' + (cur === y ? " selected" : "") + '>' + y + '년 전체</option>';
+    Object.keys(ms).filter(function(k){ return k.slice(0, 4) === y; }).sort().reverse().forEach(function(k){ h += '<option value="' + k + '"' + (cur === k ? " selected" : "") + '>' + y + '년 ' + (+k.slice(5)) + '월' + (k === m0 ? " (이번 달)" : has && has[k] ? "" : " ·") + '</option>'; });
+    h += '</optgroup>'; });
+  h += '</select>' + btn("▶", nav(1), false, "font-weight:900;padding:6px 10px", cur && cur.length === 4 ? "다음해" : "다음달");
+  return h + (cur === m0 ? "" : btn("이번 달", m0, false, "font-size:12px;padding:5px 9px"));
 }
+// 기간 막대 (월 고르기 + 직접 날짜 ~ 날짜) — fnR(f,t) 로 기간 바꿈
+function _ykRangeBar(f, t, fnR, fnYm, note){
+  var h = '<div class="card" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px"><b>📅 기간</b>' + _ykYmPick(_ykPerCur(f, t), fnYm, _ykWorkYms());
+  h += '<span style="margin-left:8px;color:#475569">직접:</span><input id="yk_rf" type="date" value="' + esc(f) + '" onchange="' + fnR + '(this.value,document.getElementById(\'yk_rt\').value)" style="width:150px;display:inline-block;padding:6px;border:1px solid #cbd5e1;border-radius:6px"> ~ <input id="yk_rt" type="date" value="' + esc(t) + '" onchange="' + fnR + '(document.getElementById(\'yk_rf\').value,this.value)" style="width:150px;display:inline-block;padding:6px;border:1px solid #cbd5e1;border-radius:6px">';
+  return h + (note ? '<span class="mut" style="font-size:12px;width:100%">' + note + '</span>' : '') + '</div>';
+}
+// 작업 목록 기간 (처음 열면 이번 달)
+function _ykWPer(){ if(YK.wf === undefined){ var m0 = _bsToday().slice(0, 7); YK.wf = m0 + "-01"; YK.wt = _ykYmLast(m0); } return [YK.wf || "", YK.wt || ""]; }
+function ykWPer(f, t){ YK.wf = f || ""; YK.wt = t || ""; if(YK.wf && YK.wt && YK.wf > YK.wt){ var x = YK.wf; YK.wf = YK.wt; YK.wt = x; } draw(); }
+function ykWPerYm(v){ if(!v) return ykWPer("", ""); if(v.length === 4) return ykWPer(v + "-01-01", v + "-12-31"); ykWPer(v + "-01", _ykYmLast(v)); }
 function _ykPerCur(f, t){ if(!f && !t) return ""; if(f && t && f.slice(5) === "01-01" && t.slice(5) === "12-31" && f.slice(0, 4) === t.slice(0, 4)) return f.slice(0, 4); if(f && t && f.slice(8) === "01" && f.slice(0, 7) === t.slice(0, 7) && (t === _ykYmLast(f.slice(0, 7)) || t.slice(8) === "31")) return f.slice(0, 7); return null; }
 function ykPerYm(v){ if(!v) return ykPer("", ""); if(v.length === 4) return ykPer(v + "-01-01", v + "-12-31"); ykPer(v + "-01", _ykYmLast(v)); }
 function ykYm(v){ YK.ym = v || ""; draw(); }
 function _ykWorkYms(){ var S = _ykS(), m = {}; Object.keys(S.works || {}).forEach(function(id){ var d = String(S.works[id].dt || ""); if(d) m[d.slice(0, 7)] = 1; }); return m; }
 function _ykPerTxt(f, t){ return (f ? _bsDH(f) : "처음") + " ~ " + (t ? _bsDH(t) : "지금"); }
 function _ykPerBar(f, t){
-  var S = _ykS(), ys = {}, y0 = _bsToday().slice(0, 4), m0 = _bsToday().slice(0, 7);
-  Object.keys(S.works || {}).forEach(function(id){ var d = String(S.works[id].dt || ""); if(d) ys[d.slice(0, 4)] = 1; }); ys[y0] = 1;
-  var B = function(lb, a, b){ var on = (a || "") === f && (b || "") === t; return '<button class="btn" style="padding:5px 11px;font-size:12.5px;background:' + (on ? "#ea580c" : "#fff") + ';color:' + (on ? "#fff" : "#9a3412") + ';border:1px solid #fdba74" onclick="ykPer(\'' + (a || "") + '\',\'' + (b || "") + '\')">' + lb + '</button>'; };
-  var h = '<div class="card" style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px"><b>📅 기간</b>' + _ykYmPick(_ykPerCur(f, t), "ykPerYm", _ykWorkYms());
-  h += '<span style="margin-left:6px">직접:</span><input id="yk_pf" type="date" value="' + esc(f) + '" onchange="ykPer(this.value,document.getElementById(\'yk_pt\').value)" style="width:150px;display:inline-block;padding:5px;border:1px solid #cbd5e1;border-radius:6px"> ~ <input id="yk_pt" type="date" value="' + esc(t) + '" onchange="ykPer(document.getElementById(\'yk_pf\').value,this.value)" style="width:150px;display:inline-block;padding:5px;border:1px solid #cbd5e1;border-radius:6px">';
-  return h + '<span class="mut" style="font-size:12px;width:100%">' + (CTAB === "ykCost" ? '작업 날짜 기준으로 그 기간 작업들을 모아 품명별 평균을 내요 (두름 많이 한 작업일수록 더 크게 반영).' : '작업 날짜 기준으로 그 기간 엮은 두름·번 돈을 모아요. 지급도 그 기간에 준 것만 빼요.') + '</span></div>';
+  return _ykRangeBar(f, t, "ykPer", "ykPerYm", CTAB === "ykCost" ? '작업 날짜 기준으로 그 기간 작업들을 모아 품명별 평균을 내요 (두름 많이 한 작업일수록 더 크게 반영).' : CTAB === "ykAnal" ? '작업 날짜 기준으로 그 기간 작업들을 비교해요.' : '작업 날짜 기준으로 그 기간 엮은 두름·번 돈을 모아요. 지급도 그 기간에 준 것만 빼요.');
 }
 // ════════ 📊 품명별 평균 원가표 (기간) ════════
 //   작업마다 총원가를 품명별 마리수 비율로 나눈 값(_ykCalc 의 alloc)을 기간 동안 더해서 ÷ 두름 = 가중 평균 원가
