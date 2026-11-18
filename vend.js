@@ -32,19 +32,33 @@ function _vdNextNo(kind, extra){ var mx = 0, V = _vdS().v || {}; Object.keys(V).
 function _vdVs(kind){ var V = _vdS().v || {}; return Object.keys(V).filter(function(k){ return (V[k].kind || "bp") === kind; }).sort(function(a, b){ var x = _vdNoN(V[a].no) || 1e9, y = _vdNoN(V[b].no) || 1e9; return x - y || String(V[a].nm).localeCompare(String(V[b].nm)); }); }
 function _vdNoTag(v){ return v.no ? '<span style="background:#1e293b;color:#fff;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:900;margin-right:6px">' + esc(v.no) + '</span>' : ''; }
 // 장부 줄 (날짜순) + 합계 누계 + 원료 재고 누계
+// 재고가 아닌 줄 (돈만): 수수료·냉동·이자·냉장료·상차비·결제 …
+var VD_NS = /^(수수료|냉동|냉동비|이자|냉장료|상차비|하차비|운임|운반비|결제|입금|송금|전기이월)/;
+function _vdNS(nm){ return VD_NS.test(String(nm || "").trim()); }
+function _vdIsBuy(x){ return !x.carry && !x.fee && _vdN(x.qty) > 0 && !_vdNS(x.nm); }   // 원료 산 줄 (수수료 기준)
 function _vdRows(vid){
   var R = (_vdS().r || {})[vid] || {}, ids = Object.keys(R).sort(function(a, b){ var x = R[a], y = R[b]; return String(x.dt || "").localeCompare(String(y.dt || "")) || (y.carry ? 1 : 0) - (x.carry ? 1 : 0) || _vdN(x.at) - _vdN(y.at) || (a < b ? -1 : 1); });
+  var ds = {}; ids.forEach(function(id){ var x = R[id]; if(_vdIsBuy(x)) ds[x.dt] = (ds[x.dt] || 0) + _vdAmRaw(x); });
+  ids.forEach(function(id){ var x = R[id]; if(x.fee){ x._base = ds[x.dt] || 0; x._fam = Math.round(x._base * _vdN(x.fee)); } });
   var bal = 0, st = {};
   return ids.map(function(id){ var x = R[id], am = _vdAm(x); bal += am + _vdN(x.tax) - _vdN(x.pay);
-    var nm = String(x.nm || "").trim(); if(nm && (_vdN(x.qty) || _vdN(x.out))){ st[nm] = (st[nm] || 0) + _vdN(x.qty) - _vdN(x.out); }
-    return { id: id, x: x, am: am, bal: bal, stock: nm && (_vdN(x.qty) || _vdN(x.out)) ? st[nm] : null }; });
+    var nm = String(x.nm || "").trim(), isSt = nm && !x.fee && !_vdNS(nm) && (_vdN(x.qty) || _vdN(x.out)); if(isSt){ st[nm] = (st[nm] || 0) + _vdN(x.qty) - _vdN(x.out); }
+    return { id: id, x: x, am: am, bal: bal, stock: isSt ? st[nm] : null }; });
 }
-function _vdAm(x){ return x.am !== undefined && x.am !== "" && x.am !== null ? _vdN(x.am) : _vdN(x.qty) * _vdN(x.price); }
+function _vdAmRaw(x){ return x.am !== undefined && x.am !== "" && x.am !== null ? _vdN(x.am) : _vdN(x.qty) * _vdN(x.price); }
+function _vdAm(x){ return x.fee ? _vdN(x._fam) : _vdAmRaw(x); }
+function _vdFeeRate(vid){ var v = (_vdS().v || {})[vid] || {}; return v.fee != null && v.fee !== "" ? _vdN(v.fee) / 100 : 0.04; }
+// 적은 품명이 '수수료'면 수수료 줄로 바꿈 — 수량칸에 0.04 또는 4 를 적었으면 그 비율, 아니면 업체 수수료율(기본 4%)
+function _vdFeeFix(vid, o){
+  if(String(o.nm || "").trim() !== "수수료" || ((_vdS().v || {})[vid] || {}).kind !== "raw") return o;
+  var q = _vdN(o.qty), r = q > 0 && q < 1 ? q : q >= 1 && q <= 30 ? q / 100 : _vdFeeRate(vid);
+  var n = { dt: o.dt, nm: "수수료", fee: r, spec: (Math.round(r * 10000) / 100) + "%" }; ["note", "at", "by", "pay"].forEach(function(k){ if(o[k] != null && o[k] !== "") n[k] = o[k]; }); return n;
+}
 function _vdSum(vid){ var t = 0, p = 0, n = 0, last = ""; _vdRows(vid).forEach(function(o){ t += o.am + _vdN(o.x.tax); p += _vdN(o.x.pay); n++; if(o.x.dt > last) last = o.x.dt; }); return { tot: t, pay: p, rest: t - p, n: n, last: last }; }
 // 원료 거래처 품명별 재고현황 (입고·출고·재고·평균단가)
 function _vdStock(vid){
   var m = {};
-  _vdRows(vid).forEach(function(o){ var x = o.x, nm = String(x.nm || "").trim(); if(!nm || (!_vdN(x.qty) && !_vdN(x.out))) return;
+  _vdRows(vid).forEach(function(o){ var x = o.x, nm = String(x.nm || "").trim(); if(!nm || x.fee || _vdNS(nm) || (!_vdN(x.qty) && !_vdN(x.out))) return;
     var s = m[nm] = m[nm] || { nm: nm, inq: 0, out: 0, amt: 0, q4p: 0 }; s.inq += _vdN(x.qty); s.out += _vdN(x.out); if(_vdN(x.qty) && _vdN(x.price)){ s.amt += _vdN(x.qty) * _vdN(x.price); s.q4p += _vdN(x.qty); } });
   return Object.keys(m).map(function(k){ var s = m[k]; s.st = s.inq - s.out; s.avg = s.q4p ? s.amt / s.q4p : 0; return s; });
 }
@@ -104,7 +118,8 @@ function _vdLedger(vid){
       h += td(pay ? _vdW(pay) : "", "text-align:right") + td(_vdW(o.bal), "text-align:right;font-weight:800;color:" + (o.bal > 0 ? "#b91c1c" : "#475569")) + td(esc(x.note || "이월"), "font-size:12px;color:#6d28d9") + (raw ? td(o.stock == null ? "" : _vdQ(o.stock), "text-align:right;color:#0369a1") : "") + td(can ? '<span style="color:#a78bfa;font-size:12px">이월</span>' : "", "text-align:right") + '</tr>'; return; }
     if(pc && VD.edit === o.id){ h += _vdInRow(vid, o.id, x, raw); return; }
     h += '<tr style="' + (isPay ? "background:#f0fdf4;" : "") + (can ? "cursor:pointer" : "") + '"' + (can ? ' title="' + (pc ? "누르면 이 줄을 바로 고쳐요" : "누르면 고쳐요") + '" onclick="' + (pc ? "VD.edit='" + o.id + "';VD.focus='ve_nm';draw()" : "vdREdit('" + vid + "','" + o.id + "')") + '"' : '') + '>' + td(esc(String(x.dt || "").replace(/-/g, ".")), "white-space:nowrap") + td(esc(x.nm || ""), "font-weight:700") + td(esc(x.spec || ""), "color:#475569");
-    if(raw) h += td(n(x.qty), "text-align:right") + td(n(x.price), "text-align:right") + td(n(x.out), "text-align:right;color:#7c3aed") + td(o.am ? _vdW(o.am) : "", "text-align:right");
+    if(raw && x.fee) h += td('<b style="color:#c2410c">' + (Math.round(_vdN(x.fee) * 10000) / 100) + '%</b>', "text-align:right") + td('<span title="그날 원료 산 금액 합계" style="color:#64748b">' + _vdW(x._base) + '</span>', "text-align:right") + td("") + td(o.am ? _vdW(o.am) : "0", "text-align:right;color:#c2410c");
+    else if(raw) h += td(n(x.qty), "text-align:right") + td(n(x.price), "text-align:right") + td(n(x.out), "text-align:right;color:#7c3aed") + td(o.am ? _vdW(o.am) : "", "text-align:right");
     else h += td(n(x.qty), "text-align:right") + td(n(x.price), "text-align:right") + td(o.am ? _vdW(o.am) : "", "text-align:right") + td(n(x.tax), "text-align:right;color:#64748b");
     h += td(pay ? _vdW(pay) : "", "text-align:right;color:#16a34a;font-weight:800") + td(_vdW(o.bal), "text-align:right;font-weight:800;color:" + (o.bal > 0 ? "#b91c1c" : "#475569")) + td(esc(x.note || ""), "font-size:12px;color:#475569");
     if(raw) h += td(o.stock == null ? "" : _vdQ(o.stock), "text-align:right;color:#0369a1");
@@ -125,6 +140,7 @@ function vdVEdit(vid){
   var v = vid ? (_vdS().v || {})[vid] : { kind: VD.kind }, F = function(lb, id, val, ph){ return '<label style="font-size:13px;display:block;margin-bottom:8px">' + lb + '<input id="' + id + '" value="' + esc(val || "") + '" placeholder="' + (ph || "") + '" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>'; };
   var h = '<h3 style="margin:0 0 10px">' + (vid ? "거래처 수정" : "+ 거래처") + '</h3>' + F("관리번호 (화일철 번호 · 비품 A-01~ · 원료 C-01~)", "vd_no", vid ? v.no : _vdNextNo(v.kind), "예: A01") + F("상호 *", "vd_nm", v.nm, "예: 현대포장상사");
   h += '<label style="font-size:13px;display:block;margin-bottom:8px">어느 장부<select id="vd_kind" onchange="var n=document.getElementById(\'vd_no\');if(n&&!n.dataset.hand)n.value=_vdNextNo(this.value)" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px"><option value="bp"' + (v.kind !== "raw" ? " selected" : "") + '>📦 비품 거래 (수량·단가·금액·세액)</option><option value="raw"' + (v.kind === "raw" ? " selected" : "") + '>🐟 원료 구입 (입고·출고·재고)</option></select></label>';
+  h += '<label style="font-size:13px;display:block;margin-bottom:8px">수수료 % <span class="mut" style="font-size:11.5px">(원료 구입 — 그날 원료 합계에 붙는 %, 비우면 4%)</span><input id="vd_fee" type="number" step="any" value="' + esc(v.fee == null ? "" : v.fee) + '" placeholder="4" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>';
   h += F("전화번호 및 담당", "vd_tel", v.tel) + F("계좌번호", "vd_acct", v.acct) + F("위치", "vd_loc", v.loc) + F("메모", "vd_note", v.note);
   h += '<div style="display:flex;gap:6px;justify-content:space-between;margin-top:10px"><span>' + (vid ? _vdB("#dc2626", "거래처 지우기", "vdVDel('" + vid + "')") : "") + '</span><span style="display:flex;gap:6px">' + _vdB("#475569", "닫기", "closePopup()") + _vdB("#16a34a", "저장", "vdVSave('" + vid + "')", "padding:8px 18px") + '</span></div>';
   openPopup(h, 440); var ne = document.getElementById("vd_no"); if(ne) ne.oninput = function(){ ne.dataset.hand = 1; };
@@ -136,7 +152,7 @@ function vdVSave(vid){
   if(dup.length) return toast("같은 이름 거래처가 이미 있어요", true);
   var kd = g("vd_kind") || "bp", no = _vdNoFix(g("vd_no"), kd);
   var dn = Object.keys(V).filter(function(k){ return k !== vid && no && V[k].no === no; }); if(dn.length && !confirm("관리번호 " + no + " 는 「" + V[dn[0]].nm + "」 도 쓰고 있어요. 그래도 저장할까요?")) return;
-  var id = vid || "v" + Date.now().toString(36), o = Object.assign({}, V[vid] || {}, { no: no, nm: nm, kind: kd, tel: g("vd_tel"), acct: g("vd_acct"), loc: g("vd_loc"), note: g("vd_note") });
+  var id = vid || "v" + Date.now().toString(36), o = Object.assign({}, V[vid] || {}, { no: no, nm: nm, kind: kd, fee: g("vd_fee") === "" ? null : _vdN(g("vd_fee")), tel: g("vd_tel"), acct: g("vd_acct"), loc: g("vd_loc"), note: g("vd_note") });
   _vdRef("v/" + id).set(o).then(function(){ VD.D.v = VD.D.v || {}; VD.D.v[id] = o; closePopup(); VD.kind = o.kind; VD.sel = id; toast("저장했어요"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 function vdVDel(vid){
@@ -171,7 +187,8 @@ function _vdBtDraw(keep){
   h += '<div style="max-height:46vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"><table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:13.5px">' + cg + '<thead><tr style="background:#f1f5f9;position:sticky;top:0;z-index:1">' + C.map(th).join("") + '<th style="font-size:12px;color:#64748b">빼기</th></tr></thead><tbody>';
   if(!B.rows.length) h += '<tr><td colspan="' + (C.length + 1) + '" style="padding:22px;text-align:center;color:#94a3b8">아직 추가한 줄이 없어요</td></tr>';
   B.rows.forEach(function(x, i){ T.am += _vdAm(x); T.tax += _vdN(x.tax); T.pay += _vdN(x.pay);
-    h += '<tr style="cursor:pointer;' + (i % 2 ? "background:#f8fafc" : "") + '" title="누르면 위로 올려서 고쳐요" onclick="vdBtBack(' + i + ')">' + C.map(function(c){ var val = c[0] === "am" ? (_vdAm(x) ? _vdW(_vdAm(x)) : "") : c[2] === "number" ? (_vdN(x[c[0]]) ? _vdQ(x[c[0]]) : "") : esc(x[c[0]] || ""); return '<td style="padding:7px 6px;border-bottom:1px solid #f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (c[2] === "number" ? "text-align:right;" : "") + (c[0] === "nm" ? "font-weight:700;" : "") + (c[0] === "pay" ? "color:#16a34a;font-weight:800;" : "") + '">' + val + '</td>'; }).join("") + '<td style="text-align:center;border-bottom:1px solid #f1f5f9"><button class="btn" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:2px 8px" onclick="event.stopPropagation();VD.bt.rows.splice(' + i + ',1);_vdBtDraw()">✕</button></td></tr>'; });
+    if(x.fee){ var base = 0; B.rows.forEach(function(q){ if(_vdIsBuy(q)) base += _vdAmRaw(q); }); T.am += Math.round(base * x.fee) - _vdAm(x); }
+    h += '<tr style="cursor:pointer;' + (i % 2 ? "background:#f8fafc" : "") + '" title="누르면 위로 올려서 고쳐요" onclick="vdBtBack(' + i + ')">' + C.map(function(c){ if(x.fee && c[0] === "qty") return '<td style="padding:7px 6px;border-bottom:1px solid #f1f5f9;text-align:right;color:#c2410c;font-weight:800">' + x.spec + '</td>'; if(x.fee && c[0] === "am") return '<td style="padding:7px 6px;border-bottom:1px solid #f1f5f9;text-align:right;color:#c2410c;font-size:12px">그날 원료 합계 × ' + x.spec + '</td>'; var val = c[0] === "am" ? (_vdAm(x) ? _vdW(_vdAm(x)) : "") : c[2] === "number" ? (_vdN(x[c[0]]) ? _vdQ(x[c[0]]) : "") : esc(x[c[0]] || ""); return '<td style="padding:7px 6px;border-bottom:1px solid #f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (c[2] === "number" ? "text-align:right;" : "") + (c[0] === "nm" ? "font-weight:700;" : "") + (c[0] === "pay" ? "color:#16a34a;font-weight:800;" : "") + '">' + val + '</td>'; }).join("") + '<td style="text-align:center;border-bottom:1px solid #f1f5f9"><button class="btn" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:2px 8px" onclick="event.stopPropagation();VD.bt.rows.splice(' + i + ',1);_vdBtDraw()">✕</button></td></tr>'; });
   h += '</tbody></table></div>';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px"><div style="font-size:14px"><b>' + B.rows.length + '줄</b> · 금액 <b>' + _vdW(T.am + T.tax) + '</b>' + (T.pay ? ' · 낸 돈 <b style="color:#16a34a">' + _vdW(T.pay) + '</b>' : '') + '</div><div style="display:flex;gap:6px">' + _vdB("#475569", "닫기", "vdBtClose()") + (B.rows.length ? _vdB("#16a34a", "💾 " + B.rows.length + "줄 등록", "vdBtSave()", "padding:10px 24px;font-size:15px;font-weight:800") : '') + '</div></div>';
   openPopup(h, 1080);
@@ -182,8 +199,9 @@ function vdBtAdd(){
   var B = VD.bt; if(!B) return; var raw = _vdS().v[B.vid].kind === "raw", C = _vdBtCols(raw), x = {};
   C.forEach(function(c){ var e = document.getElementById("vb_" + c[0]), s2 = e ? String(e.value).trim() : ""; if(s2 === "") return; x[c[0]] = c[2] === "number" ? _vdN(s2) : s2; });
   if(!x.nm && !x.qty && !x.am && !x.pay && !x.out) return toast("품명이나 숫자를 적어 주세요", true);
-  if(!x.qty && !x.am && !x.pay && !x.out) return toast("수량이나 금액(또는 낸 돈)을 적어 주세요", true);
-  if(x.am == null && x.qty && x.price) x.am = Math.round(x.qty * x.price);
+  if(!x.qty && !x.am && !x.pay && !x.out && String(x.nm || "").trim() !== "수수료") return toast("수량이나 금액(또는 낸 돈)을 적어 주세요", true);
+  x = _vdFeeFix(B.vid, x);
+  if(x.am == null && x.qty && x.price && !x.fee) x.am = Math.round(x.qty * x.price);
   var d = document.getElementById("bt_dt"); if(d && d.value) B.dt = d.value;
   B.rows.push(x); _vdBtDraw();
 }
@@ -289,6 +307,7 @@ function _vdNmList(vid){ var m = {}, R = _vdS().r || {}, kind = ((_vdS().v || {}
   return Object.keys(m).sort(); }
 function _vdNmPick(vid, P){ P = P || "vr_";
   var n = document.getElementById(P + "nm"), p = document.getElementById(P + "price"), sp = document.getElementById(P + "spec"), hint = document.getElementById(P + "hint"); if(!n || !p) return;
+  if(n.value.trim() === "수수료" && ((_vdS().v || {})[vid] || {}).kind === "raw"){ if(hint) hint.innerHTML = '💡 <b>수수료</b> = 그날 원료 산 금액 합계 × <b>' + (Math.round(_vdFeeRate(vid) * 10000) / 100) + '%</b> — 금액은 저절로 계산돼요 (원료를 더 넣으면 같이 바뀜). 비율이 다르면 수량칸에 0.03 처럼 적어요'; return; }
   var f = _vdPriceOf(vid, n.value);
   if(!f){ if(hint) hint.innerHTML = n.value.trim() ? '<span style="color:#94a3b8">처음 적는 품명 — 단가를 넣어 주세요</span>' : ''; return; }
   if(!p.value || p.dataset.auto){ p.value = _wonFmt(f.price); p.dataset.auto = 1; }
@@ -341,9 +360,10 @@ function vdRSave(vid, rid, mode, P){ P = P || "vr_";
   var o = { dt: g(P + "dt"), nm: g(P + "nm"), note: g(P + "note"), pay: nb(P + "pay") };
   if(mode !== "pay"){ o.spec = g(P + "spec"); o.qty = nb(P + "qty"); o.price = nb(P + "price"); o.out = nb(P + "out"); o.am = nb(P + "am"); o.tax = nb(P + "tax"); }
   if(!o.dt){ VD.more = ""; return toast("일자를 넣어 주세요", true); }
-  if(!o.pay && !o.am && !o.qty && !o.out){ VD.more = ""; return toast(mode === "pay" ? "낸 돈을 적어 주세요" : "수량이나 금액을 적어 주세요", true); }
+  if(!o.pay && !o.am && !o.qty && !o.out && String(o.nm || "").trim() !== "수수료"){ VD.more = ""; return toast(mode === "pay" ? "낸 돈을 적어 주세요" : "수량이나 금액을 적어 주세요", true); }
   Object.keys(o).forEach(function(k){ if(o[k] === null || o[k] === "") delete o[k]; });
   var old = rid ? ((_vdS().r || {})[vid] || {})[rid] : null; o.at = old && old.at ? old.at : Date.now(); o.by = ME ? ME.n || ME.id || "" : "";
+  o = _vdFeeFix(vid, o);
   var id = rid || "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   _vdRef("r/" + vid + "/" + id).set(o).then(function(){ VD.D.r = VD.D.r || {}; VD.D.r[vid] = VD.D.r[vid] || {}; VD.D.r[vid][id] = o; closePopup(); toast("저장했어요"); if(P === "vn_"){ VD.lastDt = o.dt; VD.focus = "vn_nm"; VD.toEnd = 1; } if(P === "ve_") VD.edit = ""; draw(); if(VD.more){ var m = VD.more; VD.more = ""; VD.lastDt = o.dt; vdREdit(vid, "", m); } }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
@@ -360,7 +380,8 @@ function vdPrint(vid){
   h += '<table class="top" style="margin-bottom:8px"><tr><td rowspan="3" style="font-size:20px;font-weight:bold;width:45%">' + (v.no ? esc(v.no) + ' ' : '') + esc(v.nm) + (VD.y ? ' <span style="font-size:12px">(' + VD.y + '년)</span>' : '') + '</td><td>전화번호및담당</td><td>' + esc(v.tel || "") + '</td><td>총금액</td><td class="r">' + _vdW(s.tot) + '</td></tr><tr><td>계좌번호</td><td>' + esc(v.acct || "") + '</td><td>결제금액</td><td class="r">' + _vdW(s.pay) + '</td></tr><tr><td>위 치</td><td>' + esc(v.loc || "") + '</td><td>미수금액</td><td class="r"><b>' + _vdW(s.rest) + '</b></td></tr></table>';
   h += '<table><tr>' + cols.map(function(c){ return '<th>' + c + '</th>'; }).join("") + '</tr>';
   rows.forEach(function(o){ var x = o.x; h += '<tr><td>' + esc(String(x.dt || "").replace(/-/g, ".")) + '</td><td>' + esc(x.nm || "") + '</td><td>' + esc(x.spec || "") + '</td>';
-    if(raw) h += '<td class="r">' + n(x.qty) + '</td><td class="r">' + n(x.price) + '</td><td class="r">' + n(x.out) + '</td><td class="r">' + (o.am ? _vdW(o.am) : "") + '</td>';
+    if(raw && x.fee) h += '<td class="r">' + esc(x.spec || "") + '</td><td class="r">' + _vdW(x._base) + '</td><td></td><td class="r">' + _vdW(o.am) + '</td>';
+    else if(raw) h += '<td class="r">' + n(x.qty) + '</td><td class="r">' + n(x.price) + '</td><td class="r">' + n(x.out) + '</td><td class="r">' + (o.am ? _vdW(o.am) : "") + '</td>';
     else h += '<td class="r">' + n(x.qty) + '</td><td class="r">' + n(x.price) + '</td><td class="r">' + (o.am ? _vdW(o.am) : "") + '</td><td class="r">' + n(x.tax) + '</td>';
     h += '<td class="r">' + (_vdN(x.pay) ? _vdW(x.pay) : "") + '</td><td class="r">' + _vdW(o.bal) + '</td><td>' + esc(x.note || "") + '</td>' + (raw ? '<td class="r">' + (o.stock == null ? "" : _vdQ(o.stock)) + '</td>' : '') + '</tr>'; });
   h += '</table><script>onload=function(){print()}<\/script></body></html>';
@@ -424,6 +445,7 @@ async function vdXlRead(files){
         if(!x.dt || !(x.qty || x.out || x.am || x.pay || x.tax)) continue; last = x.dt;
         if(x.am == null && x.qty && x.price) x.am = Math.round(x.qty * x.price);
         if(/^(결제|입금|송금)/.test(x.nm || "") && x.am && !x.pay && !x.qty){ x.pay = x.am; delete x.am; }
+        if(String(x.nm || "").trim() === "수수료" && kind === "raw" && x.qty > 0 && x.qty < 1){ x = { dt: x.dt, nm: "수수료", fee: x.qty, spec: (Math.round(x.qty * 10000) / 100) + "%", note: x.note }; if(!x.note) delete x.note; }
         if(/이월/.test((x.nm || "") + " " + (x.note || ""))){ x.carry = 1; if(x.qty && !/전기이월/.test(x.nm || "")) x.am = 0; }   // 엑셀의 이월 줄 = 📌 이월
         rows.push(x); }
       var vid = byNm[nm], have = {}; if(vid) Object.keys(((_vdS().r || {})[vid]) || {}).forEach(function(k){ var g = _vdSig(_vdS().r[vid][k]); have[g] = (have[g] || 0) + 1; });
