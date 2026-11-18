@@ -82,16 +82,20 @@ function _vdLedger(vid){
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:13px"><span>총금액 <b>' + _vdW(s.tot) + '</b></span><span style="color:#16a34a">결제금액 <b>' + _vdW(s.pay) + '</b></span><span style="color:#dc2626">미수금액 <b style="font-size:16px">' + _vdW(s.rest) + '</b></span></div></div>';
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0"><select onchange="VD.y=this.value;draw()" style="width:auto;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px"><option value="">전체 기간</option>' + Object.keys(ys).sort().reverse().map(function(y){ return '<option value="' + y + '"' + (VD.y === y ? " selected" : "") + '>' + y + '년</option>'; }).join("") + '</select>';
   h += '<input type="search" placeholder="🔍 품명·규격·비고" value="' + esc(VD.q || "") + '" onchange="VD.q=this.value;draw()" style="width:180px;padding:6px;border:1px solid #cbd5e1;border-radius:6px">';
-  if(can && raw) h += _vdB("#16a34a", "📥 입고 (산 것)", "vdREdit('" + vid + "','','in')", "padding:8px 14px;font-weight:800") + _vdB("#7c3aed", "📤 출고 (가져온 것)", "vdREdit('" + vid + "','','out')", "padding:8px 14px;font-weight:800") + _vdB("#2563eb", "💵 결제 (낸 돈)", "vdREdit('" + vid + "','','pay')", "padding:8px 14px;font-weight:800");
-  else if(can) h += _vdB("#16a34a", "+ 산 것 적기", "" + (_vdPc() ? "VD.focus='vn_nm';VD.toEnd=1;_vdAfter()" : "vdREdit('" + vid + "','','buy')") + "") + _vdB("#2563eb", "💵 결제(낸 돈) 적기", "vdREdit('" + vid + "','','pay')");
+  var MO = _vdMode();
+  if(can && _vdPc()){ h += '<span style="display:inline-flex;border:2px solid #334155;border-radius:9px;overflow:hidden">' + [["xl", "⌨ 엑셀 방식"], ["reg", "📝 등록 방식"]].map(function(o){ var on = MO === o[0]; return '<button class="btn" onclick="_vdSetMode(\'' + o[0] + '\')" style="border-radius:0;padding:7px 12px;font-weight:800;background:' + (on ? "#334155" : "#fff") + ';color:' + (on ? "#fff" : "#334155") + '">' + o[1] + '</button>'; }).join("") + '</span>';
+    h += MO === "reg" ? _vdB("#16a34a", "📝 등록 (그날 여러 줄)", "vdBatch('" + vid + "')", "padding:8px 14px;font-weight:800") : _vdB("#16a34a", "+ 적기 (아래 파란 줄)", "VD.focus='vn_nm';VD.toEnd=1;_vdAfter()");
+    h += _vdB("#2563eb", "💵 결제 (낸 돈)", "vdREdit('" + vid + "','','pay')"); }
+  else if(can && raw) h += _vdB("#16a34a", "📥 입고 (산 것)", "vdREdit('" + vid + "','','in')", "padding:8px 14px;font-weight:800") + _vdB("#7c3aed", "📤 출고 (가져온 것)", "vdREdit('" + vid + "','','out')", "padding:8px 14px;font-weight:800") + _vdB("#2563eb", "💵 결제 (낸 돈)", "vdREdit('" + vid + "','','pay')", "padding:8px 14px;font-weight:800");
+  else if(can) h += _vdB("#16a34a", "+ 산 것 적기", "vdREdit('" + vid + "','','buy')") + _vdB("#2563eb", "💵 결제(낸 돈) 적기", "vdREdit('" + vid + "','','pay')");
   h += _vdB("#475569", "🖨 장부 인쇄", "vdPrint('" + vid + "')") + '</div>';
   var cols = raw ? ["일자", "품명", "규격", "입고", "단가", "출고", "금액", "입출금내역", "합계", "비고", "재고", ""] : ["일자", "품명", "규격", "수량", "단가", "금액", "세액", "입출금내역", "합계", "비고", ""];
   var R = { 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1 }; if(raw) R[10] = 1;
-  var CW = raw ? [110, 0, 70, 80, 90, 75, 115, 115, 125, 150, 80, 50] : [128, 0, 90, 75, 90, 110, 85, 110, 120, 150, 120];   // 칸 너비 고정 (0 = 남는 만큼)
+  var pcx = _vdPc() && can && MO === "xl", CW = raw ? [110, 0, 70, 80, 90, 75, 115, 115, 125, 150, 80, pcx ? 120 : 50] : [128, 0, 90, 75, 90, 110, 85, 110, 120, 150, 120];   // 칸 너비 고정 (0 = 남는 만큼)
   h += '<div id="vdScr" style="overflow-x:auto;max-height:620px"><table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;min-width:' + (raw ? 1150 : 1100) + 'px"><colgroup>' + CW.map(function(w){ return '<col' + (w ? ' style="width:' + w + 'px"' : '') + '>'; }).join("") + '</colgroup><thead><tr style="background:' + K.bg + ';position:sticky;top:0">' + cols.map(function(x, i){ return '<th style="padding:7px 8px;white-space:nowrap;overflow:hidden;text-align:' + (R[i] ? "right" : "left") + ';border-bottom:2px solid ' + K.bd + '">' + x + '</th>'; }).join("") + '</tr></thead><tbody>';
-  if(!list.length) h += '<tr><td colspan="' + cols.length + '" style="padding:20px;text-align:center;color:#94a3b8">적힌 줄이 없어요' + (_vdPc() && can && !raw ? ' — 아래 파란 줄에 바로 적으세요' : can && raw ? ' — 위 📥 입고 · 📤 출고 · 💵 결제 버튼으로 적으세요' : '') + '</td></tr>';
+  if(!list.length) h += '<tr><td colspan="' + cols.length + '" style="padding:20px;text-align:center;color:#94a3b8">적힌 줄이 없어요' + (pcx ? ' — 아래 파란 줄에 바로 적으세요' : can ? ' — 위 버튼으로 적으세요' : '') + '</td></tr>';
   h += '<datalist id="vdNms">' + _vdNmList(vid).map(function(nm){ var f = _vdPriceOf(vid, nm); return '<option value="' + esc(nm) + '">' + (f ? esc(_vdW(f.price) + "원") : "") + '</option>'; }).join("") + '</datalist>';
-  var td = function(v, st){ return '<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (st || "") + '">' + v + '</td>'; }, n = function(v){ return _vdN(v) ? _vdQ(v) : ""; }, pc = _vdPc() && can && !raw;
+  var td = function(v, st){ return '<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (st || "") + '">' + v + '</td>'; }, n = function(v){ return _vdN(v) ? _vdQ(v) : ""; }, pc = pcx;
   list.forEach(function(o){ var x = o.x, pay = _vdN(x.pay), isPay = pay && !o.am && !_vdN(x.qty) && !_vdN(x.out);
     if(pc && VD.edit === o.id){ h += _vdInRow(vid, o.id, x, raw); return; }
     h += '<tr style="' + (isPay ? "background:#f0fdf4;" : "") + (can ? "cursor:pointer" : "") + '"' + (can ? ' title="' + (pc ? "누르면 이 줄을 바로 고쳐요" : "누르면 고쳐요") + '" onclick="' + (pc ? "VD.edit='" + o.id + "';VD.focus='ve_nm';draw()" : "vdREdit('" + vid + "','" + o.id + "')") + '"' : '') + '>' + td(esc(String(x.dt || "").replace(/-/g, ".")), "white-space:nowrap") + td(esc(x.nm || ""), "font-weight:700") + td(esc(x.spec || ""), "color:#475569");
@@ -100,7 +104,7 @@ function _vdLedger(vid){
     h += td(pay ? _vdW(pay) : "", "text-align:right;color:#16a34a;font-weight:800") + td(_vdW(o.bal), "text-align:right;font-weight:800;color:" + (o.bal > 0 ? "#b91c1c" : "#475569")) + td(esc(x.note || ""), "font-size:12px;color:#475569");
     if(raw) h += td(o.stock == null ? "" : _vdQ(o.stock), "text-align:right;color:#0369a1");
     h += td(can ? '<span style="color:#94a3b8;font-size:12px">수정</span>' : "", "text-align:right") + '</tr>'; });
-  if(_vdPc() && can && !raw){ h += _vdInRow(vid, "", { dt: VD.lastDt || _vdToday() }, raw) + '<tr><td colspan="' + cols.length + '" style="padding:4px 6px;font-size:12px;color:#475569"><span id="vn_hint"></span> <span class="mut">⌨ 파란 줄에 바로 적고 <b>Enter</b> = 넣기 · Tab = 다음 칸 · 품명 고르면 단가 불러옴 · 줄 누르면 그 자리에서 고치기(Esc 취소)' + (raw ? '' : ' · 세액 칸에서 F9 = 금액의 10%') + '</span></td></tr>'; }
+  if(pcx){ h += _vdInRow(vid, "", { dt: VD.lastDt || _vdToday() }, raw) + '<tr><td colspan="' + cols.length + '" style="padding:4px 6px;font-size:12px;color:#475569"><span id="vn_hint"></span> <span class="mut">⌨ 파란 줄에 바로 적고 <b>Enter</b> = 넣기 · Tab = 다음 칸 · 품명 고르면 단가 불러옴 · 줄 누르면 그 자리에서 고치기(Esc 취소)' + (raw ? '' : ' · 세액 칸에서 F9 = 금액의 10%') + '</span></td></tr>'; }
   h += '</tbody></table></div>';
   setTimeout(_vdAfter, 0);
   if(raw){ var st = _vdStock(vid);
@@ -137,6 +141,55 @@ function vdVDel(vid){
 }
 
 // ════════ 장부 한 줄 적기·고치기 ════════
+function _vdMode(){ try { return localStorage.getItem("gm_vdMode") || "xl"; } catch(e){ return "xl"; } }
+function _vdSetMode(m){ try { localStorage.setItem("gm_vdMode", m); } catch(e){} VD.edit = ""; draw(); }
+// 📝 등록 방식: 날짜 한 번 → 한 줄로 적고 [추가] → 아래에 쌓임 → [등록] 한 번에
+function vdBatch(vid){ VD.bt = { vid: vid, dt: VD.lastDt || _vdToday(), rows: [] }; _vdBtDraw(); }
+function _vdBtCols(raw){ return raw ? [["nm", "품명", "text", 0], ["spec", "규격", "text", 70], ["qty", "입고", "number", 80], ["price", "단가", "number", 95], ["out", "출고", "number", 75], ["am", "금액", "number", 115], ["pay", "낸 돈", "number", 105], ["note", "비고", "text", 120]]
+  : [["nm", "품명", "text", 0], ["spec", "규격", "text", 90], ["qty", "수량", "number", 75], ["price", "단가", "number", 95], ["am", "금액", "number", 115], ["tax", "세액", "number", 90], ["pay", "낸 돈", "number", 105], ["note", "비고", "text", 120]]; }
+function _vdBtDraw(keep){
+  var B = VD.bt, vid = B.vid, v = _vdS().v[vid], raw = v.kind === "raw", C = _vdBtCols(raw), K = VD_K[v.kind || "bp"];
+  var cg = '<colgroup>' + C.map(function(c){ return '<col' + (c[3] ? ' style="width:' + c[3] + 'px"' : '') + '>'; }).join("") + '<col style="width:80px"></colgroup>';
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><h3 style="margin:0">📝 ' + _vdNoTag(v) + esc(v.nm) + ' — 등록</h3><label style="font-size:15px;font-weight:800">일자 <input id="bt_dt" type="date" value="' + esc(B.dt) + '" onchange="VD.bt.dt=this.value" style="padding:7px 9px;font-size:15px;border:2px solid ' + K.c + ';border-radius:7px"></label></div>';
+  h += '<datalist id="vbNms">' + _vdNmList(vid).map(function(n){ var f = _vdPriceOf(vid, n); return '<option value="' + esc(n) + '">' + (f ? esc(_vdW(f.price) + "원") : "") + '</option>'; }).join("") + '</datalist>';
+  var th = function(c){ return '<th style="padding:6px;text-align:' + (c[2] === "number" ? "right" : "left") + ';white-space:nowrap;font-size:12.5px">' + c[1] + '</th>'; };
+  // 입력 줄
+  h += '<table style="width:100%;border-collapse:collapse;table-layout:fixed">' + cg + '<tr style="background:' + K.bg + '">' + C.map(th).join("") + '<th></th></tr><tr onkeydown="if(event.key===\'Enter\'){event.preventDefault();_vdNmPick(\'' + vid + '\',\'vb_\');vdBtAdd()}">';
+  C.forEach(function(c){ var ex = c[0] === "nm" ? 'list="vbNms" autocomplete="off" placeholder="품명 (결제는 \'결제\')" onchange="_vdNmPick(\'' + vid + '\',\'vb_\')"' : c[0] === "qty" || c[0] === "price" ? 'step="any" oninput="' + (c[0] === "price" ? "delete this.dataset.auto;" : "") + '_vdRCalc(\'vb_\')"' : c[0] === "am" ? 'step="any" oninput="this.dataset.hand=1"' : c[0] === "tax" ? 'step="any" placeholder="F9=10%" onkeydown="if(event.key===\'F9\'){event.preventDefault();this.value=Math.round(_vdN(document.getElementById(\'vb_am\').value)*0.1)}"' : c[2] === "number" ? 'step="any"' : '';
+    h += '<td style="padding:4px 2px"><input id="vb_' + c[0] + '" type="' + c[2] + '" ' + ex + ' style="width:100%;padding:8px 6px;font-size:14px;border:2px solid #93c5fd;border-radius:6px;box-sizing:border-box' + (c[2] === "number" ? ";text-align:right" : "") + '"></td>'; });
+  h += '<td style="padding:4px 2px">' + _vdB("#0369a1", "＋ 추가", "vdBtAdd()", "width:100%;padding:8px 4px;font-weight:800") + '</td></tr></table>';
+  h += '<div id="vb_hint" style="font-size:12.5px;min-height:18px;margin:4px 2px"></div><div class="mut" style="font-size:12px;margin-bottom:6px">⌨ 한 줄 적고 <b>Enter</b> (또는 ＋ 추가) → 아래에 쌓여요 · 아래 줄을 누르면 다시 위로 올려서 고쳐요 · 다 적으면 <b>등록</b></div>';
+  // 쌓인 줄
+  var T = { am: 0, tax: 0, pay: 0 };
+  h += '<div style="max-height:46vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"><table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:13.5px">' + cg + '<tbody>';
+  if(!B.rows.length) h += '<tr><td colspan="' + (C.length + 1) + '" style="padding:22px;text-align:center;color:#94a3b8">아직 추가한 줄이 없어요</td></tr>';
+  B.rows.forEach(function(x, i){ T.am += _vdAm(x); T.tax += _vdN(x.tax); T.pay += _vdN(x.pay);
+    h += '<tr style="cursor:pointer;' + (i % 2 ? "background:#f8fafc" : "") + '" title="누르면 위로 올려서 고쳐요" onclick="vdBtBack(' + i + ')">' + C.map(function(c){ var val = c[0] === "am" ? (_vdAm(x) ? _vdW(_vdAm(x)) : "") : c[2] === "number" ? (_vdN(x[c[0]]) ? _vdQ(x[c[0]]) : "") : esc(x[c[0]] || ""); return '<td style="padding:7px 6px;border-bottom:1px solid #f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (c[2] === "number" ? "text-align:right;" : "") + (c[0] === "nm" ? "font-weight:700;" : "") + (c[0] === "pay" ? "color:#16a34a;font-weight:800;" : "") + '">' + val + '</td>'; }).join("") + '<td style="text-align:center;border-bottom:1px solid #f1f5f9"><button class="btn" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:2px 8px" onclick="event.stopPropagation();VD.bt.rows.splice(' + i + ',1);_vdBtDraw()">✕</button></td></tr>'; });
+  h += '</tbody></table></div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px"><div style="font-size:14px"><b>' + B.rows.length + '줄</b> · 금액 <b>' + _vdW(T.am + T.tax) + '</b>' + (T.pay ? ' · 낸 돈 <b style="color:#16a34a">' + _vdW(T.pay) + '</b>' : '') + '</div><div style="display:flex;gap:6px">' + _vdB("#475569", "닫기", "vdBtClose()") + (B.rows.length ? _vdB("#16a34a", "💾 " + B.rows.length + "줄 등록", "vdBtSave()", "padding:10px 24px;font-size:15px;font-weight:800") : '') + '</div></div>';
+  openPopup(h, 1080);
+  if(keep) C.forEach(function(c){ var e = document.getElementById("vb_" + c[0]); if(e && keep[c[0]] != null) e.value = keep[c[0]]; });
+  setTimeout(function(){ var e = document.getElementById("vb_nm"); if(e) e.focus(); }, 30);
+}
+function vdBtAdd(){
+  var B = VD.bt; if(!B) return; var raw = _vdS().v[B.vid].kind === "raw", C = _vdBtCols(raw), x = {};
+  C.forEach(function(c){ var e = document.getElementById("vb_" + c[0]), s2 = e ? String(e.value).trim() : ""; if(s2 === "") return; x[c[0]] = c[2] === "number" ? _vdN(s2) : s2; });
+  if(!x.nm && !x.qty && !x.am && !x.pay && !x.out) return toast("품명이나 숫자를 적어 주세요", true);
+  if(!x.qty && !x.am && !x.pay && !x.out) return toast("수량이나 금액(또는 낸 돈)을 적어 주세요", true);
+  if(x.am == null && x.qty && x.price) x.am = Math.round(x.qty * x.price);
+  var d = document.getElementById("bt_dt"); if(d && d.value) B.dt = d.value;
+  B.rows.push(x); _vdBtDraw();
+}
+function vdBtBack(i){ var x = VD.bt.rows.splice(i, 1)[0]; _vdBtDraw(x); }
+function vdBtClose(){ if(VD.bt && VD.bt.rows.length && !confirm("추가한 " + VD.bt.rows.length + "줄을 등록하지 않고 닫을까요?")) return; VD.bt = null; closePopup(); }
+function vdBtSave(){
+  var B = VD.bt; if(!B || !B.rows.length) return; var d = document.getElementById("bt_dt"); if(d && d.value) B.dt = d.value;
+  if(!B.dt) return toast("일자를 넣어 주세요", true);
+  var up = {}, t0 = Date.now(), by = ME ? ME.n || ME.id || "" : "", saved = [];
+  B.rows.forEach(function(x, j){ var o = Object.assign({}, x, { dt: B.dt, at: t0 + j, by: by }), id = "r" + (t0 + j).toString(36) + Math.random().toString(36).slice(2, 5); up["r/" + B.vid + "/" + id] = o; saved.push([id, o]); });
+  _vdRef().update(up).then(function(){ VD.D.r = VD.D.r || {}; VD.D.r[B.vid] = VD.D.r[B.vid] || {}; saved.forEach(function(p){ VD.D.r[B.vid][p[0]] = p[1]; }); VD.lastDt = B.dt; VD.toEnd = 1; toast(saved.length + "줄 등록했어요"); VD.bt = null; closePopup(); draw(); })
+    .catch(function(e){ toast("등록 실패: " + e.message, true); });
+}
 function _vdPc(){ return (window.innerWidth || 1200) >= 760; }
 // PC 표 안 입력 줄 — P: "vn_"(새 줄) / "ve_"(고치는 줄)
 function _vdInRow(vid, rid, x, raw){
