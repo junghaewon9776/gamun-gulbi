@@ -73,7 +73,7 @@ function _vdPage(){
   var K = VD_K[VD.kind], ks = _vdVs(VD.kind), V = _vdS().v || {}, can = _vdCan();
   if(VD.sel && (!V[VD.sel] || (V[VD.sel].kind || "bp") !== VD.kind)) VD.sel = "";
   var h = '<div class="card" style="margin-bottom:10px;background:' + K.bg + ';border:1px solid ' + K.bd + '"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div><b style="font-size:18px;color:' + K.c + '">' + K.ic + ' ' + K.nm + ' — 거래처 장부</b><div class="mut" style="font-size:12.5px">' + (VD.kind === "raw" ? "산 원료(입고) · 가져온 것(출고) · 거래처에 남은 재고 · 미수금" : "산 물건 · 낸 돈 · 미수금") + ' — 예전 엑셀 장부 모양 그대로</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">';
-  h += _vdB("#334155", "📥 엑셀 양식", "vdXlTpl()") + (can ? _vdB("#7c3aed", "📤 엑셀 올리기", "vdXlPick()") + _vdB("#16a34a", "+ 거래처", "vdVEdit('')") : "") + '</div></div></div>';
+  h += _vdB("#b45309", "🏷 화일철 라벨", "vdLabelPop()") + _vdB("#334155", "📥 엑셀 양식", "vdXlTpl()") + (can ? _vdB("#7c3aed", "📤 엑셀 올리기", "vdXlPick()") + _vdB("#16a34a", "+ 거래처", "vdVEdit('')") : "") + '</div></div></div>';
   if(VD.sel) return h + _vdLedger(VD.sel);
   // 거래처 목록 — 관리번호 순 · 검색(번호·상호·전화·메모)
   var T = { tot: 0, pay: 0, rest: 0 }, vq = String(VD.vq || "").trim().toLowerCase().replace(/\s/g, "");
@@ -485,4 +485,45 @@ function vdXlSave(){
   showLoading("올리는 중...");
   _vdRef().update(up).then(function(){ hideLoading(); closePopup(); VD.D = null; VD.xl = null; if(first && L.length === 1){ VD.sel = first; VD.kind = L[0].kind; } toast("장부 " + n + "줄 올렸어요"); _vdLoad(); draw(); })
     .catch(function(e){ hideLoading(); toast("올리기 실패: " + e.message, true); });
+}
+
+// ════════ 🏷 화일철 라벨 (100 × 30 mm) ════════
+//   가로형: 관리번호 + 상호(제목) 가로로 — 화일철 앞면
+//   세로형: 화일철 등(옆면)에 세로로 붙임 — 위에서부터 관리번호 · 분류 · 상호(세로 글씨). 종이는 100×30 그대로, 내용만 돌려서 찍어요
+var VD_LBL = { type: "h", sel: {}, n: 1, yr: "" };
+function _vdLblCat(v){ return (v.kind === "raw" ? "원료 구입" : "비품 거래") + " · " + _vdPre(v.kind || "bp"); }
+function _vdLblFit(t, maxMm, base){ var n = String(t || "").length || 1; return Math.max(5, Math.min(base, maxMm / (n * 0.95))); }   // 글자 수 따라 크기(mm)
+function _vdLblHtml(v, type){
+  var no = esc(v.no || ""), nm = esc(v.nm || ""), cat = esc(_vdLblCat(v)), yr = VD_LBL.yr ? esc(VD_LBL.yr) : "";
+  if(type === "h"){
+    var fs = _vdLblFit(v.nm, 66, 13);
+    return '<div class="lb"><div style="display:flex;height:100%;box-sizing:border-box;padding:2mm 3mm;gap:3mm;align-items:center"><div style="width:24mm;height:22mm;background:#111;color:#fff;border-radius:2mm;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none"><div style="font-size:3mm;opacity:.8">관리번호</div><div style="font-size:' + (no.length > 4 ? 6.5 : 8) + 'mm;font-weight:900;line-height:1.05">' + no + '</div></div><div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1mm"><div style="font-size:3.2mm;color:#333;border-bottom:.3mm solid #999;padding-bottom:.6mm">' + cat + ' 거래처 장부' + (yr ? ' · ' + yr : '') + '</div><div style="font-size:' + fs + 'mm;font-weight:900;line-height:1.1;white-space:nowrap;overflow:hidden">' + nm + '</div></div></div></div>';
+  }
+  // 세로형: 30mm 폭 × 100mm 높이로 그려서 -90도 돌림
+  var vfs = Math.max(6, Math.min(14, 66 / Math.max(1, String(v.nm || "").length)));
+  return '<div class="lb"><div class="rot"><div style="height:100%;box-sizing:border-box;padding:2mm;display:flex;flex-direction:column;align-items:center;gap:1.5mm"><div style="width:100%;background:#111;color:#fff;border-radius:1.5mm;text-align:center;padding:1mm 0;flex:none"><div style="font-size:2.6mm;opacity:.8">관리번호</div><div style="font-size:' + (no.length > 4 ? 6 : 7.5) + 'mm;font-weight:900;line-height:1.05">' + no + '</div></div><div style="font-size:2.8mm;text-align:center;line-height:1.2;flex:none;border-bottom:.3mm solid #999;padding-bottom:1mm;width:100%">' + cat + (yr ? '<br>' + yr : '') + '</div><div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0"><div style="writing-mode:vertical-rl;text-orientation:upright;font-size:' + vfs + 'mm;font-weight:900;letter-spacing:.5mm;line-height:1">' + nm + '</div></div></div></div></div>';
+}
+var VD_LBL_CSS = '@page{size:100mm 30mm;margin:0}*{box-sizing:border-box}body{margin:0;font-family:"Malgun Gothic","맑은 고딕",sans-serif;color:#111}.lb{width:100mm;height:30mm;overflow:hidden;position:relative;page-break-after:always;break-after:page}.lb:last-child{page-break-after:auto;break-after:auto}.rot{position:absolute;width:30mm;height:100mm;left:35mm;top:-35mm;transform:rotate(-90deg);transform-origin:50% 50%}@media screen{body{background:#e5e7eb;padding:10px}.lb{background:#fff;margin:0 auto 6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}}';
+function vdLabelPop(){
+  var ks = _vdVs(VD.kind), V = _vdS().v || {}; if(!ks.length) return toast("거래처가 없어요", true);
+  if(!Object.keys(VD_LBL.sel).some(function(k){ return V[k] && (V[k].kind || "bp") === VD.kind; })){ VD_LBL.sel = {}; ks.forEach(function(k){ VD_LBL.sel[k] = 1; }); }
+  var h = '<h3 style="margin:0 0 8px">🏷 화일철 라벨 <span style="font-size:13px;color:#64748b;font-weight:400">100 × 30 mm · ' + VD_K[VD.kind].nm + '</span></h3>';
+  h += '<div style="display:flex;gap:6px;margin-bottom:10px">' + [["h", "▭ 가로형 (앞면 · 제목)"], ["v", "▯ 세로형 (등 · 관리번호·분류·제목 세로)"], ["both", "둘 다"]].map(function(o){ var on = VD_LBL.type === o[0]; return '<button class="btn" onclick="VD_LBL.type=\'' + o[0] + '\';vdLabelPop()" style="flex:1;padding:9px 6px;font-weight:800;background:' + (on ? "#b45309" : "#fff") + ';color:' + (on ? "#fff" : "#92400e") + ';border:2px solid #b45309">' + o[1] + '</button>'; }).join("") + '</div>';
+  var ex = V[ks.filter(function(k){ return VD_LBL.sel[k]; })[0] || ks[0]];
+  h += '<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px"><div><div class="mut" style="font-size:12px;margin-bottom:4px">미리 보기 (실제 크기 비율)</div><div style="display:flex;flex-direction:column;gap:6px">' + (VD_LBL.type !== "v" ? '<div class="vdLblPrev">' + _vdLblHtml(ex, "h") + '</div>' : '') + (VD_LBL.type !== "h" ? '<div class="vdLblPrev">' + _vdLblHtml(ex, "v") + '</div>' : '') + '</div></div>';
+  h += '<div style="flex:1;min-width:200px;font-size:13px"><label style="display:block;margin-bottom:8px">같은 라벨 몇 장씩 <input type="number" min="1" max="20" value="' + VD_LBL.n + '" onchange="VD_LBL.n=Math.max(1,Math.min(20,+this.value||1))" style="width:60px;padding:5px;border:1px solid #cbd5e1;border-radius:6px"></label><label style="display:block">년도·메모 줄 (비우면 안 나옴) <input value="' + esc(VD_LBL.yr) + '" placeholder="예: 2026년" onchange="VD_LBL.yr=this.value.trim();vdLabelPop()" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label></div></div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:13px">뽑을 거래처 <span id="vdLblN">' + ks.filter(function(k){ return VD_LBL.sel[k]; }).length + '</span>곳</b><span style="display:flex;gap:4px">' + _vdB("#475569", "전부", "_vdLblAll(1)", "padding:3px 9px;font-size:12px") + _vdB("#94a3b8", "전부 빼기", "_vdLblAll(0)", "padding:3px 9px;font-size:12px") + '</span></div>';
+  h += '<div style="max-height:34vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">' + ks.map(function(k){ var v = V[k]; return '<label style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer"><input type="checkbox" class="vdLblC" data-k="' + k + '"' + (VD_LBL.sel[k] ? " checked" : "") + ' onchange="VD_LBL.sel[this.dataset.k]=this.checked?1:0;_vdLblCnt()"><b style="min-width:46px">' + esc(v.no || "") + '</b>' + esc(v.nm) + '</label>'; }).join("") + '</div><div class="mut" style="font-size:11.5px;margin-top:4px">Shift 누르고 체크하면 사이 것 다 골라져요</div>';
+  h += '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px">' + _vdB("#475569", "닫기", "closePopup()") + _vdB("#b45309", "🖨 라벨 인쇄", "vdLabelPrint()", "padding:10px 22px;font-weight:800") + '</div>';
+  h += '<style>.vdLblPrev{zoom:.62}.vdLblPrev .lb{width:100mm;height:30mm;overflow:hidden;position:relative;border:1px dashed #94a3b8;background:#fff;font-family:"Malgun Gothic",sans-serif;color:#111}.vdLblPrev .rot{position:absolute;width:30mm;height:100mm;left:35mm;top:-35mm;transform:rotate(-90deg)}</style>';
+  openPopup(h, 640);
+}
+function _vdLblCnt(){ var e = document.getElementById("vdLblN"); if(e) e.textContent = document.querySelectorAll(".vdLblC:checked").length; }
+function _vdLblAll(on){ Array.prototype.forEach.call(document.querySelectorAll(".vdLblC"), function(c){ c.checked = !!on; VD_LBL.sel[c.dataset.k] = on ? 1 : 0; }); _vdLblCnt(); }
+function vdLabelPrint(){
+  var V = _vdS().v || {}, ks = _vdVs(VD.kind).filter(function(k){ return VD_LBL.sel[k]; }); if(!ks.length) return toast("뽑을 거래처를 골라 주세요", true);
+  var types = VD_LBL.type === "both" ? ["h", "v"] : [VD_LBL.type], body = "";
+  ks.forEach(function(k){ types.forEach(function(t){ for(var i = 0; i < VD_LBL.n; i++) body += _vdLblHtml(V[k], t); }); });
+  var w = window.open("", "_blank", "width=520,height=700"); if(!w) return toast("팝업이 막혀 있어요 — 허용해 주세요", true);
+  w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>화일철 라벨</title><style>' + VD_LBL_CSS + '</style></head><body>' + body + '<script>onload=function(){setTimeout(function(){print()},300)}<\/script></body></html>'); w.document.close();
 }
