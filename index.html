@@ -977,6 +977,22 @@ function openPopup(html,w){var b=document.getElementById("popBody");b.innerHTML=
 // 2단계 팝업 (기존 팝업 위에 오버레이로 표시)
 function openPopup2(html,w){var b=document.getElementById("popBody2");b.innerHTML=html;b.style.width=w?(w+"px"):"";b.style.maxWidth="100%";document.getElementById("popup2").className="popup show";document.getElementById("popup2").style.zIndex="1000";}
 function closePopup2(){document.getElementById("popup2").className="popup";document.getElementById("popBody2").innerHTML="";}
+// 🔑 저장하다 PERMISSION_DENIED (로그인이 풀림) → 그 자리에서 비번만 다시 넣고 이어서 저장 (입력하던 창은 그대로)
+(function(){ var t0 = toast, shown = 0;
+  toast = function(m, e){ if(e && /PERMISSION_DENIED|permission.denied/i.test(String(m))){ m = "로그인이 풀려서 저장이 안 됐어요 — 비밀번호를 다시 넣으면 이어서 저장할 수 있어요"; if(Date.now() - shown > 1500){ shown = Date.now(); setTimeout(_reloginPop, 50); } } return t0(m, e); };
+})();
+function _reloginPop(){
+  if(typeof secQuickLogin !== "function"){ alert("로그인이 풀렸어요. 로그아웃 후 다시 로그인해 주세요."); return; }
+  var id = (typeof CID !== "undefined" && CID) || "";
+  openPopup2('<h3 style="margin:0 0 6px">🔑 다시 로그인</h3><div style="font-size:13px;color:#475569;margin-bottom:10px">로그인이 풀려서 저장이 막혔어요. <b>비밀번호만 다시 넣으면</b> 지금 적던 내용은 그대로 두고 이어서 저장할 수 있어요.</div><label style="font-size:13px;display:block;margin-bottom:8px">아이디<input id="rl_id" value="' + esc(id) + '" style="width:100%;padding:9px;font-size:15px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box"></label><label style="font-size:13px;display:block">비밀번호<input id="rl_pw" type="password" onkeydown="if(event.key===\'Enter\')_reloginGo()" style="width:100%;padding:9px;font-size:15px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box"></label><div id="rl_msg" style="font-size:12.5px;color:#dc2626;min-height:18px;margin-top:6px"></div><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px"><button class="btn" style="background:#475569;color:#fff" onclick="closePopup2()">닫기</button><button class="btn" style="background:#16a34a;color:#fff;padding:8px 20px;font-weight:800" onclick="_reloginGo()">로그인</button></div>', 380);
+  setTimeout(function(){ var e = document.getElementById(id ? "rl_pw" : "rl_id"); if(e) e.focus(); }, 50);
+}
+function _reloginGo(){
+  var id = document.getElementById("rl_id").value.trim(), pw = document.getElementById("rl_pw").value, m = document.getElementById("rl_msg");
+  if(!id || !pw){ m.textContent = "아이디·비밀번호를 넣어 주세요"; return; }
+  m.style.color = "#475569"; m.textContent = "로그인 중...";
+  secQuickLogin(id, pw).then(function(r){ if(r && r.ok){ closePopup2(); toast("🔑 다시 로그인됐어요 — 저장 버튼을 한 번 더 눌러 주세요"); } else { m.style.color = "#dc2626"; m.textContent = (r && r.err) || "로그인 실패"; } });
+}
 function _popHasClose(bodyId,fn){var b=document.getElementById(bodyId);return !!(b&&b.querySelector('.close-x,[onclick*="'+fn+'("]'));}
 function closePopup(){document.getElementById("popup").className="popup"}
 function showLoading(msg){var el=document.getElementById("loading");el.querySelector(".msg").textContent=msg||"처리 중...";el.classList.add("on")}
