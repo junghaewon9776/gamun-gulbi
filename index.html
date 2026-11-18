@@ -524,10 +524,13 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="buse.js?v=20261117h"></script>
 <script src="raw.js?v=20261117g"></script>
 <script src="haccp.js?v=20261117b"></script>
-<script src="yk.js?v=20261118r"></script>
-<script src="vend.js?v=20261118d"></script>
+<script src="yk.js?v=20261118s"></script>
+<script src="vend.js?v=20261118e"></script>
 <script>
 // 🖱 숫자 칸 위에서 휠 굴려도 숫자 안 바뀌게 (화면만 내려가요) — 시스템 전체
+// 💰 금액 칸 저절로 콤마 (data-won 붙은 칸) — 읽을 땐 _bsN 등이 콤마를 빼고 숫자로 읽어요
+function _wonFmt(v){var s=String(v==null?"":v).replace(/[^\d.\-]/g,"");if(s===""||s==="-")return s;var neg=s.charAt(0)==="-";s=s.replace(/-/g,"");var p=s.split(".");p[0]=p[0].replace(/^0+(?=\d)/,"").replace(/\B(?=(\d{3})+(?!\d))/g,",");return(neg?"-":"")+p[0]+(p.length>1?"."+p.slice(1).join(""):"");}
+document.addEventListener("input",function(e){var el=e.target;if(!el||!el.hasAttribute||!el.hasAttribute("data-won"))return;var v=el.value,c=el.selectionStart==null?v.length:el.selectionStart,d=v.slice(0,c).replace(/[^\d.\-]/g,"").length,f=_wonFmt(v);if(f===v)return;el.value=f;var i=0,n=0;while(i<f.length&&n<d){if(/[\d.\-]/.test(f.charAt(i)))n++;i++;}try{el.setSelectionRange(i,i);}catch(x){}},true);
 document.addEventListener("wheel",function(e){var a=document.activeElement;if(a&&a.tagName==="INPUT"&&a.type==="number"&&(e.target===a||a.contains(e.target)))a.blur();},{passive:true});
 </script>
 
