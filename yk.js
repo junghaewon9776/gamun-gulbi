@@ -342,12 +342,12 @@ function dYkSet(){
   h += '<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px"><b>📦 정품 (품명 · 가격 · 라벨) ' + ik.length + '개</b><span>' + (can ? ' <span style="display:inline-flex;gap:4px">' + _bsB("#15803d", "📥 엑셀 양식", "ykXlTpl('item')", "padding:5px 9px") + _bsB("#0e7490", "📤 엑셀로 등록", "ykXlPick('item')", "padding:5px 9px") + '</span>' : '') + '' + (can ? _bsB("#b45309", "+ 정품", "ykItemEdit('')") : "") + '</span></div><div style="overflow-x:auto;max-height:420px"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:900px"><thead><tr style="background:#fff7ed;position:sticky;top:0">';
   ["품명", "박스당 두름", "두름 마리수", "판매가", "도매가", "원가표", "무게(g)", "라벨 색", "라벨", "바코드", "메모", ""].forEach(function(x, i){ h += '<th style="padding:5px;text-align:' + (i >= 1 && i <= 6 ? "right" : "left") + ';white-space:nowrap">' + x + '</th>'; });
   h += '</tr></thead><tbody>';
-  ik.forEach(function(k){ var x = I[k]; h += '<tr' + _ykDragTr("item", k) + '><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-weight:700;white-space:nowrap">' + _ykGrip() + esc(x.nm) + '</td>' + ["box", "mi", "sale", "whole", "cost", "wt"].map(function(f){ return '<td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;text-align:right">' + (x[f] ? _ykWon(x[f]) : '') + '</td>'; }).join("") + '<td style="padding:4px 5px;border-bottom:1px solid #f1f5f9">' + esc(x.color || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px">' + (x.noLbl ? '<span style="color:#dc2626">안 뽑음</span>' : x.under ? x.under + '박스 이하 안 뽑음' : '뽑음') + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px">' + esc(x.code || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px;color:#7c3aed">' + esc(x.msg || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9">' + (can ? _bsB("#2563eb", "수정", "ykItemEdit('" + esc(k) + "')", "padding:2px 8px") : "") + '</td></tr>'; });
+  if(_ykGridOn()) h += _ykGrid("item", ik); else ik.forEach(function(k){ var x = I[k]; h += '<tr' + _ykDragTr("item", k) + '><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-weight:700;white-space:nowrap">' + _ykGrip() + esc(x.nm) + '</td>' + ["box", "mi", "sale", "whole", "cost", "wt"].map(function(f){ return '<td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;text-align:right">' + (x[f] ? _ykWon(x[f]) : '') + '</td>'; }).join("") + '<td style="padding:4px 5px;border-bottom:1px solid #f1f5f9">' + esc(x.color || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px">' + (x.noLbl ? '<span style="color:#dc2626">안 뽑음</span>' : x.under ? x.under + '박스 이하 안 뽑음' : '뽑음') + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px">' + esc(x.code || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-size:11.5px;color:#7c3aed">' + esc(x.msg || "") + '</td><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9">' + (can ? _bsB("#2563eb", "수정", "ykItemEdit('" + esc(k) + "')", "padding:2px 8px") : "") + '</td></tr>'; });
   h += '</tbody></table></div></div>';
   // 원료
   var M = S.mats || {}, mk = _ykMatKeys();
   h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px"><b>🐟 원료 (짝당 마리수 · 무게 · 값) ' + mk.length + '개</b><span>' + (can ? ' <span style="display:inline-flex;gap:4px">' + _bsB("#15803d", "📥 엑셀 양식", "ykXlTpl('mat')", "padding:5px 9px") + _bsB("#0e7490", "📤 엑셀로 등록", "ykXlPick('mat')", "padding:5px 9px") + '</span>' : '') + '' + (can ? _bsB("#b45309", "+ 원료", "ykMatEdit('')") : "") + '</span></div><div style="overflow-x:auto;max-height:360px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#fff7ed;position:sticky;top:0"><th style="padding:5px;text-align:left">원료명</th><th style="text-align:right">짝당 마리수</th><th style="text-align:right">짝당 무게(kg)</th><th style="text-align:right">짝당 값</th><th></th></tr></thead><tbody>';
-  mk.forEach(function(k){ var x = M[k]; h += '<tr' + _ykDragTr("mat", k) + '><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-weight:700;white-space:nowrap">' + _ykGrip() + esc(x.nm) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + _bsW(x.mi) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + (x.kg ? _bsW(x.kg) : '') + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + (x.price ? _ykWon(x.price) : '') + '</td><td style="border-bottom:1px solid #f1f5f9">' + (can ? _bsB("#2563eb", "수정", "ykMatEdit('" + esc(k) + "')", "padding:2px 8px") : "") + '</td></tr>'; });
+  if(_ykGridOn()) h += _ykGrid("mat", mk); else mk.forEach(function(k){ var x = M[k]; h += '<tr' + _ykDragTr("mat", k) + '><td style="padding:4px 5px;border-bottom:1px solid #f1f5f9;font-weight:700;white-space:nowrap">' + _ykGrip() + esc(x.nm) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + _bsW(x.mi) + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + (x.kg ? _bsW(x.kg) : '') + '</td><td style="text-align:right;border-bottom:1px solid #f1f5f9">' + (x.price ? _ykWon(x.price) : '') + '</td><td style="border-bottom:1px solid #f1f5f9">' + (can ? _bsB("#2563eb", "수정", "ykMatEdit('" + esc(k) + "')", "padding:2px 8px") : "") + '</td></tr>'; });
   return h + '</tbody></table></div></div>';
 }
 function ykSetSave(){
@@ -457,7 +457,7 @@ function ykPerson(n, on){ if(/[.#$\[\]\/]/.test(n)) return toast("이름에 . # 
 function ykItemEdit(k, pre){
   var x = k ? _ykS().items[k] : { nm: pre || "", box: 10, mi: 10, sale: "", whole: "", cost: "", wt: "", color: "", noLbl: false, under: "", code: "", msg: "" };
   var F = function(lb, f, t){ return '<label style="font-size:13px">' + lb + '<input id="yi_' + f + '" type="' + (t || "text") + '" value="' + esc(x[f] == null ? "" : x[f]) + '" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; };
-  var h = '<h3 style="margin:0 0 10px">📦 ' + (k ? "정품 고치기" : "정품 추가") + ' <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+  var h = '<h3 style="margin:0 0 10px">📦 ' + (k ? "정품 고치기" : "정품 추가") + ' <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">';
   h += F("품명", "nm") + F("박스당 두름", "box", "number") + F("두름 마리수 (20미/10미)", "mi", "number") + F("판매가 (두름당)", "sale", "number") + F("도매가 (두름당)", "whole", "number") + F("원가표 (두름당)", "cost", "number") + F("무게 (g)", "wt", "number") + F("라벨 색", "color") + F("바코드 (예: GA0005)", "code") + '</div>';
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">' + F("N박스 이하면 라벨 안 뽑음 (비우면 다 뽑음)", "under", "number") + F("메모 (예: 고추장만드세요)", "msg") + '</div><label style="font-size:13px;display:block;margin-top:8px"><input type="checkbox" id="yi_noLbl" ' + (x.noLbl ? "checked" : "") + '> 라벨 안 뽑음</label>';
   h += '<div style="display:flex;justify-content:space-between;margin-top:12px">' + (k ? _bsB("#dc2626", "🗑 삭제", "ykItemDel('" + esc(k) + "')") : "<span></span>") + _bsB("#16a34a", "💾 저장", "ykItemSave('" + esc(k || "") + "')", "padding:9px 22px") + '</div>';
@@ -469,6 +469,68 @@ function ykItemSave(k){
   var o0 = k ? (_ykS().items || {})[k] : null; if(o0 && o0.ord != null) v.ord = o0.ord;
   var key = _ykKey(v.nm), up = {}; up["items/" + key] = v; if(k && k !== key) up["items/" + k] = null;
   _ykRef().update(up).then(function(){ YK.D.items = YK.D.items || {}; if(k && k !== key) delete YK.D.items[k]; YK.D.items[key] = v; closePopup(); toast("저장 — " + v.nm); _ykAfter("item", v.nm); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+// ── 📋 PC: 정품·원료 표를 엑셀처럼 칸에서 바로 고치기 (칸 바꾸면 바로 저장 · Enter = 아래 칸 · 맨 아래 초록 줄 = 새로 넣기) ──
+var YK_GF = { item: [["nm", "s", 150], ["box", "n", 60], ["mi", "n", 60], ["sale", "n", 80], ["whole", "n", 80], ["cost", "n", 80], ["wt", "n", 60], ["color", "s", 60], ["lbl", "l", 110], ["code", "s", 80], ["msg", "s", 120]],
+              mat: [["nm", "s", 160], ["mi", "n", 70], ["kg", "n", 70], ["price", "n", 90]] };
+function _ykGridOn(){ return _ykCan() && (window.innerWidth || 1200) >= 760; }
+function _ykGIn(t, k, f, ty, w, v, r){
+  if(ty === "n" && !_bsN(v)) v = "";   // 0 은 빈칸으로 (엑셀처럼)
+  var st = "width:100%;min-width:" + w + "px;padding:4px 5px;border:1px solid transparent;border-radius:4px;font-size:12.5px;box-sizing:border-box;background:transparent;" + (ty === "n" ? "text-align:right;" : "") + (f === "nm" ? "font-weight:700;" : "");
+  return '<input class="ykG" data-t="' + t + '" data-k="' + esc(k) + '" data-f="' + f + '" data-r="' + r + '" ' + (ty === "n" ? 'type="number" step="any"' : 'type="text"') + ' value="' + esc(v == null ? "" : v) + '" onfocus="this.style.borderColor=\'#f59e0b\';this.style.background=\'#fff\'" onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'" onchange="_ykGSet(this)" onkeydown="_ykGKey(event,this)" style="' + st + '">';
+}
+function _ykGrid(t, keys){
+  var T = t === "item" ? _ykS().items || {} : _ykS().mats || {}, F = YK_GF[t], h = "", td = 'style="padding:1px 2px;border-bottom:1px solid #f1f5f9"';
+  keys.forEach(function(k, r){ var x = T[k];
+    h += '<tr' + _ykDragTr(t, k).replace('draggable="true"', 'draggable="false"').replace('ondragend="this.style.opacity=\'\'"', 'ondragend="this.style.opacity=\'\';this.draggable=false"') + ' onmouseover="this.style.background=\'#fffbeb\'" onmouseout="this.style.background=\'\'">';
+    F.forEach(function(c, ci){ h += '<td ' + td + (ci === 0 ? ' ><div style="display:flex;align-items:center"><span onmousedown="this.closest(\'tr\').draggable=true" onmouseup="this.closest(\'tr\').draggable=false" title="잡고 끌어서 순서 바꾸기" style="cursor:grab;color:#94a3b8;font-size:15px;padding:0 4px;user-select:none">⠿</span>' : '>');
+      if(c[1] === "l") h += '<label style="font-size:11.5px;white-space:nowrap;display:flex;align-items:center;gap:3px"><input type="checkbox" ' + (x.noLbl ? "checked" : "") + ' onchange="_ykGSet(this)" class="ykG" data-t="' + t + '" data-k="' + esc(k) + '" data-f="noLbl">안 뽑음 ' + '<input class="ykG" type="number" data-t="' + t + '" data-k="' + esc(k) + '" data-f="under" data-r="' + r + '" value="' + esc(x.under || "") + '" placeholder="N" title="N박스 이하면 안 뽑음" onchange="_ykGSet(this)" onkeydown="_ykGKey(event,this)" style="width:38px;padding:2px;border:1px solid #e5e7eb;border-radius:4px;font-size:11.5px">박스↓</label>';
+      else h += _ykGIn(t, k, c[0], c[1], c[2], x[c[0]], r);
+      h += (ci === 0 ? '</div>' : '') + '</td>'; });
+    h += '<td ' + td + '><button class="btn" title="지우기" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:2px 7px;font-size:12px" onclick="' + (t === "item" ? "ykItemDel" : "ykMatDel") + '(\'' + esc(k) + '\')">✕</button></td></tr>'; });
+  // 새로 넣는 줄
+  h += '<tr style="background:#f0fdf4" onkeydown="if(event.key===\'Enter\'){event.preventDefault();_ykGAdd(\'' + t + '\')}">';
+  F.forEach(function(c, ci){ var id = "ykN_" + t + "_" + c[0], ph = ci === 0 ? (t === "item" ? "+ 새 정품 이름" : "+ 새 원료 이름") : "";
+    if(c[1] === "l") h += '<td style="padding:2px;font-size:11.5px"><label><input type="checkbox" id="ykN_' + t + '_noLbl">안 뽑음</label></td>';
+    else h += '<td style="padding:2px"><input id="' + id + '" ' + (c[1] === "n" ? 'type="number" step="any"' : 'type="text"') + ' placeholder="' + ph + '" value="' + (t === "item" && (c[0] === "box" || c[0] === "mi") ? 10 : "") + '" style="width:100%;min-width:' + c[2] + 'px;padding:5px;border:1px solid #86efac;border-radius:4px;font-size:12.5px;box-sizing:border-box;' + (c[1] === "n" ? "text-align:right;" : "") + '"></td>'; });
+  h += '<td style="padding:2px">' + _bsB("#16a34a", "＋", "_ykGAdd('" + t + "')", "padding:4px 9px") + '</td></tr>';
+  h += '<tr><td colspan="' + (F.length + 1) + '" style="padding:4px 8px;font-size:11.5px;color:#64748b">⌨ 칸을 눌러 바로 고치면 저장돼요 · Enter = 아래 칸 · 초록 줄에 적고 Enter = 새로 넣기 · ⠿ 잡고 끌면 순서 바꾸기</td></tr>';
+  setTimeout(function(){ if(YK.gFocus){ var e = document.getElementById(YK.gFocus); YK.gFocus = ""; if(e) e.focus(); } }, 0);
+  return h;
+}
+function _ykGKey(ev, el){
+  if(ev.key !== "Enter" && ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
+  if((ev.key === "ArrowDown" || ev.key === "ArrowUp") && el.type !== "text") return;   // 숫자칸 ↑↓ 는 숫자 바꾸기 그대로
+  ev.preventDefault(); var r = +el.dataset.r + (ev.key === "ArrowUp" ? -1 : 1), f = el.dataset.f, t = el.dataset.t;
+  YK.gNext = { t: t, f: f, r: r }; el.blur();
+  setTimeout(function(){ var n = YK.gNext; if(!n) return; YK.gNext = null; _ykGFocusAt(n); }, 30);
+}
+function _ykGFocusAt(n){ var e = document.querySelector('.ykG[data-t="' + n.t + '"][data-f="' + n.f + '"][data-r="' + n.r + '"]') || document.getElementById("ykN_" + n.t + "_" + n.f); if(e){ e.focus(); if(e.select) e.select(); } }
+function _ykGSet(el){
+  var t = el.dataset.t, k = el.dataset.k, f = el.dataset.f, path = t === "item" ? "items" : "mats", T = YK.D[path] || {}, x = T[k]; if(!x) return;
+  var ty = ((YK_GF[t].filter(function(c){ return c[0] === f; })[0]) || [f, f === "under" ? "n" : "s"])[1];
+  var v = el.type === "checkbox" ? el.checked : ty === "n" ? (String(el.value).trim() === "" ? "" : _bsN(el.value)) : String(el.value).trim();
+  if(f === "under" && !v) v = "";
+  var ok = function(){ el.style.boxShadow = "0 0 0 2px #22c55e"; setTimeout(function(){ el.style.boxShadow = ""; }, 700); }, fail = function(e){ toast("저장 실패: " + e.message, true); };
+  if(f === "nm"){
+    if(!v){ el.value = x.nm; return toast("이름은 비울 수 없어요", true); }
+    var key = _ykKey(v); if(key === k){ x.nm = v; return _ykRef(path + "/" + k + "/nm").set(v).then(ok, fail); }
+    if(T[key]){ el.value = x.nm; return toast("「" + v + "」 는 이미 있어요", true); }
+    var nv = Object.assign({}, x, { nm: v }), up = {}; up[path + "/" + key] = nv; up[path + "/" + k] = null;
+    return _ykRef().update(up).then(function(){ delete T[k]; T[key] = nv; toast("이름 바꿨어요 — " + v + " (예전 작업 기록의 이름은 그대로)"); var n = YK.gNext; YK.gNext = null; draw(); if(n) setTimeout(function(){ _ykGFocusAt(n); }, 0); }, fail);
+  }
+  if(t === "mat" && f === "mi" && !v){ el.value = x.mi; return toast("짝당 마리수는 꼭 있어야 해요", true); }
+  x[f] = v; _ykRef(path + "/" + k + "/" + f).set(v === "" ? null : v).then(ok, fail);
+}
+function _ykGAdd(t){
+  var g = function(f){ var e = document.getElementById("ykN_" + t + "_" + f); return e ? String(e.value).trim() : ""; }, nm = g("nm");
+  if(!nm) return toast("이름을 적어 주세요", true);
+  var path = t === "item" ? "items" : "mats", T = YK.D[path] = YK.D[path] || {}, key = _ykKey(nm); if(T[key]) return toast("「" + nm + "」 는 이미 있어요", true);
+  var v = { nm: nm }; YK_GF[t].forEach(function(c){ if(c[0] === "nm" || c[1] === "l") return; var s2 = g(c[0]); if(s2 !== "") v[c[0]] = c[1] === "n" ? _bsN(s2) : s2; });
+  if(t === "item"){ v.mi = v.mi || 10; v.box = v.box || 0; var nl = document.getElementById("ykN_item_noLbl"); v.noLbl = !!(nl && nl.checked); }
+  if(t === "mat" && !v.mi) return toast("짝당 마리수를 넣어 주세요", true);
+  var mx = 0; Object.keys(T).forEach(function(q){ mx = Math.max(mx, _bsN(T[q].ord)); }); v.ord = mx + 10;
+  _ykRef(path + "/" + key).set(v).then(function(){ T[key] = v; toast("넣었어요 — " + nm); YK.gFocus = "ykN_" + t + "_nm"; draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 // ── 품명·원료 고르기: 정품표·원료표 순서 그대로 · 등록 안 된 이름은 빨갛게 + 바로 추가 ──
 function _ykOrd(x){ return x && x.ord != null && x.ord !== "" ? _bsN(x.ord) : 1e9; }
@@ -519,7 +581,7 @@ function _ykUnregPop(w){
 function ykItemDel(k){ if(!confirm(_ykS().items[k].nm + " 정품을 지울까요?")) return; _ykRef("items/" + k).remove().then(function(){ delete YK.D.items[k]; closePopup(); draw(); }); }
 function ykMatEdit(k, pre){
   var x = k ? _ykS().mats[k] : { nm: pre || "", mi: "", kg: "", price: "" }, F = function(lb, f, t){ return '<label style="font-size:13px">' + lb + '<input id="ym_' + f + '" type="' + (t || "text") + '" value="' + esc(x[f] == null ? "" : x[f]) + '" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; };
-  var h = '<h3 style="margin:0 0 10px">🐟 ' + (k ? "원료 고치기" : "원료 추가") + ' <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + F("원료명", "nm") + F("짝당 마리수", "mi", "number") + F("짝당 무게 (kg)", "kg", "number") + F("짝당 값 (원)", "price", "number") + '</div>';
+  var h = '<h3 style="margin:0 0 10px">🐟 ' + (k ? "원료 고치기" : "원료 추가") + ' <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">' + F("원료명", "nm") + F("짝당 마리수", "mi", "number") + F("짝당 무게 (kg)", "kg", "number") + F("짝당 값 (원)", "price", "number") + '</div>';
   h += '<div style="display:flex;justify-content:space-between;margin-top:12px">' + (k ? _bsB("#dc2626", "🗑 삭제", "ykMatDel('" + esc(k) + "')") : "<span></span>") + _bsB("#16a34a", "💾 저장", "ykMatSave('" + esc(k || "") + "')", "padding:9px 22px") + '</div>';
   openPopup(h, 460);
 }
