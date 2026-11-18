@@ -73,7 +73,7 @@ function _vdPage(){
   var K = VD_K[VD.kind], ks = _vdVs(VD.kind), V = _vdS().v || {}, can = _vdCan();
   if(VD.sel && (!V[VD.sel] || (V[VD.sel].kind || "bp") !== VD.kind)) VD.sel = "";
   var h = '<div class="card" style="margin-bottom:10px;background:' + K.bg + ';border:1px solid ' + K.bd + '"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div><b style="font-size:18px;color:' + K.c + '">' + K.ic + ' ' + K.nm + ' — 거래처 장부</b><div class="mut" style="font-size:12.5px">' + (VD.kind === "raw" ? "산 원료(입고) · 가져온 것(출고) · 거래처에 남은 재고 · 미수금" : "산 물건 · 낸 돈 · 미수금") + ' — 예전 엑셀 장부 모양 그대로</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">';
-  h += _vdB("#b45309", "🏷 화일철 라벨", "vdLabelPop()") + _vdB("#334155", "📥 엑셀 양식", "vdXlTpl()") + (can ? _vdB("#7c3aed", "📤 엑셀 올리기", "vdXlPick()") + _vdB("#16a34a", "+ 거래처", "vdVEdit('')") : "") + '</div></div></div>';
+  h += _vdB("#b45309", "🏷 화일철 라벨", "vdLabelPop('')") + _vdB("#334155", "📥 엑셀 양식", "vdXlTpl()") + (can ? _vdB("#7c3aed", "📤 엑셀 올리기", "vdXlPick()") + _vdB("#16a34a", "+ 거래처", "vdVEdit('')") : "") + '</div></div></div>';
   if(VD.sel) return h + _vdLedger(VD.sel);
   // 거래처 목록 — 관리번호 순 · 검색(번호·상호·전화·메모)
   var T = { tot: 0, pay: 0, rest: 0 }, vq = String(VD.vq || "").trim().toLowerCase().replace(/\s/g, "");
@@ -105,6 +105,7 @@ function _vdLedger(vid){
   else if(can && raw) h += _vdB("#16a34a", "📥 입고 (산 것)", "vdREdit('" + vid + "','','in')", "padding:8px 14px;font-weight:800") + _vdB("#7c3aed", "📤 출고 (가져온 것)", "vdREdit('" + vid + "','','out')", "padding:8px 14px;font-weight:800") + _vdB("#2563eb", "💵 결제 (낸 돈)", "vdREdit('" + vid + "','','pay')", "padding:8px 14px;font-weight:800");
   else if(can) h += _vdB("#16a34a", "+ 산 것 적기", "vdREdit('" + vid + "','','buy')") + _vdB("#2563eb", "💵 결제(낸 돈) 적기", "vdREdit('" + vid + "','','pay')");
   if(can) h += _vdB("#7c3aed", "📌 이월(기초)", "vdCarry('" + vid + "')");
+  h += _vdB("#b45309", "🏷 화일철 라벨", "vdLabelPop('" + vid + "')");
   h += _vdB("#475569", "🖨 장부 인쇄", "vdPrint('" + vid + "')") + '</div>';
   var cols = raw ? ["일자", "품명", "규격", "입고", "단가", "출고", "금액", "입출금내역", "합계", "비고", "재고", ""] : ["일자", "품명", "규격", "수량", "단가", "금액", "세액", "입출금내역", "합계", "비고", ""];
   var R = { 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1 }; if(raw) R[10] = 1;
@@ -504,7 +505,7 @@ function _vdLp(id){ var L = _vdLps(), p = Object.assign({}, VD_LPRE[(L[id] || {}
 function _vdLblCat(v){ return (v.kind === "raw" ? "원료 구입" : "비품 거래") + " · " + _vdPre(v.kind || "bp"); }
 // 라벨 한 장 그림 (data URL)
 function _vdLblImg(v, type, P){
-  var K = 12, W = P.w, H = P.h, cv = document.createElement("canvas"); cv.width = Math.round(W * K); cv.height = Math.round(H * K);
+  var K = 16, W = P.w, H = P.h, cv = document.createElement("canvas"); cv.width = Math.round(W * K); cv.height = Math.round(H * K);
   var c = cv.getContext("2d"), F = '"Malgun Gothic","맑은 고딕",sans-serif', sc = (_vdN(P.fs) || 100) / 100;
   c.fillStyle = "#fff"; c.fillRect(0, 0, cv.width, cv.height); c.translate((_vdN(P.dx) || 0) * K, (_vdN(P.dy) || 0) * K);
   var font = function(px, b){ c.font = (b ? "900 " : "400 ") + px + "px " + F; };
@@ -516,22 +517,22 @@ function _vdLblImg(v, type, P){
   if(type === "h"){
     var pad = 2 * K, bw = Math.min(26 * K, H * 0.85 * K), bh = (H - 4) * K;
     c.fillStyle = "#111"; rr(pad, pad, bw, bh, 2 * K);
-    c.fillStyle = "#fff"; font(Math.round(3 * K * sc), false); c.fillText("관리번호", pad + bw / 2, pad + bh * 0.27);
-    var nf = fit(no, bw - 2 * K, Math.round(8.5 * K * sc), true); font(nf, true); c.fillText(no, pad + bw / 2, pad + bh * 0.62);
-    var x0 = pad + bw + 3 * K, tw = W * K - x0 - pad; c.fillStyle = "#333"; c.textAlign = "left";
-    var cf = fit(cat + (yr ? " · " + yr : ""), tw, Math.round(3.3 * K * sc), false); font(cf, false); c.fillText(cat + (yr ? " · " + yr : ""), x0, pad + 2.3 * K);
-    c.fillStyle = "#999"; c.fillRect(x0, pad + 4.6 * K, tw, Math.max(1, 0.3 * K));
-    c.fillStyle = "#000"; var mf = fit(nm, tw, Math.round(Math.min(14, (H - 10)) * K * sc), true); font(mf, true); c.fillText(nm, x0, pad + 4.6 * K + (bh - 4.6 * K) / 2 + K * 0.4);
+    c.fillStyle = "#fff"; font(Math.round(2.8 * K * sc), true); c.fillText("관리번호", pad + bw / 2, pad + bh * 0.2);
+    var nf = fit(no, bw - 1.6 * K, Math.round(12 * K * sc), true); font(nf, true); c.fillText(no, pad + bw / 2, pad + bh * 0.6);
+    var x0 = pad + bw + 3 * K, tw = W * K - x0 - pad; c.fillStyle = "#000"; c.textAlign = "left";
+    var cf = fit(cat + (yr ? " · " + yr : ""), tw, Math.round(4 * K * sc), true); font(cf, true); c.fillText(cat + (yr ? " · " + yr : ""), x0, pad + 2.5 * K);
+    c.fillRect(x0, pad + 5 * K, tw, Math.max(2, 0.4 * K));
+    c.fillStyle = "#000"; var mf = fit(nm, tw, Math.round(Math.min(14, (H - 10)) * K * sc), true); font(mf, true); c.fillText(nm, x0, pad + 5 * K + (bh - 5 * K) / 2 + K * 0.4);
   } else {
     // 세로형: H 폭 × W 높이로 그리고 왼쪽으로 90도 돌림 (붙일 때 시계 방향으로 돌리면 위→아래로 읽힘)
     c.translate(0, H * K); c.rotate(-Math.PI / 2);
-    var VW = H * K, VH = W * K, p2 = 2 * K, boxH = Math.min(17 * K, VH * 0.2);
+    var VW = H * K, VH = W * K, p2 = 2 * K, boxH = Math.min(19 * K, VH * 0.22);
     c.fillStyle = "#111"; rr(p2, p2, VW - 2 * p2, boxH, 1.5 * K);
-    c.fillStyle = "#fff"; font(Math.round(2.6 * K * sc), false); c.fillText("관리번호", VW / 2, p2 + boxH * 0.27);
-    var nf2 = fit(no, VW - 4 * p2, Math.round(7.5 * K * sc), true); font(nf2, true); c.fillText(no, VW / 2, p2 + boxH * 0.64);
-    c.fillStyle = "#333"; var y = p2 + boxH + 3 * K, cl = [_vdLblCat(v)].concat(yr ? [yr] : []);
-    cl.forEach(function(t){ var f = fit(t, VW - 2 * p2, Math.round(2.9 * K * sc), false); font(f, false); c.fillText(t, VW / 2, y); y += 3.6 * K; });
-    c.fillStyle = "#999"; c.fillRect(p2, y - 1.2 * K, VW - 2 * p2, Math.max(1, 0.3 * K));
+    c.fillStyle = "#fff"; font(Math.round(2.6 * K * sc), true); c.fillText("관리번호", VW / 2, p2 + boxH * 0.2);
+    var nf2 = fit(no, VW - 2.6 * p2, Math.round(10 * K * sc), true); font(nf2, true); c.fillText(no, VW / 2, p2 + boxH * 0.62);
+    c.fillStyle = "#000"; var y = p2 + boxH + 3 * K, cl = [_vdLblCat(v)].concat(yr ? [yr] : []);
+    cl.forEach(function(t){ var f = fit(t, VW - 2 * p2, Math.round(3.6 * K * sc), true); font(f, true); c.fillText(t, VW / 2, y); y += 4.2 * K; });
+    c.fillRect(p2, y - 1.4 * K, VW - 2 * p2, Math.max(2, 0.4 * K));
     var chars = nm.replace(/\s+/g, "").split(""), top = y + 1 * K, room = VH - top - p2, n = Math.max(1, chars.length);
     var cpx = Math.min(VW - 4 * p2, room / n / 1.05, 14 * K * sc); c.fillStyle = "#000"; font(Math.floor(cpx), true);
     var y0 = top + (room - cpx * 1.05 * n) / 2 + cpx * 0.55;
@@ -540,9 +541,10 @@ function _vdLblImg(v, type, P){
   return cv.toDataURL("image/png");
 }
 function _vdLblTag(v, type, P){ return '<img src="' + _vdLblImg(v, type, P) + '" style="width:' + P.w + 'mm;height:' + P.h + 'mm;display:block" draggable="false">'; }
-function _vdLblJobs(){ var V = _vdS().v || {}, ks = _vdVs(VD.kind).filter(function(k){ return VD_LBL.sel[k]; }), types = VD_LBL.type === "both" ? ["h", "v"] : [VD_LBL.type], L = []; ks.forEach(function(k){ types.forEach(function(t){ for(var i = 0; i < VD_LBL.n; i++) L.push({ v: V[k], t: t }); }); }); return L; }
-function vdLabelPop(){
-  var ks = _vdVs(VD.kind), V = _vdS().v || {}, Ps = _vdLps(); if(!ks.length) return toast("거래처가 없어요", true);
+function _vdLblJobs(){ var V = _vdS().v || {}, ks = VD_LBL.only ? [VD_LBL.only] : _vdVs(VD.kind).filter(function(k){ return VD_LBL.sel[k]; }), types = VD_LBL.type === "both" ? ["h", "v"] : [VD_LBL.type], L = []; ks.forEach(function(k){ types.forEach(function(t){ for(var i = 0; i < VD_LBL.n; i++) L.push({ v: V[k], t: t }); }); }); return L; }
+function vdLabelPop(only){
+  if(only !== undefined) VD_LBL.only = only || "";
+  var ks = VD_LBL.only ? [VD_LBL.only] : _vdVs(VD.kind), V = _vdS().v || {}, Ps = _vdLps(); if(!ks.length) return toast("거래처가 없어요", true);
   if(!VD_LBL.pid || !Ps[VD_LBL.pid]) VD_LBL.pid = Ps[_vdLset().lblPid] ? _vdLset().lblPid : "a4";
   var P = _vdLp(VD_LBL.pid), roll = P.paper === "roll";
   if(!Object.keys(VD_LBL.sel).some(function(k){ return V[k] && (V[k].kind || "bp") === VD.kind; })){ VD_LBL.sel = {}; ks.forEach(function(k){ VD_LBL.sel[k] = 1; }); }
@@ -551,13 +553,14 @@ function vdLabelPop(){
   h += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><b style="font-size:13px">프리셋</b><select onchange="VD_LBL.pid=this.value;vdLabelPop()" style="flex:1;min-width:240px;padding:8px;font-size:14px;font-weight:800;border:2px solid #b45309;border-radius:8px;background:#fffbeb;color:#92400e">' + Object.keys(Ps).map(function(k){ return '<option value="' + esc(k) + '"' + (k === VD_LBL.pid ? " selected" : "") + '>' + (Ps[k].paper === "roll" ? "🖨 " : "📄 ") + esc(Ps[k].nm || k) + '</option>'; }).join("") + '</select>' + (_vdCan() ? _vdB("#7c3aed", "⚙ 프리셋 고치기", "vdLpEdit()", "padding:7px 12px") : "") + '</div>';
   h += '<div style="font-size:12px;margin:-2px 0 8px;color:' + (roll ? "#6d28d9" : "#0369a1") + '">' + (roll ? "🖨 라벨형 — QZ Tray 로 라벨 프린터에 바로 출력해요 (QZ 없으면 못 뽑아요)" : "📄 A4 일반 인쇄 — 한 장에 " + (P.cols * P.rows) + "칸 (" + P.cols + "×" + P.rows + "), 쓰다 남은 라벨지는 시작 칸으로") + '</div>';
   h += '<div style="display:flex;gap:6px;margin-bottom:10px">' + [["h", "▭ 가로형 (앞면)"], ["v", "▯ 세로형 (등 · 세로 글씨)"], ["both", "둘 다"]].map(function(o){ var on = VD_LBL.type === o[0]; return '<button class="btn" onclick="VD_LBL.type=\'' + o[0] + '\';vdLabelPop()" style="flex:1;padding:8px 6px;font-weight:800;background:' + (on ? "#b45309" : "#fff") + ';color:' + (on ? "#fff" : "#92400e") + ';border:2px solid #b45309">' + o[1] + '</button>'; }).join("") + '</div>';
-  var ex = V[ks.filter(function(k){ return VD_LBL.sel[k]; })[0] || ks[0]], z = Math.min(1, 300 / (P.w * 3.78));
+  var ex = V[VD_LBL.only || ks.filter(function(k){ return VD_LBL.sel[k]; })[0] || ks[0]], z = Math.min(1, 300 / (P.w * 3.78));
   h += '<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px"><div><div class="mut" style="font-size:12px;margin-bottom:4px">미리 보기 (' + P.w + '×' + P.h + 'mm)</div><div style="display:flex;flex-direction:column;gap:6px">' + (VD_LBL.type !== "v" ? '<div style="zoom:' + z + ';box-shadow:0 1px 4px rgba(0,0,0,.3)">' + _vdLblTag(ex, "h", P) + '</div>' : '') + (VD_LBL.type !== "h" ? '<div style="zoom:' + z + ';box-shadow:0 1px 4px rgba(0,0,0,.3)">' + _vdLblTag(ex, "v", P) + '</div>' : '') + '</div></div>';
   h += '<div style="flex:1;min-width:200px;font-size:13px"><label style="display:block;margin-bottom:8px">같은 라벨 몇 장씩 <input type="number" min="1" max="20" value="' + VD_LBL.n + '" onchange="VD_LBL.n=Math.max(1,Math.min(20,+this.value||1))" style="width:60px;padding:5px;border:1px solid #cbd5e1;border-radius:6px"></label><label style="display:block;margin-bottom:8px">년도·메모 줄 (비우면 안 나옴) <input value="' + esc(VD_LBL.yr) + '" placeholder="예: 2026년" onchange="VD_LBL.yr=this.value.trim();vdLabelPop()" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>';
   if(!roll) h += '<label style="display:block">시작 칸 <input id="vdl_start" type="number" min="1" max="' + (P.cols * P.rows) + '" value="1" style="width:70px;padding:5px;border:1px solid #cbd5e1;border-radius:6px"> <span class="mut" style="font-size:11.5px">왼쪽 위부터 1~' + (P.cols * P.rows) + '</span></label>';
   h += '</div></div>';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:13px">뽑을 거래처 <span id="vdLblN">' + ks.filter(function(k){ return VD_LBL.sel[k]; }).length + '</span>곳</b><span style="display:flex;gap:4px">' + _vdB("#475569", "전부", "_vdLblAll(1)", "padding:3px 9px;font-size:12px") + _vdB("#94a3b8", "전부 빼기", "_vdLblAll(0)", "padding:3px 9px;font-size:12px") + '</span></div>';
-  h += '<div style="max-height:26vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">' + ks.map(function(k){ var v = V[k]; return '<label style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer"><input type="checkbox" class="vdLblC" data-k="' + k + '"' + (VD_LBL.sel[k] ? " checked" : "") + ' onchange="VD_LBL.sel[this.dataset.k]=this.checked?1:0;_vdLblCnt()"><b style="min-width:46px">' + esc(v.no || "") + '</b>' + esc(v.nm) + '</label>'; }).join("") + '</div><div class="mut" style="font-size:11.5px;margin-top:4px">Shift 누르고 체크하면 사이 것 다 골라져요</div>';
+  if(VD_LBL.only) h += '<div style="font-size:14px;padding:8px 10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px">뽑을 거래처: <b>' + esc((V[VD_LBL.only].no || "") + " " + V[VD_LBL.only].nm) + '</b> <span class="mut" style="font-size:12px">— 여러 곳을 한꺼번에 뽑으려면 거래처 목록의 🏷 화일철 라벨</span></div>';
+  else { h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:13px">뽑을 거래처 <span id="vdLblN">' + ks.filter(function(k){ return VD_LBL.sel[k]; }).length + '</span>곳</b><span style="display:flex;gap:4px">' + _vdB("#475569", "전부", "_vdLblAll(1)", "padding:3px 9px;font-size:12px") + _vdB("#94a3b8", "전부 빼기", "_vdLblAll(0)", "padding:3px 9px;font-size:12px") + '</span></div>';
+  h += '<div style="max-height:26vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">' + ks.map(function(k){ var v = V[k]; return '<label style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer"><input type="checkbox" class="vdLblC" data-k="' + k + '"' + (VD_LBL.sel[k] ? " checked" : "") + ' onchange="VD_LBL.sel[this.dataset.k]=this.checked?1:0;_vdLblCnt()"><b style="min-width:46px">' + esc(v.no || "") + '</b>' + esc(v.nm) + '</label>'; }).join("") + '</div><div class="mut" style="font-size:11.5px;margin-top:4px">Shift 누르고 체크하면 사이 것 다 골라져요</div>'; }
   if(roll) h += '<div id="ml_qz_box" style="border:1px solid #ddd6fe;background:#faf5ff;border-radius:8px;padding:8px 10px;font-size:13px;margin-top:10px"></div>';
   h += '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px">' + _vdB("#475569", "닫기", "closePopup()") + (roll ? _vdB("#7c3aed", "🖨 라벨 프린터로 출력 (QZ)", "vdLabelPrint()", "padding:10px 22px;font-weight:800") : _vdB("#b45309", "🖨 A4 인쇄", "vdLabelPrint()", "padding:10px 22px;font-weight:800")) + '</div>';
   openPopup(h, 660);
