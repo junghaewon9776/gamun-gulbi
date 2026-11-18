@@ -493,6 +493,7 @@ function _ykPick(t, i, v){
   if(!ok) h += '<option value="' + esc(v) + '" selected>⚠ ' + esc(v) + ' (등록 안 됨)</option>';
   L.forEach(function(k){ var x = T[k], nm = x.nm || k, lb = isI ? nm + (x.mi ? " · " + x.mi + "미" : "") + (x.box ? " · " + x.box + "두름/박스" : "") : nm + (x.mi ? " · " + x.mi + "마리/짝" : ""); h += '<option value="' + esc(nm) + '"' + (ok && nm === v ? " selected" : "") + '>' + esc(lb) + '</option>'; });
   h += '<option value="__new">➕ 새 ' + (isI ? "품명" : "원료") + ' 추가…</option></select>';
+  if(ok && v && _ykCan()) h += '<button class="btn" title="이 ' + (isI ? "정품" : "원료") + ' 고치기 (가격·박스·무게 등) — 작업 화면 그대로" style="background:#2563eb;color:#fff;padding:5px 7px;font-size:12px;white-space:nowrap" onclick="YK.after={t:\'' + t + '\',i:' + i + ',old:\'' + esc(v) + '\'};' + (isI ? 'ykItemEdit' : 'ykMatEdit') + '(\'' + esc(_ykKey(v)) + '\')">수정</button>';
   h += '<button class="btn" title="새 ' + (isI ? "품명" : "원료") + ' 추가" style="background:#16a34a;color:#fff;padding:5px 9px;font-weight:900" onclick="_ykAddNew(\'' + t + '\',' + i + ',\'' + (ok ? "" : esc(v)) + '\')">+</button></div>';
   return h;
 }
@@ -501,8 +502,10 @@ function _ykPicked(t, i, el){
   if(t === "item") YK.ed.w.rows[i].item = el.value; else YK.ed.w.mats[i].nm = el.value;
   draw();
 }
-function _ykAddNew(t, i, pre){ YK.after = { t: t, i: i }; if(t === "item") ykItemEdit("", pre); else ykMatEdit("", pre); }
-function _ykAfter(t, nm){ var a = YK.after; YK.after = null; if(!a || a.t !== t || !YK.ed) return; if(t === "item" && YK.ed.w.rows[a.i]) YK.ed.w.rows[a.i].item = nm; if(t === "mat" && YK.ed.w.mats[a.i]) YK.ed.w.mats[a.i].nm = nm; }
+function _ykAddNew(t, i, pre){ YK.after = { t: t, i: i, old: YK.ed ? (t === "item" ? (YK.ed.w.rows[i] || {}).item : (YK.ed.w.mats[i] || {}).nm) || "" : "" }; if(t === "item") ykItemEdit("", pre); else ykMatEdit("", pre); }
+function _ykAfter(t, nm){ var a = YK.after; YK.after = null; if(!a || a.t !== t || !YK.ed) return; var cur = t === "item" ? (YK.ed.w.rows[a.i] || {}).item : (YK.ed.w.mats[a.i] || {}).nm; if(a.old != null && (cur || "") !== a.old) return;
+  // 이름을 바꿨으면 이 작업에서 같은 이름 쓰는 줄 모두 새 이름으로
+  if(a.old && a.old !== nm){ if(t === "item") YK.ed.w.rows.forEach(function(r){ if(r.item === a.old) r.item = nm; }); else YK.ed.w.mats.forEach(function(m){ if(m.nm === a.old) m.nm = nm; }); } if(t === "item" && YK.ed.w.rows[a.i]) YK.ed.w.rows[a.i].item = nm; if(t === "mat" && YK.ed.w.mats[a.i]) YK.ed.w.mats[a.i].nm = nm; }
 function _ykUnregPop(w){
   var bi = [], bm = [];
   w.rows.forEach(function(r, i){ if(r.item && !_ykItem(r.item)) bi.push([i, r.item]); });
