@@ -47,11 +47,13 @@ function _vdRows(vid){
 }
 function _vdAmRaw(x){ return x.am !== undefined && x.am !== "" && x.am !== null ? _vdN(x.am) : _vdN(x.qty) * _vdN(x.price); }
 function _vdAm(x){ return x.fee ? _vdN(x._fam) : _vdAmRaw(x); }
+function _vdLastFee(vid){ var r = null; _vdRows(vid).forEach(function(o){ if(o.x.fee) r = _vdN(o.x.fee); }); return r != null ? r : _vdFeeRate(vid); }   // 이 업체에서 마지막에 쓴 수수료율
+function _vdDaySum(vid, dt){ var t = 0, R = (_vdS().r || {})[vid] || {}; Object.keys(R).forEach(function(k){ var x = R[k]; if(x.dt === dt && _vdIsBuy(x)) t += _vdAmRaw(x); }); return t; }
 function _vdFeeRate(vid){ var v = (_vdS().v || {})[vid] || {}; return v.fee != null && v.fee !== "" ? _vdN(v.fee) / 100 : 0.04; }
 // 적은 품명이 '수수료'면 수수료 줄로 바꿈 — 수량칸에 0.04 또는 4 를 적었으면 그 비율, 아니면 업체 수수료율(기본 4%)
 function _vdFeeFix(vid, o){
   if(String(o.nm || "").trim() !== "수수료" || ((_vdS().v || {})[vid] || {}).kind !== "raw") return o;
-  var q = _vdN(o.qty), r = q > 0 && q < 1 ? q : q >= 1 && q <= 30 ? q / 100 : _vdFeeRate(vid);
+  var q = _vdN(o.qty), r = q > 0 && q < 1 ? q : q >= 1 && q <= 30 ? q / 100 : _vdLastFee(vid);
   var n = { dt: o.dt, nm: "수수료", fee: r, spec: (Math.round(r * 10000) / 100) + "%" }; ["note", "at", "by", "pay"].forEach(function(k){ if(o[k] != null && o[k] !== "") n[k] = o[k]; }); return n;
 }
 function _vdSum(vid){ var t = 0, p = 0, n = 0, last = ""; _vdRows(vid).forEach(function(o){ t += o.am + _vdN(o.x.tax); p += _vdN(o.x.pay); n++; if(o.x.dt > last) last = o.x.dt; }); return { tot: t, pay: p, rest: t - p, n: n, last: last }; }
@@ -307,7 +309,14 @@ function _vdNmList(vid){ var m = {}, R = _vdS().r || {}, kind = ((_vdS().v || {}
   return Object.keys(m).sort(); }
 function _vdNmPick(vid, P){ P = P || "vr_";
   var n = document.getElementById(P + "nm"), p = document.getElementById(P + "price"), sp = document.getElementById(P + "spec"), hint = document.getElementById(P + "hint"); if(!n || !p) return;
-  if(n.value.trim() === "수수료" && ((_vdS().v || {})[vid] || {}).kind === "raw"){ if(hint) hint.innerHTML = '💡 <b>수수료</b> = 그날 원료 산 금액 합계 × <b>' + (Math.round(_vdFeeRate(vid) * 10000) / 100) + '%</b> — 금액은 저절로 계산돼요 (원료를 더 넣으면 같이 바뀜). 비율이 다르면 수량칸에 0.03 처럼 적어요'; return; }
+  if(n.value.trim() === "수수료" && ((_vdS().v || {})[vid] || {}).kind === "raw"){
+    var rate = _vdLastFee(vid), dEl = document.getElementById(P + "dt") || document.getElementById("bt_dt"), dt = dEl ? dEl.value : "", base = _vdDaySum(vid, dt);
+    if(P === "vb_" && VD.bt) VD.bt.rows.forEach(function(q){ if(_vdIsBuy(q)) base += _vdAmRaw(q); });   // 등록 창에 쌓인 원료도 더함
+    var qe = document.getElementById(P + "qty"), ae = document.getElementById(P + "am");
+    if(qe && !qe.value) qe.value = Math.round(rate * 10000) / 100;
+    p.value = _wonFmt(base); delete p.dataset.auto; if(ae){ ae.value = _wonFmt(Math.round(base * (qe && _vdN(qe.value) ? (_vdN(qe.value) < 1 ? _vdN(qe.value) : _vdN(qe.value) / 100) : rate))); ae.dataset.hand = 1; }
+    if(hint) hint.innerHTML = '💡 <b>수수료</b> = ' + esc(String(dt).replace(/-/g, ".")) + ' 원료 합계 <b>' + _vdW(base) + '</b> × <b>' + (Math.round(rate * 10000) / 100) + '%</b> (지난번 수수료율) — 저장하면 그날 원료가 바뀔 때 같이 다시 계산돼요. 비율이 다르면 수량칸(%) 만 고치세요';
+    return; }
   var f = _vdPriceOf(vid, n.value);
   if(!f){ if(hint) hint.innerHTML = n.value.trim() ? '<span style="color:#94a3b8">처음 적는 품명 — 단가를 넣어 주세요</span>' : ''; return; }
   if(!p.value || p.dataset.auto){ p.value = _wonFmt(f.price); p.dataset.auto = 1; }
