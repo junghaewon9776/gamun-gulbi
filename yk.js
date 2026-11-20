@@ -27,6 +27,7 @@ function _ykLot(dt){
 }
 function _ykRK(r){ var I = _ykItem(r && r.item); return (I && I.kind) || (r && r.kind) || "굴비"; }   // 정품에 굴비/부세 정해 두면 그걸로, 아니면 줄마다 고른 것
 function _ykKindBtn(i, r, sty){ var k = _ykRK(r), fx = !!((_ykItem(r.item) || {}).kind), col = k === "부세" ? "#0e7490" : "#b45309";
+  if(sty === "tiny") return '<span' + (fx ? ' title="정품에 정해 둔 구분"' : ' title="누르면 굴비↔부세" onclick="YK.ed.w.rows[' + i + '].kind=(_ykRK(YK.ed.w.rows[' + i + '])===\'부세\'?\'굴비\':\'부세\');draw()"') + ' style="display:inline-block;font-size:10px;font-weight:800;line-height:1.3;color:' + (fx ? col : "#fff") + ';background:' + (fx ? "#fff" : col) + ';border:1px solid ' + col + ';border-radius:4px;padding:0 3px;white-space:nowrap;' + (fx ? "" : "cursor:pointer") + '">' + k + (fx ? "" : "⇄") + '</span>';
   if(fx) return '<span title="정품에 정해 둔 구분 (⚙️ 설정 정품에서 바꿔요)" style="display:inline-block;font-size:11.5px;font-weight:800;color:' + col + ';border:1px solid ' + col + ';border-radius:5px;padding:1px 5px;white-space:nowrap">' + k + '</span>';
   return '<button class="btn" title="누르면 굴비↔부세 (정품에 정해 두면 저절로)" style="background:' + col + ';color:#fff;' + (sty || "padding:3px 9px;min-width:46px") + '" onclick="YK.ed.w.rows[' + i + '].kind=(_ykRK(YK.ed.w.rows[' + i + '])===\'부세\'?\'굴비\':\'부세\');draw()">' + k + '</button>'; }
 function _ykItem(nm){ var I = _ykS().items || {}; return I[_ykKey(nm)] || null; }
@@ -158,7 +159,7 @@ function _ykEditor(){
   // 이모 × 품명 표
   h += '<div class="card" style="margin-bottom:10px;padding:10px 0 0"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;padding:0 12px 8px"><b>👵 이모들 × 품명 (두름)</b><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><select onchange="ykAddWorker(this)" style="min-width:150px;padding:7px 8px;font-size:14px;font-weight:700;border:2px solid #0e7490;border-radius:8px;background:#ecfeff;color:#0e7490;cursor:pointer"><option value="">👵 이모 넣기 ▾</option>' + people.map(function(n){ return '<option value="' + esc(n) + '">' + ((S.people[n] || {}).on !== false ? "📌 " : "") + esc(n) + '</option>'; }).join("") + '<option value="__new">➕ 새 이모 추가…</option></select>' + _bsB("#7c3aed", "📌 고정 이모로", "ykWsSet('fix')", "padding:5px 10px") + _bsB("#475569", "↩ 지난 작업 이모", "ykWsSet('last')", "padding:5px 10px") + '</div></div>';
   if(!_ykMob()) h += _ykPcTog();
-  if(_ykMob()) h += _ykEdMob2(w); else if(_ykPcSheet()) h += _ykQGrid(w, true); else {
+  if(_ykMob()) h += _ykEdMob2(w); else if(_ykPcSheet()) h += (_ykCan() ? _ykQBar(w, true) : "") + _ykQGrid(w, true); else {
   h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;min-width:100%"><thead><tr style="background:#fff7ed"><th style="padding:5px;text-align:left;min-width:120px;position:sticky;left:0;background:#fff7ed;z-index:1">품명</th><th style="padding:5px">굴비/부세</th>';
   w.ws.forEach(function(n, j){ h += '<th style="padding:5px;min-width:70px;white-space:nowrap">' + esc(n) + ' <a href="javascript:void 0" onclick="ykDelWorker(' + j + ')" style="color:#dc2626;text-decoration:none">✕</a></th>'; });
   h += '<th style="padding:5px;background:#fde68a">합계</th><th style="padding:5px;background:#dcfce7;white-space:nowrap" title="포장하면서 센 두름 · +3 / -2 처럼 오차만 적어도 돼요 · 비우면 합계와 같게">실제 (포장)<div style="font-weight:400;font-size:10.5px">숫자 또는 ±오차</div></th><th style="padding:5px">마리수</th><th style="padding:5px">박스</th><th style="padding:5px">잔량</th><th></th></tr></thead><tbody>';
@@ -667,7 +668,7 @@ function _ykPicked(t, i, el){
   draw();
 }
 function _ykAddNew(t, i, pre){ YK.after = { t: t, i: i, old: YK.ed ? (t === "item" ? (YK.ed.w.rows[i] || {}).item : (YK.ed.w.mats[i] || {}).nm) || "" : "" }; if(t === "item") ykItemEdit("", pre); else ykMatEdit("", pre); }
-function _ykAfter(t, nm){ var a = YK.after; YK.after = null; if(!a || a.t !== t || !YK.ed) return; var cur = t === "item" ? (YK.ed.w.rows[a.i] || {}).item : (YK.ed.w.mats[a.i] || {}).nm; if(a.old != null && (cur || "") !== a.old) return;
+function _ykAfter(t, nm){ var a = YK.after; if(a && a.q && t === "item"){ YK.after = null; if(YK.ed) YK.ed.qi = nm; return; } YK.after = null; if(!a || a.t !== t || !YK.ed) return; var cur = t === "item" ? (YK.ed.w.rows[a.i] || {}).item : (YK.ed.w.mats[a.i] || {}).nm; if(a.old != null && (cur || "") !== a.old) return;
   // 이름을 바꿨으면 이 작업에서 같은 이름 쓰는 줄 모두 새 이름으로
   if(a.old && a.old !== nm){ if(t === "item") YK.ed.w.rows.forEach(function(r){ if(r.item === a.old) r.item = nm; }); else YK.ed.w.mats.forEach(function(m){ if(m.nm === a.old) m.nm = nm; }); } if(t === "item" && YK.ed.w.rows[a.i]) YK.ed.w.rows[a.i].item = nm; if(t === "mat" && YK.ed.w.mats[a.i]) YK.ed.w.mats[a.i].nm = nm; }
 function _ykUnregPop(w){
@@ -1187,24 +1188,25 @@ function _ykAnalMob(w){
 }
 
 // ════════ ⚡ 한 줄로 넣기 — 이모 고르고 · 품명 고르고 · 두름 적고 Enter → 표에 더해지고 품명별로 바로 합계 ════════
-function _ykQBar(w){
+function _ykQBar(w, inTbl){
   var S = _ykS(), E = YK.ed, P = S.people || {};
   var ppl = Object.keys(P).sort(function(a, b){ return ((P[a].on !== false) ? 0 : 1) - ((P[b].on !== false) ? 0 : 1) || a.localeCompare(b); });
   w.ws.forEach(function(n){ if(ppl.indexOf(n) < 0) ppl.unshift(n); });
-  var I = S.items || {}, sel = 'padding:8px;font-size:15px;font-weight:700;border:2px solid #0e7490;border-radius:8px;background:#fff;box-sizing:border-box';
+  var I = S.items || {}, sel = 'padding:' + (_ykMob() ? '6px 4px' : '8px') + ';font-size:' + (_ykMob() ? 16 : 15) + 'px;font-weight:700;border:2px solid #0e7490;border-radius:8px;background:#fff;box-sizing:border-box';
   var mob = _ykMob();
   var h = '<div style="margin:0 12px 10px;border:2px solid #0e7490;border-radius:10px;background:#ecfeff;padding:8px 10px">';
-  h += '<div style="font-weight:900;font-size:13.5px;color:#0e7490;margin-bottom:6px">⚡ 한 줄로 넣기 <span style="font-weight:400;font-size:12px;color:#475569">— 이모 → 품명 → 두름 적고 Enter (같은 이모·품명은 더해져요 · 빼려면 -3 처럼)</span></div>';
-  h += '<div style="display:' + (mob ? "grid;grid-template-columns:1fr 1fr" : "flex;flex-wrap:wrap") + ';gap:6px;align-items:center">';
-  h += '<select id="ykQn" style="' + sel + ';' + (mob ? "width:100%" : "min-width:140px") + '"><option value="">👵 이모</option>' + ppl.map(function(n){ return '<option value="' + esc(n) + '"' + (E.qn === n ? " selected" : "") + '>' + (w.ws.indexOf(n) >= 0 ? "✔ " : "") + esc(n) + '</option>'; }).join("") + '</select>';
-  h += '<select id="ykQi" style="' + sel + ';' + (mob ? "width:100%" : "min-width:170px") + '"><option value="">🐟 품명</option>' + _ykItemKeys().map(function(k){ var nm = I[k].nm || k; return '<option value="' + esc(nm) + '"' + (E.qi === nm ? " selected" : "") + '>' + esc(nm) + '</option>'; }).join("") + '</select>';
+  h += '<div style="font-weight:900;font-size:13.5px;color:#0e7490;margin-bottom:6px">⚡ 한 줄로 넣기 <span style="font-weight:400;font-size:' + (mob ? 11 : 12) + 'px;color:#475569">— 이모 → 품명 → 두름 → 넣기' + (mob ? '' : ' (Enter)') + ' · 표에 더해져요 · 빼려면 -3</span></div>';
+  h += '<div style="display:' + (mob ? "grid;grid-template-columns:1fr 1.2fr 58px auto" : "flex;flex-wrap:wrap") + ';gap:6px;align-items:center">';
+  h += '<select id="ykQn" onchange="_ykQNew(this)" style="' + sel + ';' + (mob ? "width:100%" : "width:150px") + '"><option value="">👵 이모</option>' + ppl.map(function(n){ return '<option value="' + esc(n) + '"' + (E.qn === n ? " selected" : "") + '>' + (w.ws.indexOf(n) >= 0 ? "✔ " : "") + esc(n) + '</option>'; }).join("") + '<option value="__new">➕ 새 이모 추가…</option></select>';
+  h += '<select id="ykQi" onchange="_ykQNew(this)" style="' + sel + ';' + (mob ? "width:100%" : "width:210px") + '"><option value="">🐟 품명</option>' + _ykItemKeys().map(function(k){ var nm = I[k].nm || k; return '<option value="' + esc(nm) + '"' + (E.qi === nm ? " selected" : "") + '>' + esc(nm) + '</option>'; }).join("") + '<option value="__new">➕ 새 품명 추가…</option></select>';
   h += '<input id="ykQq" type="number" inputmode="numeric" step="any" placeholder="두름" onkeydown="if(event.key===\'Enter\'){event.preventDefault();ykQAdd()}" style="' + sel + ';' + (mob ? "width:100%" : "width:90px") + ';text-align:right">';
-  h += '<button class="btn" onclick="ykQAdd()" style="background:#0e7490;color:#fff;font-weight:900;padding:9px 16px;font-size:15px' + (mob ? ";width:100%" : "") + '">➕ 넣기</button></div>';
+  h += '<button class="btn" onclick="ykQAdd()" style="background:#0e7490;color:#fff;font-weight:900;padding:' + (mob ? '8px 10px;font-size:14px' : '9px 16px;font-size:15px') + '">' + (mob ? '넣기' : '➕ 넣기') + '</button></div>';
   var L = E.log || [];
   if(L.length){ h += '<div style="margin-top:7px;font-size:12.5px;color:#334155;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"><span style="color:#64748b">방금 넣은 것</span>';
     L.slice(-8).reverse().forEach(function(x, k){ var idx = L.length - 1 - k; h += '<span style="background:#fff;border:1px solid #a5f3fc;border-radius:6px;padding:2px 6px">' + esc(x.n) + ' · ' + esc(x.item) + ' <b>' + (x.q > 0 ? "" : "") + _bsW(x.q) + '</b> <a href="javascript:void 0" title="되돌리기" onclick="ykQUndo(' + idx + ')" style="color:#dc2626;text-decoration:none;font-weight:900">↩</a></span>'; });
     h += '</div>'; }
-  h += '<div id="ykQSum" style="margin-top:8px">' + _ykQSum(w) + '</div></div>';
+  if(!inTbl) h += '<div id="ykQSum" style="margin-top:8px">' + _ykQSum(w) + '</div>';
+  return h + '</div>';
   return h;
 }
 // 품명별 집계 (표에 적힌 두름 전부)
@@ -1244,6 +1246,7 @@ function ykQUndo(idx){
 function _ykQMode(){ try { return localStorage.getItem("gm_ykQMode") || "line"; } catch(e){ return "line"; } }
 function ykQModeSet(m){ try { localStorage.setItem("gm_ykQMode", m); } catch(e){} var y = window.scrollY; draw(); scrollTo(0, y); }
 function _ykEdMob2(w){
+  return (_ykCan() ? _ykQBar(w, true) : "") + _ykQGrid(w);
   var md = _ykQMode(), tb = function(k, lb){ var on = md === k; return '<button class="btn" onclick="ykQModeSet(\'' + k + '\')" style="padding:5px 12px;font-size:13px;font-weight:800;background:' + (on ? "#0e7490" : "#fff") + ';color:' + (on ? "#fff" : "#0e7490") + ';border:1.5px solid #0e7490">' + lb + '</button>'; };
   var h = '<div style="display:flex;gap:6px;padding:0 12px 8px">' + tb("line", "⚡ 한 줄로 넣기") + tb("grid", "▦ 표로 넣기") + '</div>';
   if(md === "grid") return h + _ykQGrid(w);
@@ -1263,17 +1266,17 @@ function _ykQGrid(w, pc){
   w.ws.forEach(function(n, j){ h += '<th ' + th + '>' + esc(n) + (can ? ' <a href="javascript:void 0" onclick="ykDelWorker(' + j + ')" style="color:#dc2626;text-decoration:none">✕</a>' : '') + '</th>'; });
   h += '<th ' + th.replace(/#ecfeff|#eef2f7/, "#fde68a") + '>합계</th>' + (pc ? '<th ' + th.replace("#eef2f7", "#dcfce7") + ' title="포장하면서 센 두름 · +3 / -2 처럼 오차만 적어도 돼요 · 비우면 합계와 같게">실제<div style="font-weight:400;font-size:10px">숫자 또는 ±</div></th><th ' + th + '>마리수</th><th ' + th + '>박스</th><th ' + th + '>잔량</th>' : '') + '</tr></thead><tbody>';
   w.rows.forEach(function(r, i){
-    h += '<tr><td style="position:sticky;left:0;z-index:1;background:#fff;border:1px solid #e2e8f0;padding:2px 4px;white-space:nowrap;font-weight:700;font-size:12px">' + (esc(r.item) || '<span style="color:#dc2626">품명?</span>') + ' ' + _ykKindBtn(i, r, "padding:0 4px;font-size:10px;min-width:0") + (can ? ' <a href="javascript:void 0" onclick="if(confirm(\'이 줄을 지울까요?\')){YK.ed.w.rows.splice(' + i + ',1);draw()}" style="color:#dc2626;text-decoration:none;font-size:11px">✕</a>' : '') + '</td>';
-    w.ws.forEach(function(n, j){ var v = (r.c || {})[n]; h += '<td style="border:1px solid #e2e8f0;padding:0">' + (can ? '<input class="ykQC" data-r="' + i + '" data-c="' + j + '" type="text" inputmode="decimal" enterkeyhint="next" value="' + esc(v || "") + '" oninput="_ykCell(' + i + ',' + j + ',this.value)" onkeydown="_ykQKey(event,this)" onfocus="this.select()" style="width:46px;padding:5px 3px;font-size:16px;border:none;text-align:right;background:' + (v ? "#fffbeb" : "#fff") + ';box-sizing:border-box">' : '<div style="width:44px;text-align:right;padding:4px">' + (v ? _bsW(v) : "") + '</div>') + '</td>'; });
+    h += '<tr><td style="position:sticky;left:0;z-index:1;background:#fff;border:1px solid #e2e8f0;padding:2px 4px;white-space:nowrap;font-weight:700;font-size:12px">' + (esc(r.item) || '<span style="color:#dc2626">품명?</span>') + ' ' + _ykKindBtn(i, r, "tiny") + (can ? ' <a href="javascript:void 0" onclick="if(confirm(\'이 줄을 지울까요?\')){YK.ed.w.rows.splice(' + i + ',1);draw()}" style="color:#dc2626;text-decoration:none;font-size:11px">✕</a>' : '') + '</td>';
+    w.ws.forEach(function(n, j){ var v = (r.c || {})[n]; h += '<td style="border:1px solid #e2e8f0;padding:0">' + (can ? '<input class="ykQC" data-r="' + i + '" data-c="' + j + '" type="text" inputmode="decimal" enterkeyhint="next" value="' + esc(v || "") + '" oninput="_ykCell(' + i + ',' + j + ',this.value)" onkeydown="_ykQKey(event,this)" onfocus="this.select()" style="width:' + (pc ? 52 : 42) + 'px;padding:5px 3px;font-size:16px;border:none;text-align:right;background:' + (v ? "#fffbeb" : "#fff") + ';box-sizing:border-box">' : '<div style="width:44px;text-align:right;padding:4px">' + (v ? _bsW(v) : "") + '</div>') + '</td>'; });
     h += '<td id="ykQR' + i + '" style="border:1px solid ' + bd + ';padding:3px 5px;text-align:right;font-weight:900;background:#fef9c3;min-width:44px"></td>';
     if(pc) h += '<td style="border:1px solid ' + bd + ';padding:0;background:#f0fdf4">' + (can ? '<input class="ykQC" data-r="' + i + '" data-c="' + nc + '" id="ykRx' + i + '" type="text" inputmode="decimal" value="' + esc(r.real == null ? "" : r.real) + '" oninput="YK.ed.w.rows[' + i + '].real=this.value;_ykRecalc()" onkeydown="_ykQKey(event,this)" onfocus="this.select()" style="width:60px;padding:5px 4px;font-size:14px;border:none;text-align:right;font-weight:800;background:transparent;box-sizing:border-box">' : esc(r.real == null ? "" : r.real)) + '</td><td id="ykRm' + i + '" style="border:1px solid ' + bd + ';padding:3px 6px;text-align:right"></td><td id="ykRb' + i + '" style="border:1px solid ' + bd + ';padding:3px 6px;text-align:right;font-weight:800"></td><td id="ykRr' + i + '" style="border:1px solid ' + bd + ';padding:3px 6px;text-align:right"></td>';
     h += '</tr>'; });
   h += '</tbody><tfoot><tr><td style="position:sticky;left:0;z-index:1;background:#f1f5f9;border:1px solid #cbd5e1;padding:3px 4px;font-weight:800;font-size:11.5px">이모 합계</td>';
   w.ws.forEach(function(n, j){ h += '<td id="ykQW' + j + '" style="border:1px solid #cbd5e1;background:#f1f5f9;padding:3px;text-align:right;font-weight:800"></td>'; });
   h += '<td id="ykQT" style="border:1px solid #cbd5e1;background:#fde68a;padding:3px 5px;text-align:right;font-weight:900"></td>' + (pc ? '<td id="ykTx" style="border:1px solid #cbd5e1;background:#dcfce7;padding:3px 5px;text-align:right;font-weight:900"></td><td id="ykTm" style="border:1px solid #cbd5e1;background:#f1f5f9;padding:3px 5px;text-align:right;font-weight:800"></td><td id="ykTb" style="border:1px solid #cbd5e1;background:#f1f5f9;padding:3px 5px;text-align:right;font-weight:900"></td><td style="border:1px solid #cbd5e1;background:#f1f5f9"></td>' : '') + '</tr>';
-  if(pc){ h += '<tr><td style="position:sticky;left:0;z-index:1;background:#fff7ed;border:1px solid #cbd5e1;padding:3px 4px;font-weight:800;font-size:12px">당일 금액</td>';
+  { h += '<tr><td style="position:sticky;left:0;z-index:1;background:#fff7ed;border:1px solid #cbd5e1;padding:3px 4px;font-weight:800;font-size:12px">당일 금액</td>';
     w.ws.forEach(function(n, j){ h += '<td id="ykWa' + j + '" style="border:1px solid #cbd5e1;background:#fff7ed;padding:3px;text-align:right;font-weight:800;color:#b45309;font-size:12px"></td>'; });
-    h += '<td id="ykTa" style="border:1px solid #cbd5e1;background:#fff7ed;padding:3px 5px;text-align:right;font-weight:900;color:#b45309"></td><td colspan="4" style="border:1px solid #cbd5e1;background:#fff7ed"></td></tr>'; }
+    h += '<td id="ykTa" style="border:1px solid #cbd5e1;background:#fff7ed;padding:3px 5px;text-align:right;font-weight:900;color:#b45309"></td>' + (pc ? '<td colspan="4" style="border:1px solid #cbd5e1;background:#fff7ed"></td>' : '') + '</tr>'; }
   h += '</tfoot></table></div>';
   if(can){ var have = {}; w.rows.forEach(function(r){ have[r.item] = 1; });
     h += '<div style="display:flex;gap:6px;margin-top:6px;align-items:center"><select onchange="if(this.value){YK.ed.w.rows.push({item:this.value,kind:_ykKindOf(YK.ed.w),c:{}});draw()}" style="padding:6px;font-size:14px;border:1.5px solid #b45309;border-radius:7px;background:#fff7ed;font-weight:700;width:auto;max-width:240px"><option value="">+ 품명 줄 넣기</option>' + _ykItemKeys().filter(function(k){ return !have[I[k].nm || k]; }).map(function(k){ var nm = I[k].nm || k; return '<option value="' + esc(nm) + '">' + esc(nm) + '</option>'; }).join("") + '</select>' + (w.ws.length ? '' : '<span class="mut" style="font-size:12px">위 「👵 이모 넣기」로 이모 칸부터</span>') + '</div>'; }
@@ -1310,3 +1313,13 @@ function _ykPcSheet(){ try { return localStorage.getItem("gm_ykPcSheet") !== "0"
 function ykPcSheetSet(on){ try { localStorage.setItem("gm_ykPcSheet", on ? "1" : "0"); } catch(e){} var y = window.scrollY; draw(); scrollTo(0, y); }
 function _ykPcTog(){ var on = _ykPcSheet(), b = function(v, lb){ var a = on === v; return '<button class="btn" onclick="ykPcSheetSet(' + v + ')" style="border-radius:0;padding:4px 10px;font-size:12.5px;font-weight:800;background:' + (a ? "#334155" : "#fff") + ';color:' + (a ? "#fff" : "#334155") + '">' + lb + '</button>'; };
   return '<div style="padding:0 12px 8px"><span style="display:inline-flex;border:2px solid #334155;border-radius:8px;overflow:hidden">' + b(true, "▦ 작업현황표 모양") + b(false, "📝 예전 방식") + '</span></div>'; }
+
+// 한 줄 넣기에서 ➕ 새 이모 / ➕ 새 품명
+function _ykQNew(el){
+  var E = YK.ed;
+  if(el.value !== "__new"){ if(el.id === "ykQn") E.qn = el.value; else E.qi = el.value; return; }
+  if(el.id === "ykQn"){ el.value = E.qn || ""; var n = (prompt("새 이모 이름 (별명)") || "").trim(); if(!n) return;
+    if(/[.#$\[\]\/]/.test(n)) return toast("이름에 . # $ [ ] / 는 못 써요", true);
+    if(E.w.ws.indexOf(n) < 0) E.w.ws.push(n); E.qn = n; var y = window.scrollY; draw(); scrollTo(0, y); setTimeout(function(){ var q = document.getElementById("ykQi"); if(q) q.focus(); }, 30); return; }
+  el.value = E.qi || ""; E.qn = (document.getElementById("ykQn") || {}).value || E.qn; YK.after = { t: "item", q: 1 }; ykItemEdit("", "");
+}
