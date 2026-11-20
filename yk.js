@@ -143,6 +143,7 @@ function _ykEditor(){
   var people = Object.keys(S.people || {}).filter(function(n){ return w.ws.indexOf(n) < 0; }).sort(function(a, b){ return ((S.people[a].on !== false) ? 0 : 1) - ((S.people[b].on !== false) ? 0 : 1) || a.localeCompare(b); });
   var h = '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div>' + _bsB("#475569", "← 목록", "if(confirm('저장 안 한 내용은 사라져요. 목록으로 갈까요?')){YK.ed=null;draw()}") + ' <strong style="font-size:17px;margin-left:6px">🪢 ' + (E.id ? "엮거리 작업" : "새 엮거리 작업") + '</strong> <span style="font-size:15px;font-weight:900;color:#b45309;margin-left:6px" id="ykLot">' + esc(_ykLot(w.dt)) + '</span></div>';
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap">' + _bsB("#0e7490", "🖨 전표", "ykPrintSlip()", _ykSB()) + _bsB("#7c3aed", "🏷 라벨", "ykPrintLabel()", _ykSB()) + _bsB("#475569", "🖨 작업현황표", "ykPrintSheet()", _ykSB()) + _bsB("#b45309", "📊 원가분석표", "ykPrintAnal()", _ykSB()) + _bsB("#475569", "🖨 생산작업일지", "ykPrintProd()", _ykSB()) + (can ? _bsB("#16a34a", "💾 저장", "ykSave()", "padding:8px 20px") : "") + '</div></div></div>';
+  if(!E.id && can) h += '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:-4px 0 10px;font-size:12.5px"><span style="color:#64748b;font-weight:700">🧹 비우기</span>' + [["all", "전체 초기화"], ["mat", "원료 초기화"], ["item", "품명 초기화"], ["ws", "이모 초기화"]].map(function(o){ return '<button class="btn" onclick="ykReset(\'' + o[0] + '\')" style="padding:3px 9px;font-size:12px;font-weight:800;background:' + (o[0] === "all" ? "#dc2626" : "#475569") + ';color:#fff">' + o[1] + '</button>'; }).join("") + '<span class="mut" style="font-size:11.5px">지난 작업에서 불러온 걸 지워요</span></div>';
   // 기본 · 원료
   h += '<div class="card" style="margin-bottom:10px"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:13px">';
   h += '<label>작업일<input type="date" value="' + esc(w.dt) + '" onchange="YK.ed.w.dt=this.value;document.getElementById(\'ykLot\').textContent=_ykLot(this.value);_ykRecalc()" style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>';
@@ -652,15 +653,16 @@ function _ykDP(ev, t, k){
   _ykRef().update(up2).then(function(){ keys.forEach(function(x, j){ if(YK.D[path][x]) YK.D[path][x].ord = (j + 1) * 10; }); toast("순서 바꿨어요"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 function _ykPick(t, i, v){
-  var isI = t === "item", L = isI ? _ykItemKeys() : _ykMatKeys(), T = isI ? _ykS().items || {} : _ykS().mats || {}, ok = !v || !!(isI ? _ykItem(v) : _ykMat(v));
-  var h = '<div style="display:flex;gap:4px;align-items:center"><select onchange="_ykPicked(\'' + t + '\',' + i + ',this)" style="flex:1;min-width:' + (isI ? 140 : 160) + 'px;padding:7px 8px;font-size:14px;font-weight:700;border:2px solid ' + (ok ? (v ? "#b45309" : "#cbd5e1") : "#dc2626") + ';border-radius:8px;background:' + (ok ? (v ? "#fff7ed" : "#fff") : "#fef2f2") + ';color:' + (ok ? "#111" : "#b91c1c") + ';cursor:pointer">';
-  h += '<option value="">' + (isI ? "— 품명 고르기 —" : "— 원료 고르기 —") + '</option>';
-  if(!ok) h += '<option value="' + esc(v) + '" selected>⚠ ' + esc(v) + ' (등록 안 됨)</option>';
-  L.forEach(function(k){ var x = T[k], nm = x.nm || k, lb = isI ? nm + (x.mi ? " · " + x.mi + "미" : "") + (x.box ? " · " + x.box + "두름/박스" : "") : nm + (x.mi ? " · " + x.mi + "마리/짝" : ""); h += '<option value="' + esc(nm) + '"' + (ok && nm === v ? " selected" : "") + '>' + esc(lb) + '</option>'; });
-  h += '<option value="__new">➕ 새 ' + (isI ? "품명" : "원료") + ' 추가…</option></select>';
+  var isI = t === "item", ok = !v || !!(isI ? _ykItem(v) : _ykMat(v));
+  var h = '<div style="display:flex;gap:4px;align-items:center">' + _ykCb(isI ? "item" : "mat", v, "_ykPicked2('" + t + "'," + i + ",V)", isI ? "품명 쳐서 찾기" : "원료 쳐서 찾기", "flex:1;min-width:" + (isI ? 130 : 150) + "px;padding:7px 8px;font-size:" + (_ykMob() ? 16 : 14) + "px;font-weight:700;border:2px solid " + (ok ? (v ? "#b45309" : "#cbd5e1") : "#dc2626") + ";border-radius:8px;background:" + (ok ? (v ? "#fff7ed" : "#fff") : "#fef2f2") + ";color:" + (ok ? "#111" : "#b91c1c"));
   if(ok && v && _ykCan()) h += '<button class="btn" title="이 ' + (isI ? "정품" : "원료") + ' 고치기 (가격·박스·무게 등) — 작업 화면 그대로" style="background:#2563eb;color:#fff;padding:5px 7px;font-size:12px;white-space:nowrap" onclick="YK.after={t:\'' + t + '\',i:' + i + ',old:\'' + esc(v) + '\'};' + (isI ? 'ykItemEdit' : 'ykMatEdit') + '(\'' + esc(_ykKey(v)) + '\')">수정</button>';
   h += '<button class="btn" title="새 ' + (isI ? "품명" : "원료") + ' 추가" style="background:#16a34a;color:#fff;padding:5px 9px;font-weight:900" onclick="_ykAddNew(\'' + t + '\',' + i + ',\'' + (ok ? "" : esc(v)) + '\')">+</button></div>';
   return h;
+}
+function _ykPicked2(t, i, v){
+  if(v === "__new"){ return _ykAddNew(t, i, ""); }
+  if(t === "item") YK.ed.w.rows[i].item = v; else YK.ed.w.mats[i].nm = v;
+  draw();
 }
 function _ykPicked(t, i, el){
   if(el.value === "__new"){ var cur = t === "item" ? YK.ed.w.rows[i].item : YK.ed.w.mats[i].nm; el.value = cur || ""; return _ykAddNew(t, i, ""); }
@@ -1197,8 +1199,8 @@ function _ykQBar(w, inTbl){
   var h = '<div style="margin:0 12px 10px;border:2px solid #0e7490;border-radius:10px;background:#ecfeff;padding:8px 10px">';
   h += '<div style="font-weight:900;font-size:13.5px;color:#0e7490;margin-bottom:6px">⚡ 한 줄로 넣기 <span style="font-weight:400;font-size:' + (mob ? 11 : 12) + 'px;color:#475569">— 이모 → 품명 → 두름 → 넣기' + (mob ? '' : ' (Enter)') + ' · 표에 더해져요 · 빼려면 -3</span></div>';
   h += '<div style="display:' + (mob ? "grid;grid-template-columns:1fr 1.2fr 58px auto" : "flex;flex-wrap:wrap") + ';gap:6px;align-items:center">';
-  h += '<select id="ykQn" onchange="_ykQNew(this)" style="' + sel + ';' + (mob ? "width:100%" : "width:150px") + '"><option value="">👵 이모</option>' + ppl.map(function(n){ return '<option value="' + esc(n) + '"' + (E.qn === n ? " selected" : "") + '>' + (w.ws.indexOf(n) >= 0 ? "✔ " : "") + esc(n) + '</option>'; }).join("") + '<option value="__new">➕ 새 이모 추가…</option></select>';
-  h += '<select id="ykQi" onchange="_ykQNew(this)" style="' + sel + ';' + (mob ? "width:100%" : "width:210px") + '"><option value="">🐟 품명</option>' + _ykItemKeys().map(function(k){ var nm = I[k].nm || k; return '<option value="' + esc(nm) + '"' + (E.qi === nm ? " selected" : "") + '>' + esc(nm) + '</option>'; }).join("") + '<option value="__new">➕ 새 품명 추가…</option></select>';
+  h += _ykCb("ppl", E.qn || "", "_ykQPick('n',V)", "👵 이모", sel + ';' + (mob ? "width:100%" : "width:150px"), "ykQn");
+  h += _ykCb("item", E.qi || "", "_ykQPick('i',V)", "🐟 품명", sel + ';' + (mob ? "width:100%" : "width:210px"), "ykQi");
   h += '<input id="ykQq" type="number" inputmode="numeric" step="any" placeholder="두름" onkeydown="if(event.key===\'Enter\'){event.preventDefault();ykQAdd()}" style="' + sel + ';' + (mob ? "width:100%" : "width:90px") + ';text-align:right">';
   h += '<button class="btn" onclick="ykQAdd()" style="background:#0e7490;color:#fff;font-weight:900;padding:' + (mob ? '8px 10px;font-size:14px' : '9px 16px;font-size:15px') + '">' + (mob ? '넣기' : '➕ 넣기') + '</button></div>';
   var L = E.log || [];
@@ -1220,8 +1222,11 @@ function _ykQSum(w){
 function ykQAdd(){
   var E = YK.ed, w = E.w, g = function(id){ return document.getElementById(id); };
   var n = (g("ykQn") || {}).value || "", nm = (g("ykQi") || {}).value || "", q = _bsN((g("ykQq") || {}).value);
+  n = String(n).trim(); nm = String(nm).trim();
   if(!n) return toast("이모를 골라 주세요", true);
   if(!nm) return toast("품명을 골라 주세요", true);
+  if(!_ykItem(nm)) return toast("「" + nm + "」 품명이 등록 안 돼 있어요 — 목록 맨 아래 ➕ 새 품명", true);
+  if(w.ws.indexOf(n) < 0 && !(_ykS().people || {})[n]){ if(/[.#$\[\]\/]/.test(n)) return toast("이름에 . # $ [ ] / 는 못 써요", true); if(!confirm("「" + n + "」 새 이모로 넣을까요?")) return; }
   if(!q) return toast("두름을 적어 주세요", true);
   if(w.ws.indexOf(n) < 0) w.ws.push(n);
   var r = w.rows.filter(function(x){ return x.item === nm; })[0];
@@ -1323,3 +1328,73 @@ function _ykQNew(el){
     if(E.w.ws.indexOf(n) < 0) E.w.ws.push(n); E.qn = n; var y = window.scrollY; draw(); scrollTo(0, y); setTimeout(function(){ var q = document.getElementById("ykQi"); if(q) q.focus(); }, 30); return; }
   el.value = E.qi || ""; E.qn = (document.getElementById("ykQn") || {}).value || E.qn; YK.after = { t: "item", q: 1 }; ykItemEdit("", "");
 }
+
+// 🧹 새 작업 비우기 (지난 작업에서 불러온 것)
+function ykReset(what){
+  var E = YK.ed; if(!E || E.id) return; var w = E.w, has = w.rows.some(function(r){ return Object.keys(r.c || {}).length; });
+  var nm = { all: "전체", mat: "원료", item: "품명", ws: "이모" }[what];
+  if((what !== "mat" && has || what === "all") && !confirm(nm + "를 비울까요?" + (has && what !== "mat" ? " (적어 둔 두름도 같이 지워져요)" : ""))) return;
+  if(what === "mat" || what === "all") w.mats = [{ nm: "", qty: "", price: "" }];
+  if(what === "item" || what === "all") w.rows = [];
+  if(what === "ws" || what === "all"){ w.ws = []; w.rows.forEach(function(r){ r.c = {}; }); }
+  if(what === "all"){ w.origin = ""; w.boxMat = ""; w.note = ""; w.labor = ""; w.misc = ""; w.actual = ""; E.log = []; E.qn = ""; E.qi = ""; }
+  draw(); toast("🧹 " + nm + " 비웠어요");
+}
+function _ykQPick(f, v){
+  var E = YK.ed, g = function(id){ return document.getElementById(id); };
+  if(f === "n"){ if(v === "__new"){ var n = (prompt("새 이모 이름 (별명)") || "").trim(); if(!n) return; if(/[.#$\[\]\/]/.test(n)) return toast("이름에 . # $ [ ] / 는 못 써요", true); if(E.w.ws.indexOf(n) < 0) E.w.ws.push(n); E.qn = n; var y = window.scrollY; draw(); scrollTo(0, y); } else E.qn = v;
+    setTimeout(function(){ var q = g("ykQi"); if(q){ q.focus(); q.select(); } }, 30); return; }
+  if(v === "__new"){ E.qn = (g("ykQn") || {}).value || E.qn; YK.after = { t: "item", q: 1 }; return ykItemEdit("", ""); }
+  E.qi = v; setTimeout(function(){ var q = g("ykQq"); if(q) q.focus(); }, 30);
+}
+// ════════ 🔎 쳐서 고르기 (원료·품명·이모) — 글자 일부·초성(ㄷㅈ)으로 찾기 · ↑↓ Enter ════════
+var _YK_CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+function _ykCho(s){ var o = ""; s = String(s || ""); for(var i = 0; i < s.length; i++){ var c = s.charCodeAt(i) - 44032; o += c >= 0 && c < 11172 ? _YK_CHO[Math.floor(c / 588)] : s[i]; } return o; }
+function _ykCbOpts(kind){
+  var S = _ykS(), L = [];
+  if(kind === "ppl"){ var P = S.people || {}, ws = (YK.ed && YK.ed.w.ws) || [];
+    var ks = Object.keys(P); ws.forEach(function(n){ if(ks.indexOf(n) < 0) ks.push(n); });
+    ks.sort(function(a, b){ var fa = ws.indexOf(a) >= 0 ? 0 : (P[a] && P[a].on !== false) ? 1 : 2, fb = ws.indexOf(b) >= 0 ? 0 : (P[b] && P[b].on !== false) ? 1 : 2; return fa - fb || a.localeCompare(b); });
+    ks.forEach(function(n){ L.push({ v: n, lb: (ws.indexOf(n) >= 0 ? "✔ " : "") + n }); }); L.push({ v: "__new", lb: "➕ 새 이모 추가…" }); return L; }
+  var isI = kind === "item", T = isI ? S.items || {} : S.mats || {};
+  (isI ? _ykItemKeys() : _ykMatKeys()).forEach(function(k){ var x = T[k], nm = x.nm || k; L.push({ v: nm, lb: nm, sub: isI ? (x.kind ? x.kind + " · " : "") + (x.mi ? x.mi + "미" : "") + (x.box ? " · " + x.box + "두름/박스" : "") : (x.mi ? x.mi + "마리/짝" : "") }); });
+  L.push({ v: "__new", lb: isI ? "➕ 새 품명 추가…" : "➕ 새 원료 추가…" }); return L;
+}
+function _ykCb(kind, v, on, ph, sty, id){
+  return '<input type="text" autocomplete="off" ' + (id ? 'id="' + id + '" ' : '') + 'data-cbk="' + kind + '" data-cbon="' + esc(on) + '" data-cb0="' + esc(v || "") + '" value="' + esc(v || "") + '" placeholder="' + esc(ph) + '" onfocus="this.select();_ykCbOpen(this,1)" onclick="_ykCbOpen(this,1)" oninput="_ykCbOpen(this)" onkeydown="_ykCbKey(event,this)" onblur="_ykCbBlur(this)" style="box-sizing:border-box;' + sty + '">';
+}
+var _YKCB = null;
+function _ykCbBox(){ var d = document.getElementById("ykCbL"); if(!d){ d = document.createElement("div"); d.id = "ykCbL"; d.style.cssText = "position:fixed;z-index:9500;background:#fff;border:2px solid #b45309;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);overflow-y:auto;-webkit-overflow-scrolling:touch;display:none"; document.body.appendChild(d);
+  window.addEventListener("scroll", function(e){ if(_YKCB && !(e.target && e.target.id === "ykCbL")) _ykCbPlace(); }, true); window.addEventListener("resize", function(){ if(_YKCB) _ykCbPlace(); }); } return d; }
+function _ykCbPlace(){ var el = _YKCB && _YKCB.el, d = _ykCbBox(); if(!el || !document.body.contains(el)){ d.style.display = "none"; _YKCB = null; return; }
+  var r = el.getBoundingClientRect(), vh = window.innerHeight, below = vh - r.bottom - 8, above = r.top - 8, up = below < 180 && above > below;
+  d.style.left = Math.max(4, Math.min(r.left, window.innerWidth - Math.max(r.width, 220) - 4)) + "px"; d.style.width = Math.max(r.width, 220) + "px";
+  d.style.maxHeight = Math.max(120, Math.min(300, up ? above : below)) + "px";
+  if(up){ d.style.top = ""; d.style.bottom = (vh - r.top + 2) + "px"; } else { d.style.bottom = ""; d.style.top = (r.bottom + 2) + "px"; } }
+function _ykCbOpen(el, all){
+  var q = all ? "" : String(el.value || "").trim(), L = _ykCbOpts(el.getAttribute("data-cbk")), qc = q.replace(/\s/g, "");
+  var M = !q ? L : L.filter(function(o){ if(o.v === "__new") return true; var n = o.v.replace(/\s/g, ""); return n.indexOf(qc) >= 0 || _ykCho(n).indexOf(qc) >= 0; });
+  _YKCB = { el: el, L: M, hi: q && M.length > 1 ? 0 : -1 }; _ykCbDraw(); _ykCbPlace(); _ykCbBox().style.display = "block";
+}
+function _ykCbDraw(){ var C = _YKCB, d = _ykCbBox(); if(!C) return;
+  d.innerHTML = C.L.length ? C.L.map(function(o, i){ var nw = o.v === "__new"; return '<div data-i="' + i + '" onmousedown="event.preventDefault()" onclick="_ykCbPick(' + i + ')" style="padding:9px 10px;cursor:pointer;font-size:15px;border-bottom:1px solid #f1f5f9;' + (i === C.hi ? "background:#fde68a;" : "") + (nw ? "color:#16a34a;font-weight:800;" : "font-weight:700;") + '">' + esc(o.lb) + (o.sub ? ' <span style="font-size:11.5px;color:#64748b;font-weight:400">' + esc(o.sub) + '</span>' : '') + '</div>'; }).join("") : '<div style="padding:9px;color:#94a3b8">없어요</div>';
+  var hi = d.querySelector('[data-i="' + C.hi + '"]'); if(hi && hi.scrollIntoView) hi.scrollIntoView({ block: "nearest" }); }
+function _ykCbKey(ev, el){
+  var C = _YKCB; if(!C || C.el !== el){ if(ev.key === "ArrowDown"){ _ykCbOpen(el, 1); ev.preventDefault(); } return; }
+  if(ev.key === "ArrowDown" || ev.key === "ArrowUp"){ ev.preventDefault(); var n = C.L.length; if(!n) return; C.hi = ((C.hi < 0 ? (ev.key === "ArrowDown" ? -1 : 0) : C.hi) + (ev.key === "ArrowDown" ? 1 : -1) + n) % n; _ykCbDraw(); }
+  else if(ev.key === "Enter"){ ev.preventDefault(); var i = C.hi >= 0 ? C.hi : 0, q = String(el.value || "").trim(), ex = C.L.filter(function(o){ return o.v === q; })[0];
+    if(ex) return _ykCbPick(C.L.indexOf(ex)); if(C.L.length && (C.hi >= 0 || C.L[0].v !== "__new")) return _ykCbPick(i);
+    if(el.getAttribute("data-cbk") === "ppl" && q) return _ykCbDo(el, q); }
+  else if(ev.key === "Escape"){ el.value = el.getAttribute("data-cb0") || ""; _ykCbClose(); el.blur(); }
+}
+function _ykCbPick(i){ var C = _YKCB; if(!C) return; var o = C.L[i], el = C.el; if(!o) return; _ykCbClose(); if(o.v !== "__new") el.value = o.v; _ykCbDo(el, o.v); }
+function _ykCbDo(el, v){ el.setAttribute("data-cb0", v === "__new" ? (el.getAttribute("data-cb0") || "") : v); try { (new Function("V", el.getAttribute("data-cbon")))(v); } catch(e){ console.warn("cb", e); } }
+function _ykCbClose(){ var d = document.getElementById("ykCbL"); if(d) d.style.display = "none"; _YKCB = null; }
+function _ykCbBlur(el){ setTimeout(function(){ if(_YKCB && _YKCB.el === el) _ykCbClose();
+  var v = String(el.value || "").trim(), v0 = el.getAttribute("data-cb0") || "", k = el.getAttribute("data-cbk");
+  if(v === v0) return;
+  if(k === "ppl"){ if(YK.ed) YK.ed.qn = v; return; }   // 이모는 새 이름도 OK (넣을 때 확인)
+  var hit = _ykCbOpts(k).filter(function(o){ return o.v !== "__new" && o.v === v; })[0];
+  if(hit) return _ykCbDo(el, v);
+  if(el.id === "ykQi"){ if(YK.ed) YK.ed.qi = v; return; }
+  el.value = v0; if(v) toast("목록에서 골라 주세요 (없으면 맨 아래 ➕ 새로 추가)", true); }, 220); }
