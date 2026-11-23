@@ -18,7 +18,7 @@ var FR_SEC = [
     ["mgr", "소방안전관리자"], ["mgrTel", "소방안전관리자 휴대전화"], ["mgrDate", "선임일자", "date"], ["mgrQual", "자격 구분"], ["sub", "소방안전관리 보조자"], ["subDate", "보조자 선임일자", "date"],
     ["bArea", "건축면적 (㎡)"], ["tArea", "연면적 (㎡)"], ["fArea", "바닥면적 (㎡)"], ["fl", "지상 층수"], ["bfl", "지하 층수"], ["hgt", "높이 (m)"], ["str", "구조"], ["roof", "지붕"], ["use", "용도"], ["appr", "사용승인일", "date"],
     ["stair", "계단 (구분·구역·제연설비)"], ["lift", "승강기 (승용·비상용)"], ["live", "거주인원"], ["work", "근무인원"], ["elder", "고령자"], ["kid", "영유아"], ["dis", "장애인 (이동/시각/청각/언어)"],
-    ["keepYr", "계획서 보관 기간 (년)"], ["keepAt", "계획서 보관장소"]] },
+    ["access", "소방차 진입로·주차 (정보카드)"], ["keepYr", "계획서 보관 기간 (년)"], ["keepAt", "계획서 보관장소"]] },
   { k: "ins", t: "화재보험 (5.0)", rows: [["from", "가입 시작", 18], ["to", "가입 끝", 18], ["co", "보험사", 24], ["tgt", "가입대상", 16], ["amt", "가입금액", 24]], dt: { from: 1, to: 1 } },
   { k: "chk", t: "자체점검 (6.0)", f: [["work", "작동기능점검 날짜", "date"], ["workHow", "작동기능점검 방식 (자체/외주)"], ["full", "종합정밀점검 날짜 (해당 시)", "date"], ["fullHow", "종합정밀점검 방식"], ["agent", "업무대행 업체 (있으면)"], ["agentTel", "업무대행 연락처·면허번호"], ["agentTerm", "대행기간"], ["note", "비고"]] },
   { k: "daily", t: "일상적 안전관리 (8.0)", rows: [["kind", "구분", 18], ["item", "관리 항목", 42], ["cyc", "관리 주기", 40]] },
@@ -35,7 +35,7 @@ var FR_SEC = [
   { k: "ext", t: "초기대응장비 · 소화기 (15.1)", rows: [["kind", "종류(형식)", 24], ["loc", "위치", 30], ["qty", "수량", 10], ["yr", "제조연도", 14], ["note", "비고", 22]] },
   { k: "resp", t: "초기대응 · 방호안전 (15.2)", f: [["lpg", "가스(LPG 등) 위치"], ["elec", "전기 분전함 위치"], ["valuable", "중요물품 반출 장소"], ["note", "비고", "area"]] },
   { k: "evac", t: "피난(유도) (16.0)", f: [["alarm", "화재경보 (경종 전층 등)"], ["live", "상시거주 (명)"], ["work", "상시근무 (명)"], ["float", "유동인원 (명)"], ["weak", "재해약자 현황"], ["route1", "제1피난로"], ["route2", "제2피난로"], ["roof", "옥상출입 (상시개방 / 폐쇄)"],
-    ["help", "재해약자 피난방법"], ["meet", "집결지"]], rows: [["fl", "층(구역)", 50], ["n", "피난인원", 50]] },
+    ["help", "재해약자 피난방법"], ["meet", "집결지"]], rows: [["fl", "층(구역)", 50], ["n", "피난인원", 50]], ph: "피난안내도 (도면 사진)" },
   { k: "rec", t: "피해복구 지원기관 (17.2)", rows: [["nm", "구분", 30], ["what", "지원내용", 35], ["tel", "연락처", 35]] },
   { k: "fac", t: "소방·방화시설 및 위험정보 현황 (부록3)", f: [["fire", "소화설비", "area"], ["alarm", "경보설비", "area"], ["recv", "수신기 (형식·위치·회로수)"], ["evac", "피난설비 (유도등 등)", "area"], ["water", "소화용수설비"], ["act", "소화활동설비"],
     ["stairs", "피난시설 (복도·계단·출입구)", "area"], ["fwall", "방화시설 (방화구획·마감재료)", "area"], ["flame", "방염 (종류·위치·필증)"], ["haz", "위험물·특수가연물"], ["elec", "전기시설 (수전용량·차단기)"], ["gas", "가스시설 (종류·용도·차단기)"], ["smoke", "흡연구역"]] },
@@ -95,7 +95,7 @@ function dFrPlan(){
 // ✏ 칸 하나 고치기
 function frEdit(k){
   var s = FR_SEC.filter(function(x){ return x.k === k; })[0], P = _frGet(FR.yr), v = _frSecVal(P, s);
-  FR.ed = { k: k, f: JSON.parse(JSON.stringify(v.f)), rows: JSON.parse(JSON.stringify(v.rows)), note: v.note };
+  FR.ed = { k: k, f: JSON.parse(JSON.stringify(v.f)), rows: JSON.parse(JSON.stringify(v.rows)), note: v.note, ph: ((P[k] || {}).ph || []).slice(), _nf: [] };
   _frEdDraw();
 }
 function _frEdDraw(){
@@ -106,6 +106,7 @@ function _frEdDraw(){
   if(s.rows){ h += '<div style="overflow-x:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th></th>' + s.rows.map(function(c){ return '<th style="padding:4px;text-align:left;white-space:nowrap">' + esc(c[1]) + '</th>'; }).join("") + (E.k === "edurec" ? '<th style="padding:4px;text-align:left">사진</th>' : '') + '<th></th></tr>';
     E.rows.forEach(function(r, i){ h += '<tr><td style="white-space:nowrap">' + (i > 0 ? '<button class="btn" onclick="_frRowMv(' + i + ',-1)" style="padding:1px 5px;background:#e2e8f0">▲</button>' : '') + (i < E.rows.length - 1 ? '<button class="btn" onclick="_frRowMv(' + i + ',1)" style="padding:1px 5px;background:#e2e8f0">▼</button>' : '') + '</td>' + s.rows.map(function(c){ return '<td style="padding:2px"><input ' + ((s.dt || {})[c[0]] ? 'type="date"' : '') + ' value="' + esc(r[c[0]] || "") + '" oninput="FR.ed.rows[' + i + '][\'' + c[0] + '\']=this.value" style="width:100%;min-width:' + Math.max(70, c[2] * 6) + 'px;padding:6px;font-size:14px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></td>'; }).join("") + (E.k === "edurec" ? '<td style="white-space:nowrap">' + _frPhEd(r, i) + '</td>' : '') + '<td><button class="btn" onclick="FR.ed.rows.splice(' + i + ',1);_frEdDraw()" style="background:#dc2626;color:#fff;padding:3px 8px">✕</button></td></tr>'; });
     h += '</table></div>' + _bsB("#0f766e", "+ 줄 추가", "FR.ed.rows.push({});_frEdDraw()", "padding:4px 12px;margin-top:6px"); }
+  if(s.ph) h += '<div style="margin-top:10px;font-size:12.5px;font-weight:700">📷 ' + esc(s.ph) + '</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px">' + E.ph.map(function(u, j){ return '<span style="position:relative;display:inline-block"><img src="' + esc(_frImg(u, 200)) + '" style="width:70px;height:70px;object-fit:cover;border:1px solid #cbd5e1;border-radius:6px"><button type="button" onclick="FR.ed.ph.splice(' + j + ',1);_frEdDraw()" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;padding:0">×</button></span>'; }).join("") + E._nf.map(function(){ return '<span style="font-size:12px;color:#16a34a">🖼 새로</span>'; }).join("") + '<label style="background:#0e7490;color:#fff;border-radius:6px;padding:4px 10px;font-size:12.5px;cursor:pointer">📷 사진 고르기<input type="file" accept="image/*" multiple style="display:none" onchange="FR.ed._nf=FR.ed._nf.concat([].slice.call(this.files));_frEdDraw()"></label></div>';
   h += '<label style="display:block;font-size:12.5px;font-weight:700;margin-top:10px">비고 (인쇄에 같이 나와요)<input value="' + esc(E.note || "") + '" oninput="FR.ed.note=this.value" style="width:100%;padding:7px;font-size:15px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;font-weight:400"></label>';
   h += '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px">' + _bsB("#475569", "취소", "closePopup()") + _bsB("#16a34a", "💾 저장", "frSave()", "padding:8px 22px") + '</div>';
   openPopup(h, s.rows && s.rows.length > 4 ? 820 : 640);
@@ -121,7 +122,9 @@ async function frSave(){
         var urls = await uploadAll(out, "", "fire"); done += urls.length; r.ph = (r.ph || []).concat(urls); r._nf = []; }
       hideLoading(); if(done < nf && !confirm("사진 " + (nf - done) + "장이 안 올라갔어요. 올라간 것만으로 저장할까요?")) return; }
     catch(e){ hideLoading(); return toast("사진 올리기 실패: " + (e.message || e), true); } }
+  if(s.ph && E._nf.length){ try { var o2 = []; for(var q = 0; q < E._nf.length; q++){ var c2 = await compressOne(E._nf[q]); o2.push({ name: "소방_" + E.k + "_" + (c2.name || E._nf[q].name), dataUrl: c2.dataUrl }); } var u2 = await uploadAll(o2, "", "fire"); hideLoading(); E.ph = E.ph.concat(u2); E._nf = []; } catch(e){ hideLoading(); return toast("사진 올리기 실패: " + (e.message || e), true); } }
   if(s.rows){ val.rows = E.rows.map(clean).filter(function(r){ return Object.keys(r).length; }); if(s.f) val.f = clean(E.f); } else val = clean(E.f);
+  if(s.ph && E.ph.length) val.ph = E.ph.slice();
   if(String(E.note || "").trim()) val.note = String(E.note).trim();
   var up = {};
   if(!_frPlan(yr)){ var all = _frGet(yr); all[E.k] = val; up["plans/" + yr] = all; } else up["plans/" + yr + "/" + E.k] = val;
@@ -154,6 +157,7 @@ function frPrint(){
   var b = '';
   // 표지
   b += '<div class="pg cover"><div class="cv1">일반 소형(2·3급)</div><div class="cv2">' + NM + '<br>소방계획서</div><div class="cv3">[' + yr + '.12.31까지]</div><table class="sg"><tr><th rowspan="2" style="width:9mm">결<br>재</th><th>작 성</th><th>검 토</th><th>승 인</th></tr><tr><td style="height:20mm"></td><td></td><td></td></tr></table></div>';
+  b += _frToc();
   // 개정이력
   var RV = row("rev"), RC = FR_SEC.filter(function(x){ return x.k === "rev"; })[0].rows;
   b += '<div class="pg"><h2>개정이력 (소방안전관리대상물)</h2><table><tr><th style="width:8%">순번</th>' + RC.map(function(c){ return '<th style="width:' + c[2] + '%">' + c[1] + '</th>'; }).join("") + '</tr>' + RV.map(function(r, i){ return '<tr><td style="text-align:center">' + i + '</td>' + RC.map(function(c){ var x = r[c[0]] || ""; return '<td>' + esc(c[0] === "dt" ? _frDt(x) : x) + (c[0] === "by" || c[0] === "chk" ? (x ? ' <span class="sm">(서명)</span>' : '') : '') + '</td>'; }).join("") + '</tr>'; }).join("");
@@ -206,12 +210,14 @@ function frPrint(){
   b += '<table><tr><th style="width:18%">구분</th><th>주 요 내 용</th></tr><tr><td>단기복구</td><td>화재인원 및 피해현황 조사 · 시설 정비 및 보수절차 · 화재현장 복구 · 임시 숙소 및 영업장 마련</td></tr><tr><td>장기복구</td><td>의료 및 심리치료 지원 · 기반시설 복원 및 안전진단 · 법률 상담 및 재정 지원 · 화재보험처리 및 피해보상</td></tr></table>';
   b += '<div class="st">17.2 피해복구 지원</div>' + tb("rec", null, 0) + '</div>';
   // 부록
+  b += _frAx12(P, NM, V, g, row);
   var fc = P.fac || {}, FS = FR_SEC.filter(function(x){ return x.k === "fac"; })[0];
   b += '<div class="pg"><h2>[부록 3] 소방·방화시설 및 위험정보 현황</h2><table>' + FS.f.map(function(x){ return '<tr><th style="width:26%">' + esc(x[1]) + '</th><td>' + esc(fc[x[0]] || "").replace(/\n/g, "<br>") + '</td></tr>'; }).join("") + '</table>' + note("fac");
   var yc = {}; row("ext").forEach(function(r){ var y = r.yr || "모름"; yc[y] = (yc[y] || 0) + (_bsN(r.qty) || 1); }); var yk = Object.keys(yc).sort();
   b += '<div class="st">수동식 분말소화기 제조연도별 설치수량</div><table><tr>' + yk.map(function(y){ return '<th>' + (y === "모름" ? '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;년' : esc(y) + '년') + '</th>'; }).join("") + '</tr><tr>' + yk.map(function(y){ return '<td style="text-align:center">' + yc[y] + '</td>'; }).join("") + '</tr></table></div>';
+  b += _frAx4(NM, V);
   b += '<div class="pg"><h2>[부록 5] 교육·훈련 실시 결과 기록부</h2>' + kv([["상호(명칭)", NM, "등급", V("gen", "grade")], ["소재지", V("gen", "addr") + " (☎ " + V("gen", "tel") + ")", "소방안전관리자", V("gen", "mgr") + " (선임 " + _frDt(g.mgrDate) + ")"]]) + '<div class="st">실시 기록</div>' + tb("edurec", null, 8) + '</div>' + _frPhPrint(row("edurec"));
-  b += '<div class="pg"><h2>[부록 4] 화기취급작업현장 안전수칙</h2><table><tr><th style="width:12%">순 번</th><th>안전수칙</th></tr>' + ["모든 작업은 화재감시인 입회 및 감독 하에 작업", "작업현장(반경 11m 이내)의 모든 가연물을 이동", "가연물 이동 불가 시 적절한 보호조치(차단막 등 설치)", "작업장 내부·바닥을 깨끗이 청소하고 정리정돈 유지", "화기취급작업 시 반드시 개인보호장구 착용", "화기취급 시 불티가 가연물로 비산되지 않도록 주의", "작업현장의 화재 위험성이 높은 경우, 즉시 작업 중단", "화재발생 시 초기소화(소화기) 및 경보설비(비상벨) 작동", "작업장 내 절대 금연(라이터 반입금지) 및 음주행위 금지", "기타 사항은 화재감시인의 지시에 따라 작업"].map(function(t, i){ return '<tr><td style="text-align:center">' + (i + 1) + '</td><td>' + t + '</td></tr>'; }).join("") + '</table><div class="nt">비상연락처 : 화재신고 119, 방재실 : ' + V("gen", "tel") + ' · [' + NM + ']</div></div>';
+  b += _frAx56(P, NM, V, g, row);
   var css = '@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0}body{font-family:"Malgun Gothic","맑은 고딕",sans-serif;color:#111;font-size:12px;line-height:1.55}.pg{width:210mm;padding:14mm 15mm 0;margin:0 auto;break-after:page}.pg:last-child{break-after:auto!important}'
     + 'h1{text-align:center;font-size:20px;margin:6mm 0 4mm}h2{font-size:16px;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:1mm;margin:5mm 0 3mm}h3{font-size:13.5px;color:#1d4ed8;margin:4mm 0 1.5mm}p{margin:0 0 2mm}.st{font-weight:800;margin:3mm 0 1.5mm}.nt{font-size:11px;color:#334155;margin:1mm 0 2mm}.sm{font-size:10.5px;color:#334155}'
     + 'table{width:100%;border-collapse:collapse;margin-bottom:2mm}td,th{border:1px solid #333;padding:3px 6px;vertical-align:middle}th{background:#eef2f7;font-weight:700}'
@@ -232,3 +238,82 @@ function _frPhEd(r, i){
   return h + '<label style="display:inline-block;background:#0e7490;color:#fff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer">📷 사진<input type="file" accept="image/*" multiple style="display:none" onchange="var r=FR.ed.rows[' + i + '];r._nf=(r._nf||[]).concat([].slice.call(this.files));_frEdDraw()"></label>'; }
 function _frPhPrint(R){ var W = (R || []).filter(function(r){ return (r.ph || []).length; }); if(!W.length) return '';
   return '<div class="pg"><h2>[부록 5] 교육·훈련 사진</h2>' + W.map(function(r){ return '<div class="st">' + _frDt(r.dt) + (r.place ? ' · ' + esc(r.place) : '') + (r.what ? ' — ' + esc(r.what) : '') + '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:4mm">' + r.ph.map(function(u){ return '<img src="' + esc(_frImg(u, 1000)) + '" style="width:100%;height:62mm;object-fit:cover;border:1px solid #999">'; }).join("") + '</div>'; }).join("") + '</div>'; }
+
+// ════════ 🖨 인쇄 부록 (소방청 표준 소방계획서 일반 소형 서식) ════════
+function _frToc(){
+  var L = [["제1장", "일반사항", [["1.0", "목적"], ["2.0", "적용근거"], ["3.0", "적용범위"], ["4.0", "문서작성 및 기록유지"]]], ["제2장", "예방 및 완화", [["5.0", "일반현황 등의 작성"], ["6.0", "자체점검"], ["8.0", "일상적 안전관리"], ["9.0", "화재예방 및 홍보"], ["10.0", "화기취급감독"]]],
+    ["제3장", "대 비", [["12.0", "자위소방대·초기대응체계 구성 및 운영"], ["13.0", "교육훈련 및 자체평가"]]], ["제4장", "대 응", [["14.0", "비상연락"], ["15.0", "초기대응"], ["16.0", "피난유도"]]], ["제5장", "복 구", [["17.0", "화재피해 복구"]]]];
+  var A = [["부록-1", "소방대상물 정보카드"], ["부록-2", "소방안전관리자 현황표"], ["부록-3", "소방·방화시설 및 위험정보 현황"], ["부록-4", "화기취급작업 신청·허가서 및 안전·감독수칙"], ["부록-5", "교육·훈련 및 자체평가 결과 기록부"], ["부록-6", "피난안내도"]];
+  var b = '<div class="pg"><h1 style="letter-spacing:8px">목 차</h1><table><tr><th style="width:14%">장</th><th style="width:12%">절</th><th>목 차 명</th></tr>';
+  L.forEach(function(c){ b += '<tr><td style="text-align:center;font-weight:800" rowspan="' + (c[2].length + 1) + '">' + c[0] + '</td><td colspan="2" style="font-weight:800">' + c[1] + '</td></tr>' + c[2].map(function(x){ return '<tr><td style="text-align:center">' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join(""); });
+  b += A.map(function(x){ return '<tr><td style="text-align:center;font-weight:800">' + x[0] + '</td><td colspan="2">' + x[1] + '</td></tr>'; }).join("");
+  return b + '</table></div>';
+}
+function _frAx12(P, NM, V, g, row){
+  var al = P.alarm || {}, rs = P.resp || {}, fc = P.fac || {}, ev = P.evac || {}, st1 = row("tel")[0] || {};
+  var b = '<div class="pg"><h2>[부록 1] 소방대상물 정보카드</h2><table>';
+  var tr = function(a, x, c, y){ return '<tr><th style="width:17%">' + a + '</th><td' + (c ? '' : ' colspan="3"') + '>' + x + '</td>' + (c ? '<th style="width:17%">' + c + '</th><td>' + y + '</td>' : '') + '</tr>'; };
+  b += tr("대상물 명칭", NM, "등급", V("gen", "grade")) + tr("소재지", V("gen", "addr") + " (☎ " + V("gen", "tel") + ")") + tr("용도", V("gen", "use"), "사용승인일", _frDt(g.appr));
+  b += tr("구조 · 지붕", V("gen", "str") + " · " + V("gen", "roof"), "층수 · 높이", "지상 " + V("gen", "fl") + "층 / 지하 " + (V("gen", "bfl") || "-") + "층 · " + V("gen", "hgt") + "m") + tr("건축면적", V("gen", "bArea") + " ㎡", "연면적", V("gen", "tArea") + " ㎡");
+  b += tr("관계인(소유자)", V("gen", "owner") + " · " + V("gen", "ownerNm"), "입주(임차)", V("gen", "tenant") || "-") + tr("소방안전관리자", V("gen", "mgr") + " (선임 " + _frDt(g.mgrDate) + ")", "연락처", V("gen", "mgrTel"));
+  b += tr("인원", "근무 " + (V("gen", "work") || "-") + "명 · 거주 " + (V("gen", "live") || "-") + "명 · 유동 " + esc(ev.float || "-") + "명", "재해약자", esc(ev.weak || "없음"));
+  b += tr("소화설비", esc(fc.fire || ""), "경보설비", esc(fc.alarm || "")) + tr("피난설비", esc(fc.evac || ""), "수신기", esc(fc.recv || al.center || ""));
+  b += tr("가스 · 전기", "가스 : " + esc(rs.lpg || "-") + " · 전기 분전함 : " + esc(rs.elec || "-"), "위험물", esc(fc.haz || "-")) + tr("피난로 · 집결지", esc(ev.route1 || "") + (ev.route2 ? " / " + esc(ev.route2) : "") + " · 집결지 " + esc(ev.meet || ""));
+  b += tr("소방차 진입로", V("gen", "access") || "&nbsp;") + tr("관할 소방서", esc(st1.nm || "") + " " + esc(st1.tel || ""));
+  b += '</table><div class="nt">* 화재 시 출동하는 소방대가 대상물을 빨리 알 수 있도록 정리한 카드 — 내용이 바뀌면 고쳐서 다시 출력</div></div>';
+  // 부록2 현황표 (원래 A3 게시용 — A4 가로 한 장)
+  b += '<div class="pg"><h2>[부록 2] 소방안전관리자 현황표</h2><div style="border:3px solid #1c3d62;margin-top:4mm">';
+  b += '<div style="background:#1c3d62;color:#fff;text-align:center;padding:5mm 0 3mm;font-size:30px;font-weight:900;letter-spacing:6px">소방안전관리자 현황표</div><div style="background:#1c3d62;color:#fff;text-align:center;padding:0 0 5mm;font-size:22px;font-weight:800">( 대상명 : ' + NM + ' )</div>';
+  var rr = function(a, x){ return '<tr><th style="width:32%;background:#f2f2f2;font-size:17px;padding:4mm">' + a + '</th><td style="font-size:18px;font-weight:800;padding:4mm">' + x + '</td></tr>'; };
+  b += '<table style="margin:0;border:none">' + rr("□ 소방안전관리자", V("gen", "mgr") + ' <span style="font-size:14px;font-weight:400">(선임일자 : ' + _frDt(g.mgrDate) + ')</span>') + rr("□ 소방안전관리대상물 등급", V("gen", "grade")) + rr("□ 소방안전관리자 근무 위치<br><span style=\"font-size:12px;font-weight:400\">(화재 수신기 또는 종합방재실)</span>", esc(al.center || "")) + '</table>';
+  b += '<div style="background:#1c3d62;color:#fff;text-align:center;padding:5mm;font-size:22px;font-weight:900">☎ 연락처 : ' + V("gen", "mgrTel") + '</div></div><div class="nt" style="margin-top:3mm">* 원래 크기 A3(420×297mm) — 출입자가 쉽게 볼 수 있는 곳에 게시 · 인쇄할 때 배율을 키워 A3로 뽑아도 돼요</div></div>';
+  return b;
+}
+function _frAx4(NM, V){
+  var b = '<div class="pg"><h2>[부록 4-1] 화기취급작업 신청서</h2><table>';
+  b += '<tr><th rowspan="4" style="width:10%">작업<br>개요</th><th style="width:18%">작업명칭</th><td colspan="2"></td></tr><tr><th>작업기간</th><td colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;일,&nbsp;&nbsp;&nbsp;&nbsp;시 ~&nbsp;&nbsp;&nbsp;&nbsp;시 (&nbsp;&nbsp;&nbsp;시간)</td></tr><tr><th>작업장소</th><td colspan="2"></td></tr><tr><th>작업 책임자</th><td colspan="2">(☏&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</td></tr>';
+  b += '<tr><th rowspan="5">작업<br>계획</th><th>작업종류</th><td colspan="2">용접·용단 등 작업 종류</td></tr><tr><th>작업절차</th><td colspan="2" style="height:22mm;vertical-align:top">▪ 작업절차 및 내용을 간단히 기술<br>▪<br>▪</td></tr><tr><th>작업인원</th><td colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;명 (세부명단 첨부)</td></tr><tr><th>사용장비</th><td colspan="2">주요 장비 내역 (세부목록 첨부)</td></tr><tr><th>보충작업 필요여부</th><td colspan="2">□ 밀폐공간출입 □ 정전작업 □ 굴착작업 □ 방사선 사용 □ 고소작업 □ 중장비 작업</td></tr><tr><th colspan="2">첨 부</th><td colspan="2">작업자 명단, 장비목록, 도면 등</td></tr></table>';
+  b += '<p style="margin-top:6mm">귀사의 화기취급작업 안전수칙을 준수하고 화재감시인의 지시에 따라 안전하게 작업할 것을 확약하며 위와 같이 화기취급작업을 신청합니다.</p><p style="text-align:center;margin:8mm 0">&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일</p><p style="text-align:right">작업 책임자 :&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(서 명)</p></div>';
+  var ck = function(L){ return L.map(function(x){ return '□ ' + x; }).join("<br>"); };
+  b += '<div class="pg"><h2>[부록 4-2] 화기취급작업 허가서 (전면)</h2><table><tr><th rowspan="4" style="width:10%">허가<br>개요</th><th style="width:18%">작업명칭</th><td colspan="2"></td></tr><tr><th>허가기간</th><td colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;일,&nbsp;&nbsp;&nbsp;&nbsp;시 ~&nbsp;&nbsp;&nbsp;&nbsp;시 (&nbsp;&nbsp;&nbsp;시간)</td></tr><tr><th>허가장소</th><td colspan="2"></td></tr><tr><th>작업개요</th><td colspan="2">작업인원, 용접·용단 작업 종류, 사용장비 등</td></tr>';
+  b += '<tr><th colspan="2">보충작업 필요여부</th><td colspan="2">□ 밀폐공간출입 □ 정전작업 □ 굴착작업 □ 방사선 사용 □ 고소작업 □ 중장비 작업</td></tr>';
+  b += '<tr><th rowspan="3">안전<br>요구<br>사항</th><td colspan="3" style="font-size:11px">▪ 작업 시 안전조치가 요구되는 사항을 [V] 표시</td></tr><tr><td colspan="2" style="vertical-align:top"><b>화재예방조치</b><br>' + ck(["가연물 이동 및 보호조치", "소화설비(소화, 경보) 작동 확인", "용접·용단 장비/보호구 점검"]) + '<br><b>화재감시인 입회 및 감독</b><br>' + ck(["화재감시인 지정 및 입회", "소화기 및 비상통신장비 비치"]) + '</td><td style="vertical-align:top"><b>안전교육</b><br>' + ck(["화재안전교육(작업수칙)", "비상 시 행동요령", "소방시설 사용 교육·훈련"]) + '<br><b>기타</b><br>' + ck(["개인보호장구 착용", "작업구역설정(출입통제)", "작업구역 통풍 및 환기", "작업 사전공지(게시, 통보, 방송)"]) + '</td></tr><tr><td colspan="3" style="height:12mm;vertical-align:top">▪ 기타 요구사항 (안전한 작업수행에 필요한 특별 요구사항을 직접 기입)</td></tr>';
+  b += '<tr><th>확인</th><th>안전조치 확인</th><td>▪ 확인일자 :<br>▪ 확 인 자 :&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(서명)</td><td>작업완료<br>▪ 완료시간 :<br>▪ 화재감시인 :&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(서명)</td></tr></table>';
+  b += '<p style="margin-top:5mm">위와 같이 화기취급작업을 허가합니다.</p><p style="text-align:center;margin:5mm 0">&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일</p><p style="text-align:right">소방안전관리자 : ' + V("gen", "mgr") + '&nbsp;&nbsp;&nbsp;&nbsp;(서 명)</p></div>';
+  var T2 = [["가연물<br>이동", ["작업현장(반경 11m 이내)의 가연물 이동(제거) — 벽, 파티션, 천장의 반대편에 있는 가연물 이동(제거)", "작업현장(반경 11m 이내)의 바닥을 깨끗이 청소", "가연성, 인화성물질을 보관하던 배관, 용기, 드럼에 대해 위험물질을 방출하고 폭발 및 화재위험성을 미리 확인", "벽, 파티션, 천장 지붕에 가연성 덮개나 단열재가 없을 것"]],
+    ["가연물<br>보호", ["(이동·제거가 어려울 때) 작업현장(반경 11m 이내)의 가연물에 차단막 등 설치", "개구부(벽, 바닥, 덕트)에 대해 불연성 물질로 폐쇄", "가연성 바닥재(종이, 나무, 섬유)의 경우 보호조치", "덕트 및 컨베이어벨트를 통해 불티가 비산·점화 가능 시 작동을 정지하거나 적절한 보호조치(차단막 설치 등)"]],
+    ["화기<br>취급<br>수칙", ["작업허가서에 따른 허가장소, 시간 및 장비를 사용", "용접·용단 장비를 사전에 점검하고 개인보호장구 착용", "불티가 가연물로 비산되지 않도록 주의하여 작업", "작업현장의 화재 위험성이 높아지는 경우 작업 중단", "화재감시인의 지시에 따라 작업수행 및 안전수칙 준수", "작업현장 내 금연 및 음주 금지(위반 시 작업허가 취소)"]],
+    ["화재 시<br>행동요령", ["화재발생 시 소화기로 초기 소화", "초기소화 실패 시 화재신고(119) 및 경보설비 작동", "발화원(용접·용단 작업에 사용되는 가스용기 등) 제거", "화재확산 시 작업자 및 인근 재실자(거주자) 피난유도"]]];
+  b += '<div class="pg"><h2>[부록 4-2] 화기취급작업 안전수칙 (후면)</h2><table><tr><th style="width:15%">구 분</th><th>주요내용</th></tr>' + T2.map(function(x){ return '<tr><th>' + x[0] + '</th><td>' + x[1].map(function(y){ return '▪ ' + y; }).join("<br>") + '</td></tr>'; }).join("") + '</table>';
+  b += '<h2>[부록 4-3] 화기취급작업현장 안전수칙</h2><table><tr><th style="width:12%">순 번</th><th>안전수칙</th></tr>' + ["모든 작업은 화재감시인 입회 및 감독 하에 작업", "작업현장(반경 11m 이내)의 모든 가연물을 이동", "가연물 이동 불가 시 적절한 보호조치(차단막 등 설치)", "작업장 내부·바닥을 깨끗이 청소하고 정리정돈 유지", "화기취급작업 시 반드시 개인보호장구 착용", "화기취급 시 불티가 가연물로 비산되지 않도록 주의", "작업현장의 화재 위험성이 높은 경우, 즉시 작업 중단", "화재발생 시 초기소화(소화기) 및 경보설비(비상벨) 작동", "작업장 내 절대 금연(라이터 반입금지) 및 음주행위 금지", "기타 사항은 화재감시인의 지시에 따라 작업"].map(function(t, i){ return '<tr><td style="text-align:center">' + (i + 1) + '</td><td>' + t + '</td></tr>'; }).join("") + '</table><div class="nt">비상연락처 : 화재신고 119, 방재실 : ' + V("gen", "tel") + ' · [' + NM + ']</div></div>';
+  var T4 = [["사전<br>확인", ["화기취급작업 사전 허가서 발급 여부", "작업허가서의 안전조치 요구사항 이행 여부", "작업지점(반경 11m 이내) 가연물의 이동(제거)", "이동(제거)가 불가능한 가연물의 경우 차단막 등 설치 확인", "소방시설 정상 작동 및 소화기 비치(2대 이상)", "비상연락체계 확인(방재실, 현장 작업책임자 등)", "용접·용단장비 및 개인보호구 상태 점검", "작업현장의 출입제한구역 설정 및 차량 통제 등(필요 시)", "작업계획을 사전에 공지(통보, 방송 등)", "작업허가서 및 안전수칙 현장 게시"]],
+    ["현장<br>감독", ["통신장비(무전기, 휴대전화) 및 소화기를 갖추고 감독", "화기취급작업 현장에 상주하며 다른 업무 수행 금지", "용접·용단 작업에 사용되는 장비의 안전한 사용여부 확인", "화기취급작업 시 불티의 비산 및 가연물 착화 여부 확인", "작업현장 내 라이터 사용 및 흡연 여부 감독", "작업 시 위험상황이 발생하는 경우, 작업을 즉시 중단", "기타 작업허가서의 허가내역 및 안전요구사항 준수 확인"]],
+    ["최종<br>확인", ["작업종료 후 30분까지 화기취급작업 현장에 상주 (CCTV 등으로 현장 확인이 가능한 경우도 인정)", "작업종료 후 3시간까지 화재발생 여부 감시(모니터링)", "화재감시 상태 종료 후 작업허가서에 최종 확인(서명)"]]];
+  b += '<div class="pg"><h2>[부록 4-4] 화재감시인 감독수칙</h2><table><tr><th style="width:15%">구 분</th><th>주요내용</th></tr>' + T4.map(function(x){ return '<tr><th>' + x[0] + '</th><td>' + x[1].map(function(y){ return '▪ ' + y; }).join("<br>") + '</td></tr>'; }).join("") + '</table></div>';
+  return b;
+}
+function _frAx56(P, NM, V, g, row){
+  var tm = P.team || {}, f = tm.f || {}, R = row("team"), E = P.edu || {}, ev = P.evac || {};
+  var nm = {}; R.forEach(function(r){ if(r.nm) nm[r.nm] = nm[r.nm] || r.dept || ""; });
+  var b = '<div class="pg"><h2>[부록 5] 자위소방대 및 초기대응체계 교육·훈련 실시결과기록부</h2><div style="text-align:right;font-size:11px">작성일시 :&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;작성자 :&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div><table>';
+  b += '<tr><th rowspan="2" style="width:15%">소방대상물</th><th style="width:15%">상호(명칭)</th><td>' + NM + '</td><th style="width:12%">등 급</th><td>' + V("gen", "grade") + '</td></tr><tr><th>소재지</th><td colspan="3">' + V("gen", "addr") + ' (☎ ' + V("gen", "tel") + ')</td></tr>';
+  b += '<tr><th rowspan="2">소방안전관리자</th><th>성 명</th><td>' + V("gen", "mgr") + '</td><th>선임일자</th><td>' + _frDt(g.mgrDate) + '</td></tr><tr><th>자격구분</th><td>' + V("gen", "mgrQual") + '</td><th>연락처</th><td>' + V("gen", "mgrTel") + '</td></tr>';
+  b += '<tr><th rowspan="2">자위소방대</th><th>조직구성</th><td colspan="3">' + esc(f.org || "") + '</td></tr><tr><th>인력현황</th><td colspan="3">' + esc(f.head || "") + '</td></tr>';
+  b += '<tr><th>초기대응체계</th><th>인력현황</th><td colspan="3">' + esc(f.init || "") + '</td></tr>';
+  b += '<tr><th rowspan="2">교육·훈련결과</th><th>일시·장소</th><td colspan="3">' + _frDt(E.dt) + (E.place ? ' · ' + esc(E.place) : '') + '</td></tr><tr><th>참석인원</th><td colspan="3">&nbsp;&nbsp;&nbsp;&nbsp;명 (성별 :&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</td></tr>';
+  b += '<tr><th>주요내용</th><td colspan="4" style="height:22mm;vertical-align:top">' + esc(E.eplan || "").replace(/\n/g, "<br>") + '</td></tr><tr><th rowspan="2">점검결과</th><th>미비점</th><td colspan="3" style="height:16mm"></td></tr><tr><th>개선사항</th><td colspan="3" style="height:16mm"></td></tr></table></div>';
+  b += '<div class="pg"><h2>소방훈련·교육 실시결과 기록부</h2><div style="text-align:right;font-size:11px">작성연월일 :&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.&nbsp;&nbsp;&nbsp;&nbsp;.&nbsp;&nbsp;&nbsp;&nbsp;.</div><table>';
+  b += '<tr><th rowspan="3" style="width:15%">소방대상물</th><th style="width:15%">상호(명칭)</th><td>' + NM + '</td><th style="width:15%">소방안전관리등급</th><td>' + V("gen", "grade") + '</td></tr><tr><th>소재지</th><td colspan="3">' + V("gen", "addr") + ' (전화 : ' + V("gen", "tel") + ')</td></tr><tr><th>구조</th><td colspan="3">지하 ' + (V("gen", "bfl") || "&nbsp;") + '층, 지상 ' + V("gen", "fl") + '층, 연면적 ' + V("gen", "tArea") + '㎡' + (V("gen", "fArea") ? ', 바닥면적 ' + V("gen", "fArea") + '㎡' : '') + '</td></tr>';
+  b += '<tr><th rowspan="2">관계인</th><th>성명 (기관/법인명)</th><td colspan="3">' + V("gen", "ownerNm") + ' (' + V("gen", "owner") + ')&nbsp;&nbsp;&nbsp;&nbsp;(서명 또는 인)</td></tr><tr><th>주소</th><td colspan="3">' + V("gen", "addr") + '</td></tr>';
+  b += '<tr><th rowspan="2">소방안전관리자</th><th>성명</th><td>' + V("gen", "mgr") + '</td><th>선임일자</th><td>' + _frDt(g.mgrDate) + '</td></tr><tr><th>직위</th><td>소방안전관리자</td><th>자격구분</th><td>' + V("gen", "mgrQual") + '</td></tr>';
+  b += '<tr><th rowspan="3">훈련·교육일지</th><th>훈련·교육구분</th><td colspan="3">□ 자체훈련&nbsp;&nbsp;□ 합동훈련&nbsp;&nbsp;/&nbsp;&nbsp;□ 자체교육&nbsp;&nbsp;□ 그 밖의 교육</td></tr><tr><th>훈련통제관</th><td>(서명 또는 인)</td><th>교관</th><td>(서명 또는 인)</td></tr><tr><th>교육교관</th><td colspan="3">(서명 또는 인)</td></tr>';
+  b += '<tr><th colspan="2">훈련·교육 실시사항</th><td colspan="3" style="height:40mm;vertical-align:top">' + row("edurec").map(function(r){ return _frDt(r.dt) + ' · ' + esc(r.place || "") + ' · ' + esc(r.n || "") + '명 — ' + esc(r.what || ""); }).join("<br>") + '</td></tr></table>';
+  b += '<div class="nt">* 훈련통제관 : 소방기관과의 합동훈련 시 소방대원의 지휘관을 기재 · 훈련·교육실시사항 : 훈련·교육의 일시·장소·대상인원 및 내용의 개요를 기재</div></div>';
+  b += '<div class="pg"><h2>[첨부 1] 참석자 명단</h2><table><tr><th style="width:8%">No.</th><th style="width:22%">소 속</th><th style="width:22%">성 명</th><th>교육·훈련사항</th><th style="width:18%">확인(서명)</th></tr>';
+  var ks = Object.keys(nm); for(var i = 0; i < Math.max(12, ks.length); i++) b += '<tr><td style="text-align:center">' + (i + 1) + '</td><td>' + esc(ks[i] ? nm[ks[i]] : "") + '</td><td>' + esc(ks[i] || "") + '</td><td></td><td style="height:9mm"></td></tr>';
+  b += '</table><h2>[첨부 2] 자체평가 결과</h2><table><tr><th style="width:50%">개선사항</th><th>조치계획</th></tr>' + Array.apply(null, Array(5)).map(function(){ return '<tr><td style="height:12mm"></td><td></td></tr>'; }).join("") + '</table></div>';
+  // 부록6 피난안내도
+  var M = ev.ph || [];
+  b += '<div class="pg"><h2>[부록 6] 피난안내도</h2>' + (M.length ? M.map(function(u){ return '<img src="' + esc(_frImg(u, 1600)) + '" style="width:100%;max-height:220mm;object-fit:contain;border:1px solid #999;margin-bottom:3mm">'; }).join("") : '<div style="border:2px dashed #94a3b8;height:200mm;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:16px;text-align:center">층별 평면도에 현재 위치 · 피난로(화살표) · 소화기 · 발신기 · 비상구 · 집결지(' + esc(ev.meet || "") + ')를 그려 붙이는 칸<br><span style="font-size:12px">🔥 소방 &gt; 피난(유도) &gt; ✏ 고치기 &gt; 📷 피난안내도 사진을 올리면 여기에 나와요</span></div>') + '<div class="nt">* 피난안내도는 각 층 출입구·계단 등 잘 보이는 곳에 게시</div></div>';
+  return b;
+}
