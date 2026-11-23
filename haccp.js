@@ -261,7 +261,7 @@ function dHcForm(){
   var h = _hcHead("⚙ 해썹 양식 관리", "업체 양식이 오면 여기서 그대로 만들어요 · 줄을 두 번 누르면 수정");
   h += '<div class="card" style="margin-bottom:10px;display:grid;grid-template-columns:2fr 2fr auto;gap:8px;align-items:end;font-size:13px"><label>업체명 (서류 위에 찍힘)<input id="hs_co" value="' + esc(S.co) + '" ' + (boss ? "" : "disabled") + ' style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label><label>결재란 (쉼표로)<input id="hs_sign" value="' + esc(S.sign.join(", ")) + '" ' + (boss ? "" : "disabled") + ' style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>' + (boss ? _bsB("#0f766e", "💾 저장", "hcSetSave()", "padding:8px 16px") : "") + '</div>';
   if(!fl.length) return h + _hcEmpty();
-  h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;flex-wrap:wrap;gap:6px"><b>양식 ' + fl.length + '개</b><div style="display:flex;gap:6px">' + (boss ? _bsB("#64748b", "📋 기본 양식 더 넣기", "hcPresetPick()") + _bsB("#0f766e", "+ 새 양식", "hcFormEdit('')") : "") + '</div></div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0fdfa"><th style="padding:6px;text-align:left">순서</th><th style="text-align:left">양식</th><th style="text-align:left">모양</th><th style="text-align:left">구분</th><th style="text-align:left">주기</th><th style="text-align:right">항목·칸</th><th style="text-align:center">사용</th><th></th></tr></thead><tbody>';
+  h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;flex-wrap:wrap;gap:6px"><b>양식 ' + fl.length + '개</b><div style="display:flex;gap:6px">' + (boss ? _bsB("#0369a1", "🧊 냉동고 " + (_hcS().set && _hcS().set.frz ? _hcS().set.frz.length + "대" : "관리"), "hcFrzEdit()") + _bsB("#64748b", "📋 기본 양식 더 넣기", "hcPresetPick()") + _bsB("#0f766e", "+ 새 양식", "hcFormEdit('')") : "") + '</div></div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0fdfa"><th style="padding:6px;text-align:left">순서</th><th style="text-align:left">양식</th><th style="text-align:left">모양</th><th style="text-align:left">구분</th><th style="text-align:left">주기</th><th style="text-align:right">항목·칸</th><th style="text-align:center">사용</th><th></th></tr></thead><tbody>';
   fl.forEach(function(k){ var f = F[k];
     h += '<tr style="' + (f.off ? "opacity:.55" : "") + '"><td style="padding:6px;border-bottom:1px solid #f1f5f9">' + _bsN(f.ord) + '</td><td style="border-bottom:1px solid #f1f5f9;font-weight:800">' + esc(f.nm) + '</td><td style="border-bottom:1px solid #f1f5f9">' + (f.kind === "chk" ? "☑ 점검표" : "📝 기록표") + '</td><td style="border-bottom:1px solid #f1f5f9">' + esc(f.cat || "") + '</td><td style="border-bottom:1px solid #f1f5f9">' + (HC_FREQ[f.freq] || "") + '</td><td style="border-bottom:1px solid #f1f5f9;text-align:right">' + (f.kind === "chk" ? (f.items || []).length : (f.cols || []).length) + '</td><td style="border-bottom:1px solid #f1f5f9;text-align:center">' + (f.off ? "끔" : "✅") + '</td><td style="border-bottom:1px solid #f1f5f9;padding:4px;white-space:nowrap">' + (boss ? _bsB("#2563eb", "수정", "hcFormEdit('" + k + "')", "padding:3px 9px") + ' ' + _bsB("#7c3aed", "복사", "hcFormCopy('" + k + "')", "padding:3px 9px") : "") + ' ' + _bsB("#475569", "🖨 빈 양식", "hcPrintBlank('" + k + "')", "padding:3px 9px") + ' ' + _bsB("#0f766e", "📱 QR", "hcQrPrint('" + k + "')", "padding:3px 9px") + '</td></tr>'; });
   return h + '</tbody></table></div>';
@@ -314,3 +314,34 @@ function hcFormSave(){
   ref.set(f).then(function(){ HC.D.forms = HC.D.forms || {}; HC.D.forms[key] = f; closePopup(); toast("양식 저장 — " + f.nm); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 function hcFormDel(){ var E = HC.fe, n = Object.keys(((_hcS().recs || {})[E.k]) || {}).length; if(n) return toast("기록이 " + n + "건 있어서 못 지워요 — '안 씀'으로 해 주세요", true); if(!confirm(E.f.nm + " 양식을 지울까요?")) return; _hcRef("forms/" + E.k).remove().then(function(){ delete HC.D.forms[E.k]; closePopup(); draw(); }); }
+
+// ════════ 🧊 냉동고 여러 대 — 냉동고마다 따로 '온도 기록부' 양식(=일지·QR)을 만들어요 ════════
+//   /main/Haccp/set/frz = [{nm, max}] · 양식 f.frz = 냉동고 이름 (이 표시로 짝지음)
+//   빼면 그 양식은 '끔'(기록은 그대로) · 예전 한 장짜리 '냉동고 온도 기록부'(칸 4개)는 기록 없으면 끔
+function _hcFrzList(){ var a = (_hcS().set || {}).frz; if(a && a.length) return a; return [1, 2, 3, 4].map(function(i){ return { nm: "냉동고 " + i, max: -18 }; }); }
+function hcFrzEdit(L){
+  HC.fz = L || JSON.parse(JSON.stringify(_hcFrzList()));
+  var h = '<h3 style="margin:0 0 6px">🧊 냉동고 관리</h3><div class="mut" style="font-size:12.5px;margin-bottom:10px">냉동고마다 <b>따로 온도 기록부</b>가 생겨요 (오늘 기록·QR·인쇄 다 따로) · QR을 뽑아 냉동고 문에 붙이면 폰으로 바로 적어요</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 110px 34px;gap:6px;align-items:center;font-size:12.5px;font-weight:800;color:#475569;margin-bottom:4px"><span>이름 (예: 1번 냉동고, 창고 냉동고)</span><span>기준 (℃ 이하)</span><span></span></div>';
+  HC.fz.forEach(function(z, i){ h += '<div style="display:grid;grid-template-columns:1fr 110px 34px;gap:6px;align-items:center;margin-bottom:5px"><input value="' + esc(z.nm) + '" oninput="HC.fz[' + i + '].nm=this.value" style="padding:8px;font-size:15px;border:1px solid #cbd5e1;border-radius:7px"><input type="number" value="' + esc(z.max) + '" oninput="HC.fz[' + i + '].max=this.value" style="padding:8px;font-size:15px;border:1px solid #cbd5e1;border-radius:7px;text-align:right"><button class="btn" onclick="HC.fz.splice(' + i + ',1);hcFrzEdit(HC.fz)" style="background:#dc2626;color:#fff;padding:6px">✕</button></div>'; });
+  h += _bsB("#0369a1", "+ 냉동고 추가", "HC.fz.push({nm:'냉동고 '+(HC.fz.length+1),max:-18});hcFrzEdit(HC.fz)", "padding:5px 12px;margin-top:4px");
+  h += '<div class="mut" style="font-size:12px;margin-top:8px">이름을 바꾸면 새 기록부가 생기고, 예전 이름 기록부는 꺼져요 (기록은 그대로 남음)</div>';
+  h += '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px">' + _bsB("#475569", "취소", "closePopup()") + _bsB("#16a34a", "💾 저장 · 기록부 만들기", "hcFrzSave()", "padding:8px 18px") + '</div>';
+  openPopup(h, 480);
+}
+function hcFrzSave(){
+  var L = HC.fz.map(function(z){ return { nm: String(z.nm || "").trim(), max: z.max === "" || z.max == null ? -18 : _bsN(z.max) }; }).filter(function(z){ return z.nm; });
+  var seen = {}; for(var i = 0; i < L.length; i++){ if(seen[L[i].nm]) return toast("이름이 겹쳐요: " + L[i].nm, true); seen[L[i].nm] = 1; }
+  var F = _hcS().forms || {}, R = _hcS().recs || {}, up = { "set/frz": L }, mine = {}, base = 0, msg = [];
+  Object.keys(F).forEach(function(k){ var f = F[k]; if(f.frz) mine[f.frz] = k; if(/냉동고/.test(f.nm) && !f.frz) base = base || _bsN(f.ord); });
+  base = base || (_hcForms(true).length + 1) * 10;
+  L.forEach(function(z, i){ var k = mine[z.nm], std = "하루 2번 이상 (작업 전·후) · " + z.nm + " " + z.max + "℃ 이하";
+    if(k){ up["forms/" + k + "/off"] = false; up["forms/" + k + "/std"] = std; up["forms/" + k + "/cols/1/max"] = z.max; up["forms/" + k + "/ord"] = base + (i + 1) / 10; }
+    else { var nk = _hcRef("forms").push().key; up["forms/" + nk] = { nm: "냉동고 온도 기록부 — " + z.nm, kind: "log", cat: "선행요건", freq: "day", hw: true, sig: true, frz: z.nm, std: std, ord: base + (i + 1) / 10, off: false,
+      cols: [{ lb: "측정 시간", type: "time" }, { lb: "온도", type: "num", max: z.max, unit: "℃" }, { lb: "이상 시 조치", type: "text" }] }; msg.push(z.nm); } });
+  Object.keys(mine).forEach(function(nm){ if(!seen[nm]) up["forms/" + mine[nm] + "/off"] = true; });
+  // 예전 한 장짜리(칸에 냉동고 여러 개) — 기록 없으면 끄기
+  Object.keys(F).forEach(function(k){ var f = F[k]; if(f.frz || f.off || !/냉동고/.test(f.nm) || f.kind !== "log") return; var n = (f.cols || []).filter(function(c){ return /냉동고/.test(c.lb); }).length; if(n < 2) return;
+    if(!Object.keys(R[k] || {}).length) up["forms/" + k + "/off"] = true; else msg.push("(예전 「" + f.nm + "」은 기록이 있어서 그대로 둠 — 안 쓰면 수정에서 '안 씀')"); });
+  _hcRef().update(up).then(function(){ closePopup(); HC.D = null; _hcLoad(); toast("🧊 냉동고 " + L.length + "대 저장" + (msg.length ? " — 새 기록부: " + msg.join(", ") : "")); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
