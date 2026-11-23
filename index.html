@@ -526,7 +526,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="haccp.js?v=20261117b"></script>
 <script src="yk.js?v=20261123f1"></script>
 <script src="docprint.js?v=20261118c"></script>
-<script src="vend.js?v=20261123f1"></script>
+<script src="vend.js?v=20261123g1"></script>
 <script>
 // 🖱 숫자 칸 위에서 휠 굴려도 숫자 안 바뀌게 (화면만 내려가요) — 시스템 전체
 // 💰 금액 칸 저절로 콤마 (data-won 붙은 칸) — 읽을 땐 _bsN 등이 콤마를 빼고 숫자로 읽어요
@@ -1703,7 +1703,7 @@ function mkTabs(){
   ]});
   // ── 🏢 거래처 장부 (비품 거래 A01~ · 원료 구입 C01~ — 예전 엑셀 장부 모양, 미수금) — super/admin ──
   if(ME && (ME.r==="super" || ME.r==="admin") && typeof dVdBp==="function") cats.push({id:"vend",label:"🏢 거래처 장부",items:[
-    {k:"vdBp",l:"📦 비품 거래"},{k:"vdRaw",l:"🐟 원료 구입"}
+    {k:"vdBp",l:"📦 비품 거래"},{k:"vdRaw",l:"🐟 원료 구입"},{k:"vdDoc",l:"📁 서류철 라벨"}
   ]});
   if(ME && ME.r!=="kid" && typeof dBsWork==="function") cats.push({id:"buse",label:"🐟 부세 작업",items:[
     {k:"bsWork",l:"건조 작업 일정"},{k:"bsStock",l:"원료 입고·재고"},{k:"bsZone",l:"건조장 자리"}
@@ -6255,6 +6255,7 @@ function _drawInner(){
   else if(CTAB=="rwProd")el.innerHTML=dRwProd();
   else if(CTAB=="vdBp")el.innerHTML=dVdBp();
   else if(CTAB=="vdRaw")el.innerHTML=dVdRaw();
+  else if(CTAB=="vdDoc")el.innerHTML=dVdDoc();
   else if(CTAB=="hcToday")el.innerHTML=dHcToday();
   else if(CTAB=="hcView")el.innerHTML=dHcView();
   else if(CTAB=="hcForm")el.innerHTML=dHcForm();
