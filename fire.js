@@ -165,7 +165,7 @@ function frPrint(ri){
   // 개정이력
   var RV = row("rev"), RC = FR_SEC.filter(function(x){ return x.k === "rev"; })[0].rows;
   b += '<div class="pg"><h2>개정이력 (소방안전관리대상물)</h2><table><tr><th style="width:8%">순번</th>' + RC.map(function(c){ return '<th style="width:' + c[2] + '%">' + c[1] + '</th>'; }).join("") + '</tr>' + RV.map(function(r, i){ return '<tr><td style="text-align:center">' + i + '</td>' + RC.map(function(c){ var x = r[c[0]] || ""; return '<td>' + esc(c[0] === "dt" ? _frDt(x) : x) + (c[0] === "by" || c[0] === "chk" ? (x ? ' <span class="sm">(서명)</span>' : '') : '') + '</td>'; }).join("") + '</tr>'; }).join("");
-  for(var ri = RV.length; ri < 8; ri++) b += '<tr><td>&nbsp;</td>' + RC.map(function(){ return '<td></td>'; }).join("") + '</tr>';
+  for(var rj = RV.length; rj < 8; rj++) b += '<tr><td>&nbsp;</td>' + RC.map(function(){ return '<td></td>'; }).join("") + '</tr>';
   b += '</table>';
   // 제1장
   b += '<h1>' + NM + ' 소방계획서</h1><h2>제1장 일반사항</h2>';
