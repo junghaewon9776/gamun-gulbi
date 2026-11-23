@@ -708,7 +708,7 @@ function ykMatDel(k){ if(!confirm(_ykS().mats[k].nm + " 원료를 지울까요?"
 // ════════ 🖨 인쇄: 전표 · 라벨 · 작업현황표 · 생산작업일지 ════════
 function _ykWin(title, css, body){
   var w = window.open("", "_blank", "width=920,height=1000"); if(!w){ toast("팝업이 막혔어요 — 허용 후 다시", true); return; }
-  w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>*{box-sizing:border-box}body{margin:0;font-family:"Malgun Gothic","맑은 고딕",sans-serif;color:#111}table{border-collapse:collapse}.tb{display:flex;justify-content:center;gap:8px;padding:10px;background:#1e293b;position:sticky;top:0}.tb button{padding:8px 18px;font-size:14px;font-weight:700;border:none;border-radius:6px;color:#fff;cursor:pointer}@media print{.tb{display:none}}' + css + '</style></head><body><div class="tb"><button style="background:#2563eb" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button><button style="background:#475569" onclick="window.close()">닫기</button></div>' + body + '</body></html>');
+  w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>*{box-sizing:border-box}body{margin:0;font-family:"Malgun Gothic","맑은 고딕",sans-serif;color:#111}table{border-collapse:collapse}.tb{display:flex;justify-content:center;gap:8px;padding:10px;background:#1e293b;position:sticky;top:0}.tb button{padding:8px 18px;font-size:14px;font-weight:700;border:none;border-radius:6px;color:#fff;cursor:pointer}@media print{.tb{display:none}}' + css + '@media print{html,body{height:auto!important}.pg:last-child,.sheet:last-child{break-after:auto!important;page-break-after:auto!important}}</style></head><body><div class="tb"><button style="background:#2563eb" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button><button style="background:#475569" onclick="window.close()">닫기</button></div>' + body + '</body></html>');
   w.document.close();
 }
 function ykPrintSlip(){
@@ -823,7 +823,7 @@ function ykPrintLabelGo(how){
     for(var i = 1; i < start; i++) cells.push('<div class="cell"></div>');
     L.list.forEach(function(l){ cells.push('<div class="cell">' + _ykLblHtml(P, l, YK_LCOL[YK.lc[l.item]] || "") + '</div>'); });
     var pages = []; for(var p = 0; p < cells.length; p += per) pages.push('<div class="sheet">' + cells.slice(p, p + per).join("") + '</div>');
-    var css = '@page{size:A4;margin:0}body{' + PC + '}.sheet{width:210mm;height:297mm;padding:' + P.top + 'mm 0 0 ' + P.left + 'mm;display:grid;grid-template-columns:repeat(' + P.cols + ',' + P.w + 'mm);grid-auto-rows:' + P.h + 'mm;column-gap:' + P.gx + 'mm;row-gap:' + P.gy + 'mm;break-after:page;overflow:hidden;margin:0 auto;box-sizing:border-box}.sheet:last-child{break-after:auto}.cell{width:' + P.w + 'mm;height:' + P.h + 'mm;outline:1px dashed #bbb}@media screen{.sheet{box-shadow:0 0 0 1px #94a3b8;margin:10px auto}}@media print{.cell{outline:none}}';
+    var css = '@page{size:A4;margin:0}body{' + PC + '}.sheet{width:210mm;height:296mm;padding:' + P.top + 'mm 0 0 ' + P.left + 'mm;display:grid;grid-template-columns:repeat(' + P.cols + ',' + P.w + 'mm);grid-auto-rows:' + P.h + 'mm;column-gap:' + P.gx + 'mm;row-gap:' + P.gy + 'mm;break-after:page;overflow:hidden;margin:0 auto;box-sizing:border-box}.sheet:last-child{break-after:auto}.cell{width:' + P.w + 'mm;height:' + P.h + 'mm;outline:1px dashed #bbb}@media screen{.sheet{box-shadow:0 0 0 1px #94a3b8;margin:10px auto}}@media print{.cell{outline:none}}';
     closePopup(); return _ykWin("라벨 " + YK.ed.w.dt + " (" + L.list.length + "장)", css, pages.join(""));
   }
   if(how === "qz"){
@@ -836,7 +836,7 @@ function ykPrintLabelGo(how){
     return Promise.resolve(fn(def, L.list, { w: P.w, h: P.h, gap: 2 })).then(function(ok){ if(ok && ok !== "cancel") closePopup(); });
   }
   var b = L.list.map(function(l){ return '<div class="pg">' + _ykLblHtml(P, l, "") + '</div>'; }).join("");
-  var css2 = '@page{size:' + P.w + 'mm ' + P.h + 'mm;margin:0}.pg{width:' + P.w + 'mm;height:' + P.h + 'mm;break-after:page;overflow:hidden}.pg:last-child{break-after:auto}@media screen{.pg{outline:1px dashed #999;margin:6px auto}}';
+  var css2 = '@page{size:' + P.w + 'mm ' + P.h + 'mm;margin:0}.pg{width:' + P.w + 'mm;height:' + (P.h - 0.6) + 'mm;break-after:page;overflow:hidden}.pg:last-child{break-after:auto}@media screen{.pg{outline:1px dashed #999;margin:6px auto}}';
   closePopup(); _ykWin("라벨 " + YK.ed.w.dt + " (" + L.list.length + "장)", css2, b);
 }
 
