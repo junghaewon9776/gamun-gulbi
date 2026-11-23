@@ -102,7 +102,7 @@ function _rwStockAt(mat, dt, skip){ var s = 0; _rwLedger(mat).forEach(function(e
 function _rwShort(){ var m = {}; _rwLedger().forEach(function(e){ if(e.t === "use" && e.stock < -0.0001){ (m[e.id] = m[e.id] || []).push({ mat: e.mat, short: Math.min(e.qty, -e.stock), dt: e.dt }); } }); return m; }
 function _rwHead(t, sub){
   return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><strong style="font-size:18px">' + t + '</strong> <span class="mut" style="font-size:12px;margin-left:6px">' + sub + '</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">' +
-    (_rwCan() ? _bsB("#7c3aed", "🧪 생산 넣기", "rwProdEdit('')") + _bsB("#16a34a", "🚚 원료 입고", "rwInEdit('')") : "") + _bsB("#0e7490", "🖨 수불부 한번에", "rwPrintAllAsk()") + _bsB("#15803d", "📥 엑셀로 받기", "rwExcel()") + '</div></div></div>';
+    (_rwCan() ? _bsB("#7c3aed", "🧪 생산 넣기", "rwProdEdit('')") + _bsB("#16a34a", "🚚 원료 입고", "rwInEdit('')") : "") + _bsB("#0e7490", "🖨 수불부·생산일지 뽑기", "rwPrintAllAsk()") + _bsB("#15803d", "📥 엑셀로 받기", "rwExcel()") + '</div></div></div>';
 }
 
 // ════════ 🧪 생산일지 ════════
@@ -317,7 +317,7 @@ function rwRecipeDel(){ var E = window._rwRE, used = Object.keys(_rwS().prods ||
 // ════════ 🖨 인쇄 · 📥 엑셀 ════════
 function _rwWin(title, body){
   var w = window.open("", "_blank", "width=900,height=1000"); if(!w){ toast("팝업이 막혔어요 — 허용 후 다시", true); return; }
-  w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}body{margin:0;font-family:"Malgun Gothic","맑은 고딕",sans-serif;color:#111;font-size:12.5px}.pg{width:186mm;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;font-size:24px;letter-spacing:10px;margin:2mm 0 6mm}table{width:100%;border-collapse:collapse}td,th{border:1px solid #333;padding:5px 7px}th{background:#eef2f7}.r{text-align:right}.c{text-align:center}.tb{display:flex;justify-content:center;gap:8px;padding:10px;background:#1e293b;position:sticky;top:0}.tb button{padding:8px 18px;font-size:14px;font-weight:700;border:none;border-radius:6px;color:#fff;cursor:pointer}@media print{.tb{display:none}.pg{width:auto}}</style></head><body><div class="tb"><button style="background:#2563eb" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button><button style="background:#475569" onclick="window.close()">닫기</button></div>' + body + '</body></html>');
+  w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0}body{font-family:"Malgun Gothic","맑은 고딕",sans-serif;color:#111;font-size:12.5px}.pg{width:210mm;padding:12mm 12mm 0;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;font-size:24px;letter-spacing:10px;margin:2mm 0 6mm}table{width:100%;border-collapse:collapse}td,th{border:1px solid #333;padding:5px 7px}th{background:#eef2f7}.r{text-align:right}.c{text-align:center}.tb{display:flex;justify-content:center;gap:8px;padding:10px;background:#1e293b;position:sticky;top:0}.tb button{padding:8px 18px;font-size:14px;font-weight:700;border:none;border-radius:6px;color:#fff;cursor:pointer}@media print{.tb{display:none}.pg{width:auto}}</style></head><body><div class="tb"><button style="background:#2563eb" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button><button style="background:#475569" onclick="window.close()">닫기</button></div>' + body + '</body></html>');
   w.document.close();
 }
 function rwPrintProd(id){
@@ -348,12 +348,15 @@ function rwPrintLedger(mat){
   _rwWin("원료수불부_" + mat, b + '</table></div>');
 }
 function rwPrintAllAsk(){
-  var t = _bsToday(), h = '<h3 style="margin:0 0 10px">🖨 원료수불부 한번에 뽑기 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3>';
+  var t = _bsToday(), h = '<h3 style="margin:0 0 10px">🖨 수불부·생산일지 뽑기 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3>';
   h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px">기간 <input id="rpa_f" type="date" value="' + t.slice(0, 4) + '-01-01" style="width:150px;padding:6px;border:1px solid #cbd5e1;border-radius:6px"> ~ <input id="rpa_t" type="date" value="' + t + '" style="width:150px;padding:6px;border:1px solid #cbd5e1;border-radius:6px"></div>';
   h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' + [["올해", t.slice(0, 4) + "-01-01", t], ["작년", (+t.slice(0, 4) - 1) + "-01-01", (+t.slice(0, 4) - 1) + "-12-31"], ["이번 달", t.slice(0, 7) + "-01", t], ["전체", "2000-01-01", t]].map(function(o){ return _bsB("#64748b", o[0], "document.getElementById('rpa_f').value='" + o[1] + "';document.getElementById('rpa_t').value='" + o[2] + "'", "padding:4px 10px"); }).join("") + '</div>';
-  h += '<label style="display:block;margin-top:10px;font-size:13px"><input type="checkbox" id="rpa_p" checked> 생산작업일지도 같이 (그 기간 생산 전부)</label><label style="display:block;margin-top:4px;font-size:13px"><input type="checkbox" id="rpa_e"> 기록 없는 원료도 빈 장으로</label><div style="margin-top:8px;font-size:13px;font-weight:700;color:#7c2d12">✍ 손으로 쓸 서류면</div><select id="rpa_h" style="width:100%;padding:7px;border:2px solid #fdba74;border-radius:6px;font-size:13px;margin-top:3px"><option value="">전산 그대로 (값이 찍혀 나옴)</option><option value="pair">안내표 + 빈 양식 — 한 장씩 짝지어, 보고 옮겨 적기</option><option value="trace">연한 글씨 따라 쓰기 — 값이 연한 회색으로 찍힌 위에 덧쓰기</option></select>';
-  h += '<div class="mut" style="font-size:12px;margin-top:6px">원료마다 한 장씩 — 맨 위에 기간 전 재고(전기 이월)를 적고 그 기간 입고·사용을 이어서 적어요</div>';
-  h += '<div style="display:flex;justify-content:flex-end;margin-top:12px">' + _bsB("#0e7490", "🖨 뽑기", "rwPrintAll(document.getElementById('rpa_f').value,document.getElementById('rpa_t').value,document.getElementById('rpa_p').checked,document.getElementById('rpa_e').checked,document.getElementById('rpa_h').value)", "padding:9px 22px") + '</div>';
+  var wb = function(v, lb){ var on = (RW.pw || "led") === v; return '<button type="button" class="btn" onclick="RW.pw=\'' + v + '\';rwPrintAllAsk2()" style="flex:1;padding:8px 4px;font-size:13.5px;font-weight:900;border:2px solid #0e7490;background:' + (on ? "#0e7490" : "#fff") + ';color:' + (on ? "#fff" : "#0e7490") + '">' + lb + '</button>'; };
+  h += '<div style="margin-top:10px;font-size:13px;font-weight:800">뽑을 것</div><div id="rpa_w" style="display:flex;gap:6px;margin-top:4px">' + wb("led", "📒 수불부만") + wb("prod", "🧪 생산일지만") + wb("both", "둘 다") + '</div>';
+  h += '<label id="rpa_eL" style="display:' + ((RW.pw || "led") === "prod" ? "none" : "block") + ';margin-top:8px;font-size:13px"><input type="checkbox" id="rpa_e"> 기록 없는 원료도 빈 장으로</label>';
+  h += '<div style="margin-top:8px;font-size:13px;font-weight:700;color:#7c2d12">✍ 손으로 쓸 서류면</div><select id="rpa_h" style="width:100%;padding:7px;border:2px solid #fdba74;border-radius:6px;font-size:13px;margin-top:3px"><option value="">전산 그대로 (값이 찍혀 나옴)</option><option value="pair">안내표 + 빈 양식 — 한 장씩 짝지어, 보고 옮겨 적기</option><option value="trace">연한 글씨 따라 쓰기 — 값이 연한 회색으로 찍힌 위에 덧쓰기</option></select>';
+  h += '<div class="mut" style="font-size:12px;margin-top:6px">수불부: 원료마다 한 장씩 — 맨 위에 기간 전 재고(전기 이월)를 적고 그 기간 입고·사용을 이어서 적어요 · 생산일지: 그 기간 생산 전부</div>';
+  h += '<div style="display:flex;justify-content:flex-end;margin-top:12px">' + _bsB("#0e7490", "🖨 뽑기", "rwPrintAll(document.getElementById('rpa_f').value,document.getElementById('rpa_t').value,(RW.pw||'led')!=='led',(document.getElementById('rpa_e')||{}).checked,document.getElementById('rpa_h').value,(RW.pw||'led')==='prod')", "padding:9px 22px") + '</div>';
   openPopup(h, 480);
 }
 function _rwLedgerPage(mat, f, t){
@@ -367,17 +370,21 @@ function _rwLedgerPage(mat, f, t){
 // 수기용: 장마다 [옮겨 적을 값 안내] + [값 칸이 빈 양식] 짝 — 값 칸(class v)만 비움, 칸·줄·제목은 그대로
 var RW_HAND_CSS = '<style>.hand .v,.hand .v *{color:transparent!important}.gdb{border:2px dashed #7c2d12;background:#fff7ed;color:#7c2d12;font-weight:800;text-align:center;padding:2mm;margin-bottom:3mm;font-size:13px}.gd{opacity:.92}@media print{.gdb{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>';
 function _rwHand(html){ return html.split('<div class="pg">').filter(function(x){ return x; }).map(function(x){ return '<div class="pg gd"><div class="gdb">📋 옮겨 적을 값 — 참고용 (이 장은 서류로 보관 안 함) · 다음 장 빈 양식에 손으로 적어요</div>' + x + '<div class="pg hand">' + x; }).join(""); }
-function rwPrintAll(f, t, withProd, empty, hand){
+// 창 안 값(기간·손글씨)은 그대로 두고 '뽑을 것' 버튼만 다시 그리기
+function rwPrintAllAsk2(){ var f = (document.getElementById("rpa_f") || {}).value, t = (document.getElementById("rpa_t") || {}).value, hd = (document.getElementById("rpa_h") || {}).value, e = (document.getElementById("rpa_e") || {}).checked;
+  rwPrintAllAsk(); var g = function(id){ return document.getElementById(id); }; if(f && g("rpa_f")) g("rpa_f").value = f; if(t && g("rpa_t")) g("rpa_t").value = t; if(g("rpa_h")) g("rpa_h").value = hd || ""; if(g("rpa_e")) g("rpa_e").checked = !!e; }
+function rwPrintAll(f, t, withProd, empty, hand, prodOnly){
   if(f && t && f > t){ var z = f; f = t; t = z; }
   var pages = [], cnt = 0;
-  _rwMats().forEach(function(m){ var P = _rwLedgerPage(m, f, t); if(P.n || empty){ pages.push(P.html); cnt++; } });
+  if(!prodOnly) _rwMats().forEach(function(m){ var P = _rwLedgerPage(m, f, t); if(P.n || empty){ pages.push(P.html); cnt++; } });
   if(!cnt && !withProd) return toast("그 기간에 기록이 없어요", true);
+  if(prodOnly){ var PP = _rwS().prods || {}; if(!Object.keys(PP).some(function(k){ return (!f || PP[k].dt >= f) && (!t || PP[k].dt <= t); })) return toast("그 기간에 생산 기록이 없어요", true); }
   var body = pages.join("");
   if(withProd){ var keep = RW.ym, ks = RW.rsel; RW.ym = ""; RW.rsel = ""; var P = _rwS().prods || {}, ids = Object.keys(P).filter(function(k){ return (!f || P[k].dt >= f) && (!t || P[k].dt <= t); });
     if(ids.length) body += rwPrintProdIds(ids, true); RW.ym = keep; RW.rsel = ks; }
   if(hand === "trace") body = '<style>.v,.v *{color:#d4d4d8!important;font-weight:400!important}</style>' + body;
   else if(hand) body = RW_HAND_CSS + _rwHand(body);
-  closePopup(); _rwWin((hand ? "수기용_" : "") + "원료수불부_" + f + "_" + t, body);
+  closePopup(); _rwWin((hand ? "수기용_" : "") + (prodOnly ? "생산일지_" : withProd ? "원료수불부_생산일지_" : "원료수불부_") + f + "_" + t, body);
 }
 async function rwExcel(){
   showLoading("엑셀 만드는 중...");
