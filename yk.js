@@ -728,7 +728,7 @@ function _ykC39(txt, hpx){
   for(var i = 0; i < s.length; i++){ var p = YK_C39[s[i]]; if(!p) continue; for(var k = 0; k < 9; k++){ var w = p[k] === "w" ? Wd : N; if(k % 2 === 0) bars += '<rect x="' + x.toFixed(2) + '" y="0" width="' + w + '" height="' + hpx + '"/>'; x += w; } x += N; }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + x.toFixed(1) + ' ' + hpx + '" preserveAspectRatio="none" style="width:100%;height:' + hpx + 'px">' + bars + '</svg>';
 }
-// ── 라벨: 프리셋(모양) 마음대로 — 칸마다 위치·크기·글자 크기 바꾸기. 기본 = 예전 엑셀 라벨메일머지(품명 크게 · QR + 로트(색) (몇/총) · QR 내용) ──
+// ── 라벨: 프리셋(모양) 마음대로 — 칸마다 위치·크기·글자 크기 바꾸기. 기본 = 품명 크게 · QR + 로트(색) (몇/총) · QR 내용 ──
 var YK_LCOL = { "노랑": "#fde047", "분홍": "#f9a8d4", "빨강": "#f87171", "초록": "#86efac", "파랑": "#93c5fd", "주황": "#fdba74", "보라": "#c4b5fd", "하늘": "#bae6fd", "연두": "#d9f99d", "회색": "#d1d5db" };
 var YK_LDEF = { paper: "a4", cols: 3, rows: 9, w: 63.5, h: 29.6, top: 15.3, left: 7.25, gx: 2.5, gy: 0 };
 function _ykLset(){ return Object.assign({}, YK_LDEF, (_ykS().set || {}).lbl || {}); }
@@ -1064,7 +1064,7 @@ function _ykAnalHtml(w, pr){
   var P = function(v){ return '<b style="color:' + _ykPctC(v) + '">' + _ykPct(v) + '</b>'; };
   h += '<tr>' + td("회전 가능 금액 <span style='font-size:10.5px;color:#64748b'>원료값만 뺌</span>", "font-weight:800") + td("") + td("") + ["sale", "whole", "cost", "adj"].map(function(k){ return td(P(A.mg[k]) + '<div style="font-size:10.5px;color:#64748b">' + (A.rev[k] ? _ykWon(A.rev[k] - A.matAmt) : "") + '</div>', R); }).join("") + td("") + td("") + '</tr>';
   h += '<tr>' + td("마진 <span style='font-size:10.5px;color:#64748b'>다 뺌 · 총원가 " + _ykWon(c.total) + "</span>", "font-weight:800") + td("") + td("") + ["sale", "whole", "cost", "adj"].map(function(k){ return td(P(A.mt[k]) + '<div style="font-size:10.5px;color:#64748b">' + (A.rev[k] ? _ykWon(A.rev[k] - c.total) : "") + '</div>', R); }).join("") + td("") + td("") + '</tr></table>';
-  h += '<div style="font-size:11px;color:#64748b;margin-top:5px">비율 = 품목 실제 마리수 ÷ 전체 실제 마리수 · 회전 가능 금액 = 가격 합계 − 원료값 (다음 원료 살 돈으로 돌릴 수 있는 돈, 예전 엑셀 「이윤」) · 마진 = 총원가(원료·엮거리 ' + _ykWon(c.cost.weave) + '·인건비·끈·소금·냉동·포장·잡비) 빼고 남는 비율</div>';
+  h += '<div style="font-size:11px;color:#64748b;margin-top:5px">비율 = 품목 실제 마리수 ÷ 전체 실제 마리수 · 회전 가능 금액 = 가격 합계 − 원료값 (다음 원료 살 돈으로 돌릴 수 있는 돈) · 마진 = 총원가(원료·엮거리 ' + _ykWon(c.cost.weave) + '·인건비·끈·소금·냉동·포장·잡비) 빼고 남는 비율</div>';
   return h;
 }
 function ykPrintAnal(L){
