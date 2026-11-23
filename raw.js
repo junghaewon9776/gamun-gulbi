@@ -307,9 +307,10 @@ function rwRecipeSave(){
     if(Math.abs(s - 1) > 0.0001 && !confirm("배합비율 합이 " + Math.round(s * 100000) / 1000 + "% 예요 (100% 아님). 그래도 저장할까요?")) return; }
   r.pack = _bsN(r.pack) || ""; r.off = !!r.off; r.autoIn = r.autoIn || "none";
   var ref = E.id ? _rwRef("recipes/" + E.id) : _rwRef("recipes").push(), key = E.id || ref.key, up = {}; up["recipes/" + key] = r;
+  var PP = _rwS().prods || {}, ren = 0; if(E.id) Object.keys(PP).forEach(function(k){ if(PP[k].rid === E.id && PP[k].nm !== r.nm){ up["prods/" + k + "/nm"] = r.nm; ren++; } });
   _rwFac(r).list.forEach(function(x){ if(!((_rwS().mats || {})[x.mat])) up["mats/" + x.mat] = { nm: x.mat, unit: "kg" }; });
   if(r.base && r.base.comp && r.base.comp.some(function(x){ return /[.#$\[\]\/]/.test(x.mat); })) return toast("원료 이름에 . # $ [ ] / 는 못 써요", true);
-  _rwRef().update(up).then(function(){ RW.D.recipes = RW.D.recipes || {}; RW.D.recipes[key] = r; RW.D.mats = RW.D.mats || {}; Object.keys(up).forEach(function(p){ var a = p.split("/"); if(a[0] === "mats") RW.D.mats[a[1]] = up[p]; }); closePopup(); toast("배합표 저장 — " + r.nm); draw(); })
+  _rwRef().update(up).then(function(){ RW.D.recipes = RW.D.recipes || {}; RW.D.recipes[key] = r; RW.D.mats = RW.D.mats || {}; Object.keys(up).forEach(function(p){ var a = p.split("/"); if(a[0] === "mats") RW.D.mats[a[1]] = up[p]; if(a[0] === "prods" && RW.D.prods[a[1]]) RW.D.prods[a[1]].nm = up[p]; }); closePopup(); toast("배합표 저장 — " + r.nm + (ren ? " · 지난 생산 " + ren + "건 이름도 같이" : "")); draw(); })
     .catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 function rwRecipeDel(){ var E = window._rwRE, used = Object.keys(_rwS().prods || {}).some(function(k){ return _rwS().prods[k].rid === E.id; }); if(used) return toast("이 배합표로 넣은 생산이 있어서 못 지워요 — '안 씀'으로 해 주세요", true); if(!confirm(E.r.nm + " 배합표를 지울까요?")) return; _rwRef("recipes/" + E.id).remove().then(function(){ delete RW.D.recipes[E.id]; closePopup(); draw(); }); }
