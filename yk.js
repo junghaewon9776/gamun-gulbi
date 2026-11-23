@@ -1407,17 +1407,29 @@ function _ykRsB(what){ var E = YK.ed; if(!E || E.id || !_ykCan()) return ""; var
 // 👵 이모 칸 머리: 이름 누르면 바꾸기 · ◀ ▶ 순서 · ✕ 빼기 (적은 두름은 그대로 따라감)
 function _ykWsHd(j, n){
   var L = YK.ed.w.ws.length, b = 'border:1px solid #94a3b8;background:#fff;color:#334155;border-radius:4px;width:20px;height:18px;font-size:9px;cursor:pointer;padding:0;line-height:1';
-  return '<span onclick="ykRenWorker(' + j + ')" title="눌러서 이름 바꾸기" style="cursor:pointer;border-bottom:1px dashed #64748b">' + esc(n) + '</span> <a href="javascript:void 0" onclick="ykDelWorker(' + j + ')" title="이 이모 빼기" style="color:#dc2626;text-decoration:none">✕</a>'
+  return '<span onclick="ykRenWorker(' + j + ')" title="눌러서 다른 이모로 바꾸기" style="cursor:pointer;border-bottom:1px dashed #64748b">' + esc(n) + '</span> <a href="javascript:void 0" onclick="ykDelWorker(' + j + ')" title="이 이모 빼기" style="color:#dc2626;text-decoration:none">✕</a>'
     + '<div style="display:flex;gap:2px;justify-content:center;margin-top:2px">' + (j > 0 ? '<button title="왼쪽으로" onclick="ykMoveWorker(' + j + ',-1)" style="' + b + '">◀</button>' : '') + (j < L - 1 ? '<button title="오른쪽으로" onclick="ykMoveWorker(' + j + ',1)" style="' + b + '">▶</button>' : '') + '</div>';
 }
 function ykMoveWorker(j, d){ var a = YK.ed.w.ws, k = j + d; if(k < 0 || k >= a.length) return; var t = a[j]; a[j] = a[k]; a[k] = t; var y = window.scrollY; draw(); scrollTo(0, y); }
 function ykRenWorker(j){
-  var w = YK.ed.w, o = w.ws[j], n = (prompt("「" + o + "」 이모 이름을 무엇으로 바꿀까요?\n(적어 둔 두름은 그대로 옮겨져요)", o) || "").trim();
-  if(!n || n === o) return;
-  if(/[.#$\[\]\/]/.test(n)) return toast("이름에 . # $ [ ] / 는 못 써요", true);
+  var w = YK.ed.w, o = w.ws[j], P = _ykS().people || {};
+  var L = Object.keys(P).filter(function(n){ return w.ws.indexOf(n) < 0; }).sort(function(a, b){ return ((P[a].on !== false) ? 0 : 1) - ((P[b].on !== false) ? 0 : 1) || _ykOrd(P[a]) - _ykOrd(P[b]) || a.localeCompare(b); });
+  var h = '<h3 style="margin:0 0 8px">👵 「' + esc(o) + '」 → 누구로 바꿀까요? <button class="btn" style="background:#475569;color:#fff;float:right;padding:4px 10px" onclick="closePopup()">닫기</button></h3>';
+  h += '<div style="font-size:12.5px;color:#475569;margin-bottom:8px">이모 명단에 등록된 사람만 나와요 · 적어 둔 두름은 그대로 옮겨져요</div>';
+  h += '<input id="ykRenQ" placeholder="🔍 이름 찾기 (초성도 돼요)" oninput="_ykRenF(this.value)" style="width:100%;padding:8px;font-size:16px;border:2px solid #0e7490;border-radius:8px;box-sizing:border-box;margin-bottom:8px">';
+  h += '<div id="ykRenL" style="display:flex;flex-wrap:wrap;gap:6px;max-height:50vh;overflow:auto">' + (L.length ? L.map(function(n){ var fx = P[n].on !== false; return '<button class="btn ykRenB" data-n="' + esc(n) + '" onclick="_ykRenDo(' + j + ',this.getAttribute(\'data-n\'))" style="padding:8px 14px;font-size:15px;font-weight:800;background:' + (fx ? "#7c3aed" : "#0e7490") + ';color:#fff">' + (fx ? "📌 " : "") + esc(n) + '</button>'; }).join("") : '<span class="mut">표에 없는 등록 이모가 없어요</span>') + '</div>';
+  h += '<div style="margin-top:10px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:12.5px">명단에 없는 분이면 <button class="btn" style="background:#16a34a;color:#fff;padding:4px 10px;font-size:12.5px" onclick="_ykRenNew(' + j + ')">➕ 새 이모 등록해서 바꾸기</button></div>';
+  openPopup(h, 460);
+  setTimeout(function(){ var q = document.getElementById("ykRenQ"); if(q && !_ykMob()) q.focus(); }, 50);
+}
+function _ykRenF(q){ q = String(q || "").replace(/\s/g, ""); document.querySelectorAll(".ykRenB").forEach(function(b){ var n = b.getAttribute("data-n").replace(/\s/g, ""); b.style.display = !q || n.indexOf(q) >= 0 || _ykCho(n).indexOf(q) >= 0 ? "" : "none"; }); }
+function _ykRenNew(j){ var n = (prompt("새 이모 이름 (별명) — 저장하면 이모 명단에 들어가요") || "").trim(); if(!n) return; if(/[.#$\[\]\/]/.test(n)) return toast("이름에 . # $ [ ] / 는 못 써요", true); if((_ykS().people || {})[n] && !confirm("「" + n + "」은 이미 명단에 있어요. 그분으로 바꿀까요?")) return; _ykRenDo(j, n); }
+function _ykRenDo(j, n){
+  var w = YK.ed.w, o = w.ws[j];
+  if(!n || n === o) return closePopup();
   if(w.ws.indexOf(n) >= 0) return toast("「" + n + "」은 이미 표에 있어요", true);
   w.ws[j] = n;
   w.rows.forEach(function(r){ if(r.c && o in r.c){ r.c[n] = r.c[o]; delete r.c[o]; } });
   if(YK.ed.qn === o) YK.ed.qn = n;
-  var y = window.scrollY; draw(); scrollTo(0, y);
+  closePopup(); var y = window.scrollY; draw(); scrollTo(0, y); toast("👵 " + o + " → " + n);
 }
