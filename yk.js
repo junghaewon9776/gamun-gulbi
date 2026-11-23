@@ -117,7 +117,8 @@ function ykNew(){
   draw();
 }
 // 📌 고정 체크한 이모 (이모 명단에서 체크) — 새 작업에 저절로 들어감
-function _ykFixed(){ var P = _ykS().people || {}; return Object.keys(P).filter(function(n){ return P[n].on !== false; }).sort(); }
+function _ykFixed(){ var P = _ykS().people || {}; return Object.keys(P).filter(function(n){ return P[n].on !== false; }).sort(function(a, b){ return _ykOrd(P[a]) - _ykOrd(P[b]) || a.localeCompare(b); }); }
+function _ykOrd(p){ var o = p && p.ord; return o === "" || o == null || isNaN(+o) ? 9999 : +o; }
 function _ykLastWork(){ var W = _ykS().works || {}, k = Object.keys(W).filter(function(k){ return !YK.ed || k !== YK.ed.id; }).sort(function(a, b){ return String(W[b].dt).localeCompare(String(W[a].dt)); })[0]; return k ? W[k] : null; }
 function _ykLastMats(lw){ var a = ((lw && lw.mats) || []).filter(function(m){ return m.nm; }).map(function(m){ return { nm: m.nm, qty: "", price: "" }; }); return a.length ? a : [{ nm: "", qty: "", price: "" }]; }
 function _ykLastRows(lw){ var a = ((lw && lw.rows) || []).filter(function(r){ return r.item; }).map(function(r){ return { item: r.item, kind: r.kind || "굴비", c: {} }; }); return a.length ? a : [{ item: "", kind: "굴비", c: {} }]; }
@@ -162,7 +163,7 @@ function _ykEditor(){
   if(!_ykMob()) h += _ykPcTog();
   if(_ykMob()) h += _ykEdMob2(w); else if(_ykPcSheet()) h += (_ykCan() ? _ykQBar(w, true) : "") + _ykQGrid(w, true); else {
   h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;min-width:100%"><thead><tr style="background:#fff7ed"><th style="padding:5px;text-align:left;min-width:120px;position:sticky;left:0;background:#fff7ed;z-index:1">품명</th><th style="padding:5px">굴비/부세</th>';
-  w.ws.forEach(function(n, j){ h += '<th style="padding:5px;min-width:70px;white-space:nowrap">' + esc(n) + ' <a href="javascript:void 0" onclick="ykDelWorker(' + j + ')" style="color:#dc2626;text-decoration:none">✕</a></th>'; });
+  w.ws.forEach(function(n, j){ h += '<th style="padding:5px;min-width:70px;white-space:nowrap">' + _ykWsHd(j, n) + '</th>'; });
   h += '<th style="padding:5px;background:#fde68a">합계</th><th style="padding:5px;background:#dcfce7;white-space:nowrap" title="포장하면서 센 두름 · +3 / -2 처럼 오차만 적어도 돼요 · 비우면 합계와 같게">실제 (포장)<div style="font-weight:400;font-size:10.5px">숫자 또는 ±오차</div></th><th style="padding:5px">마리수</th><th style="padding:5px">박스</th><th style="padding:5px">잔량</th><th></th></tr></thead><tbody>';
   w.rows.forEach(function(r, i){
     h += '<tr><td style="padding:3px;position:sticky;left:0;background:#fff;z-index:1">' + _ykPick("item", i, r.item) + '</td>';
@@ -222,9 +223,9 @@ function ykSave(){
   if(_ykUnregPop(w)) return;
   w.upAt = new Date().toISOString(); w.upBy = CID || "";
   var ref = E.id ? _ykRef("works/" + E.id) : _ykRef("works").push(), key = E.id || ref.key, up = {}; up["works/" + key] = w;
-  w.ws.forEach(function(n){ if(!((_ykS().people || {})[n])) up["people/" + n] = { on: false }; });
+  w.ws.forEach(function(n, i){ if(!((_ykS().people || {})[n])) up["people/" + n] = { on: false, ord: i }; else up["people/" + n + "/ord"] = i; });
   showLoading("저장 중...");
-  _ykRef().update(_bsClean ? _bsClean(up) : up).then(function(){ hideLoading(); YK.D.works = YK.D.works || {}; YK.D.works[key] = w; YK.D.people = YK.D.people || {}; Object.keys(up).forEach(function(p){ var a = p.split("/"); if(a[0] === "people") YK.D.people[a[1]] = up[p]; }); YK.ed.id = key; toast("저장했어요 — " + _ykLot(w.dt)); draw(); })
+  _ykRef().update(_bsClean ? _bsClean(up) : up).then(function(){ hideLoading(); YK.D.works = YK.D.works || {}; YK.D.works[key] = w; YK.D.people = YK.D.people || {}; Object.keys(up).forEach(function(p){ var a = p.split("/"); if(a[0] !== "people") return; if(a[2] === "ord"){ YK.D.people[a[1]] = YK.D.people[a[1]] || {}; YK.D.people[a[1]].ord = up[p]; } else YK.D.people[a[1]] = up[p]; }); YK.ed.id = key; toast("저장했어요 — " + _ykLot(w.dt)); draw(); })
     .catch(function(e){ hideLoading(); toast("저장 실패: " + e.message, true); });
 }
 function ykDel(){ var E = YK.ed; if(!confirm(E.w.dt + " 작업을 지울까요? (이모 정산 금액도 같이 빠져요)")) return; _ykRef("works/" + E.id).remove().then(function(){ delete YK.D.works[E.id]; YK.ed = null; toast("지웠어요"); draw(); }); }
@@ -1268,7 +1269,7 @@ function _ykQGrid(w, pc){
   var th = 'style="padding:4px 3px;font-size:' + (pc ? 12.5 : 11.5) + 'px;white-space:nowrap;background:' + (pc ? "#eef2f7" : "#ecfeff") + ';border:1px solid ' + (pc ? "#64748b" : "#cbd5e1") + '"';
   var bd = pc ? "#94a3b8" : "#e2e8f0";
   var h = '<div style="padding:0 6px 10px"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="border-collapse:collapse;font-size:12px"><thead><tr><th ' + th.replace('style="', 'style="position:sticky;left:0;z-index:2;text-align:left;min-width:' + (pc ? 130 : 78) + 'px;') + '>' + (pc ? '작업자 →<br>품명 ↓' : '품명') + '</th>';
-  w.ws.forEach(function(n, j){ h += '<th ' + th + '>' + esc(n) + (can ? ' <a href="javascript:void 0" onclick="ykDelWorker(' + j + ')" style="color:#dc2626;text-decoration:none">✕</a>' : '') + '</th>'; });
+  w.ws.forEach(function(n, j){ h += '<th ' + th + '>' + (can ? _ykWsHd(j, n) : esc(n)) + '</th>'; });
   h += '<th ' + th.replace(/#ecfeff|#eef2f7/, "#fde68a") + '>합계</th>' + (pc ? '<th ' + th.replace("#eef2f7", "#dcfce7") + ' title="포장하면서 센 두름 · +3 / -2 처럼 오차만 적어도 돼요 · 비우면 합계와 같게">실제<div style="font-weight:400;font-size:10px">숫자 또는 ±</div></th><th ' + th + '>마리수</th><th ' + th + '>박스</th><th ' + th + '>잔량</th>' : '') + '</tr></thead><tbody>';
   w.rows.forEach(function(r, i){
     h += '<tr><td style="position:sticky;left:0;z-index:1;background:#fff;border:1px solid #e2e8f0;padding:2px 4px;white-space:nowrap;font-weight:700;font-size:12px">' + (can ? _ykCb("item", r.item || "", "var y=window.scrollY;_ykPicked2('item'," + i + ",V);scrollTo(0,y)", "품명", "width:" + (pc ? 130 : 92) + "px;padding:3px 4px;font-size:" + (pc ? 13 : 16) + "px;font-weight:700;border:1px solid " + (r.item && !_ykItem(r.item) ? "#dc2626" : "#e2e8f0") + ";border-radius:5px;background:" + (r.item && !_ykItem(r.item) ? "#fef2f2" : "#fff") + ";box-sizing:border-box;vertical-align:middle") : (esc(r.item) || '<span style="color:#dc2626">품명?</span>')) + ' ' + _ykKindBtn(i, r, "tiny") + (can ? ' <a href="javascript:void 0" onclick="if(confirm(\'이 줄을 지울까요?\')){YK.ed.w.rows.splice(' + i + ',1);draw()}" style="color:#dc2626;text-decoration:none;font-size:11px">✕</a>' : '') + '</td>';
@@ -1402,3 +1403,21 @@ function _ykCbBlur(el){ setTimeout(function(){ if(_YKCB && _YKCB.el === el) _ykC
 // 🧹 칸 옆 작은 초기화 버튼 (새 작업 등록에서만)
 function _ykRsB(what){ var E = YK.ed; if(!E || E.id || !_ykCan()) return ""; var nm = { mat: "원료", item: "품명", ws: "이모" }[what];
   return '<button class="btn" onclick="ykReset(\'' + what + '\')" title="' + nm + ' 비우기" style="padding:3px 8px;font-size:11.5px;font-weight:800;background:#475569;color:#fff;white-space:nowrap">🧹 ' + nm + ' 초기화</button>'; }
+
+// 👵 이모 칸 머리: 이름 누르면 바꾸기 · ◀ ▶ 순서 · ✕ 빼기 (적은 두름은 그대로 따라감)
+function _ykWsHd(j, n){
+  var L = YK.ed.w.ws.length, b = 'border:1px solid #94a3b8;background:#fff;color:#334155;border-radius:4px;width:20px;height:18px;font-size:9px;cursor:pointer;padding:0;line-height:1';
+  return '<span onclick="ykRenWorker(' + j + ')" title="눌러서 이름 바꾸기" style="cursor:pointer;border-bottom:1px dashed #64748b">' + esc(n) + '</span> <a href="javascript:void 0" onclick="ykDelWorker(' + j + ')" title="이 이모 빼기" style="color:#dc2626;text-decoration:none">✕</a>'
+    + '<div style="display:flex;gap:2px;justify-content:center;margin-top:2px">' + (j > 0 ? '<button title="왼쪽으로" onclick="ykMoveWorker(' + j + ',-1)" style="' + b + '">◀</button>' : '') + (j < L - 1 ? '<button title="오른쪽으로" onclick="ykMoveWorker(' + j + ',1)" style="' + b + '">▶</button>' : '') + '</div>';
+}
+function ykMoveWorker(j, d){ var a = YK.ed.w.ws, k = j + d; if(k < 0 || k >= a.length) return; var t = a[j]; a[j] = a[k]; a[k] = t; var y = window.scrollY; draw(); scrollTo(0, y); }
+function ykRenWorker(j){
+  var w = YK.ed.w, o = w.ws[j], n = (prompt("「" + o + "」 이모 이름을 무엇으로 바꿀까요?\n(적어 둔 두름은 그대로 옮겨져요)", o) || "").trim();
+  if(!n || n === o) return;
+  if(/[.#$\[\]\/]/.test(n)) return toast("이름에 . # $ [ ] / 는 못 써요", true);
+  if(w.ws.indexOf(n) >= 0) return toast("「" + n + "」은 이미 표에 있어요", true);
+  w.ws[j] = n;
+  w.rows.forEach(function(r){ if(r.c && o in r.c){ r.c[n] = r.c[o]; delete r.c[o]; } });
+  if(YK.ed.qn === o) YK.ed.qn = n;
+  var y = window.scrollY; draw(); scrollTo(0, y);
+}
