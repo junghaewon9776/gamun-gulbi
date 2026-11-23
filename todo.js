@@ -69,9 +69,13 @@ function dTodo(){
   h += '<div class="card" style="margin-bottom:10px;border:2px solid ' + (N.some(function(x){ return x.s.st === "over"; }) ? "#fca5a5" : "#bbf7d0") + '"><b style="font-size:16px">오늘 ' + today.slice(5).replace("-", "/") + ' — 할 일 ' + N.length + '개</b>';
   if(!N.length) h += '<div style="font-size:14px;color:#16a34a;font-weight:800;margin-top:6px">🎉 지금 할 일이 없어요</div>';
   N.forEach(function(x){ var c = x.s.st === "over" ? "#dc2626" : x.s.st === "today" ? "#ea580c" : "#2563eb";
-    h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap"><div style="flex:1;min-width:180px">' + _tdCatTag(x.t.cat) + ' <b style="font-size:15px">' + esc(x.t.nm) + '</b><div style="font-size:12px;color:#64748b">' + _tdFreqTxt(x.t) + (x.t.note ? ' · ' + esc(x.t.note) : '') + '</div></div><span style="font-weight:900;color:' + c + ';font-size:13px;white-space:nowrap">' + _tdDueTxt(x.s) + '</span>' + (can ? _bsB("#16a34a", "✅ 했어요", "tdDone('" + x.id + "')", "padding:6px 12px;font-weight:800") : "") + '</div>'; });
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap"><div style="flex:1;min-width:180px">' + _tdCatTag(x.t.cat) + ' <b style="font-size:15px">' + esc(x.t.nm) + '</b><div style="font-size:12px;color:#64748b">' + _tdFreqTxt(x.t) + (x.t.note ? ' · ' + esc(x.t.note) : '') + '</div></div><span style="font-weight:900;color:' + c + ';font-size:13px;white-space:nowrap">' + _tdDueTxt(x.s) + '</span>' + (can ? _bsB("#16a34a", "✅ 했어요", "tdDone('" + x.id + "')", window.innerWidth < 760 ? "padding:3px 8px;font-size:12px;font-weight:800" : "padding:6px 12px;font-weight:800") : "") + '</div>'; });
   if(D.length) h += '<div style="margin-top:8px;font-size:12.5px;color:#64748b">✔ 오늘 한 것: ' + D.map(function(x){ return esc(x.t.nm) + ' <span style="font-size:11px">(' + esc(x.s.dn.by || "") + ' ' + String(x.s.dn.at || "").slice(11, 16) + ')</span>' + (can ? ' <a href="javascript:void 0" onclick="tdUndo(\'' + x.id + '\')" style="font-size:11px;color:#dc2626">취소</a>' : ''); }).join(" · ") + '</div>';
   h += '</div>';
+  // 📅 달력 / 📋 목록
+  var vw = _tdView(), vb = function(v, lb){ var on = vw === v; return '<button class="btn" onclick="tdViewSet(\'' + v + '\')" style="padding:6px 14px;font-weight:900;font-size:14px;background:' + (on ? "#1d4ed8" : "#fff") + ';color:' + (on ? "#fff" : "#1d4ed8") + ';border:1.5px solid #1d4ed8">' + lb + '</button>'; };
+  h += '<div style="display:flex;gap:6px;margin-bottom:8px">' + vb("cal", "📅 달력") + vb("list", "📋 목록") + '</div>';
+  if(vw === "cal") return h + _tdCal(today, can);
   // 전체 목록 (주기별)
   var cats = {}; Object.keys(T).forEach(function(k){ cats[T[k].cat || "기타"] = 1; });
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + [""].concat(Object.keys(cats).sort()).map(function(c){ var on = TD.f === c; return '<button class="btn" onclick="TD.f=\'' + esc(c) + '\';draw()" style="padding:5px 12px;font-size:13px;font-weight:800;background:' + (on ? "#334155" : "#fff") + ';color:' + (on ? "#fff" : "#334155") + ';border:1.5px solid #334155">' + (c ? esc(c) : "전체") + '</button>'; }).join("") + '</div>';
@@ -200,3 +204,64 @@ function _tdBadge(){
 function tdNotiOn(){ if(typeof Notification === "undefined") return toast("이 브라우저는 알림을 못 써요", true); Notification.requestPermission().then(function(p){ toast(p === "granted" ? "🔔 이 기기에서 하루 한 번 알려요" : "알림이 막혀 있어요 — 브라우저 설정에서 허용해 주세요", p !== "granted"); draw(); }); }
 // 로그인해 있으면 처음 한 번 불러오고, 10분마다 다시 확인
 setInterval(function(){ try { if(!ME || ME.r === "kid") return; if(!TD.D){ if(!TD.loading && typeof fbDb !== "undefined") _tdLoad(); return; } if(Date.now() - (TD.at || 0) > 10 * 60e3){ TD.at = Date.now(); TD.D = null; _tdLoad(); } else _tdBadge(); } catch(e){} }, 15000);
+
+// ════════ 📅 달력 (플래너) — 그달 해야 할 날에 할 일 표시 · 날짜 누르면 그날 할 일 · ✅ ════════
+function _tdView(){ try { return localStorage.getItem("gm_tdView") || "cal"; } catch(e){ return "cal"; } }
+function tdViewSet(v){ try { localStorage.setItem("gm_tdView", v); } catch(e){} draw(); }
+// 그달(ym)에 이 할 일이 해야 하는 날들 [{d 날짜, pk 기간키}] — 매일은 빼고(위에 따로)
+function _tdOcc(id, t, ym){
+  var y = +ym.slice(0, 4), m = +ym.slice(5, 7), L = _tdLast(y, m), out = [], f = t.freq, p2 = function(n){ return ("0" + n).slice(-2); };
+  if(f === "week"){ for(var d = 1; d <= L; d++){ var D = new Date(y, m - 1, d); if((D.getDay() + 6) % 7 === (+t.wd || 0)){ var mon = new Date(D); mon.setDate(d - (+t.wd || 0)); out.push({ d: ym + "-" + p2(d), pk: _tdS2(mon) }); } } }
+  else if(f === "month"){ var em = Math.max(1, +t.every || 1), idx = y * 12 + m - 1, fb = String(t.from || t.since || "").match(/^(\d{4})-(\d{2})/), bi = fb ? (+fb[1]) * 12 + (+fb[2]) - 1 : idx;
+    if((((idx - bi) % em) + em) % em === 0){ var md = +t.md || 0; out.push({ d: ym + "-" + p2(md && md <= L ? md : L), pk: ym }); } }
+  else if(f === "year"){ var ev = Math.max(1, +t.every || 1), base = +t.from || +String(t.since || "").slice(0, 4) || y;
+    if((+t.mon || 12) === m && (((y - base) % ev) + ev) % ev === 0) out.push({ d: ym + "-" + p2(Math.min(+t.day || L, L)), pk: String(y) }); }
+  else if(f === "once"){ if(String(t.dt || "").slice(0, 7) === ym) out.push({ d: t.dt, pk: "1" }); }
+  return out;
+}
+function _tdCalMap(ym, today){
+  var T = _tdS().tasks || {}, DN = _tdS().done || {}, M = {}, daily = [];
+  Object.keys(T).forEach(function(k){ var t = T[k]; if(t.off || (TD.f && (t.cat || "기타") !== TD.f)) return; if(t.freq === "day"){ daily.push(k); return; }
+    _tdOcc(k, t, ym).forEach(function(o){ var dn = (DN[k] || {})[o.pk], skip = !dn && t.since && o.d < t.since;
+      var st = dn || skip ? "done" : o.d < today ? "over" : o.d === today ? "today" : "later";
+      (M[o.d] = M[o.d] || []).push({ id: k, t: t, pk: o.pk, st: st, dn: dn, skip: skip }); }); });
+  return { M: M, daily: daily };
+}
+function _tdCal(today, can){
+  var ym = TD.ym || today.slice(0, 7), y = +ym.slice(0, 4), m = +ym.slice(5, 7), L = _tdLast(y, m), first = new Date(y, m - 1, 1).getDay(), mob = window.innerWidth < 760;
+  var C = _tdCalMap(ym, today), M = C.M, mv = function(n){ var i = y * 12 + m - 1 + n; return Math.floor(i / 12) + "-" + ("0" + (i % 12 + 1)).slice(-2); };
+  var nb = function(lb, v){ return '<button class="btn" onclick="TD.ym=\'' + v + '\';TD.day=\'\';draw()" style="padding:5px 12px;font-weight:900;background:#fff;border:1.5px solid #334155;color:#334155">' + lb + '</button>'; };
+  var h = '<div class="card" style="padding:10px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:8px">' + nb("◀", mv(-1)) + '<b style="font-size:19px">' + y + '년 ' + m + '월</b><span style="display:flex;gap:4px">' + (ym !== today.slice(0, 7) ? nb("오늘", today.slice(0, 7)) : '') + nb("▶", mv(1)) + '</span></div>';
+  // 분류 고르기
+  var cats = {}; Object.keys(_tdS().tasks || {}).forEach(function(k){ cats[(_tdS().tasks[k].cat) || "기타"] = 1; });
+  h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">' + [""].concat(Object.keys(cats).sort()).map(function(c){ var on = TD.f === c, col = TD_CAT[c] || "#334155"; return '<button class="btn" onclick="TD.f=\'' + esc(c) + '\';draw()" style="padding:3px 10px;font-size:12.5px;font-weight:800;background:' + (on ? col : "#fff") + ';color:' + (on ? "#fff" : col) + ';border:1.5px solid ' + col + '">' + (c ? esc(c) : "전체") + '</button>'; }).join("") + '</div>';
+  if(C.daily.length) h += '<div style="font-size:12.5px;color:#475569;margin-bottom:6px">🔁 매일 ' + C.daily.length + '개 — ' + C.daily.map(function(k){ return esc(_tdS().tasks[k].nm); }).join(" · ") + ' <span class="mut">(달력엔 안 넣음 · 위 오늘 할 일에서 ✅)</span></div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;font-size:12px">' + ["일", "월", "화", "수", "목", "금", "토"].map(function(w, i){ return '<div style="text-align:center;font-weight:900;padding:4px 0;color:' + (i === 0 ? "#dc2626" : i === 6 ? "#2563eb" : "#334155") + '">' + w + '</div>'; }).join("");
+  for(var b = 0; b < first; b++) h += '<div></div>';
+  for(var d = 1; d <= L; d++){
+    var ds = ym + "-" + ("0" + d).slice(-2), its = M[ds] || [], wd = (first + d - 1) % 7, isT = ds === today, sel = TD.day === ds;
+    var bad = its.some(function(x){ return x.st === "over"; }), all = its.length && its.every(function(x){ return x.st === "done"; });
+    h += '<div onclick="TD.day=(TD.day===\'' + ds + '\'?\'\':\'' + ds + '\');draw()" style="min-height:' + (mob ? 52 : 84) + 'px;border:' + (sel ? "2px solid #1d4ed8" : isT ? "2px solid #f59e0b" : "1px solid #e2e8f0") + ';border-radius:7px;padding:3px;cursor:pointer;background:' + (isT ? "#fffbeb" : bad ? "#fef2f2" : all ? "#f0fdf4" : "#fff") + ';overflow:hidden">';
+    h += '<div style="font-weight:900;font-size:12.5px;color:' + (wd === 0 ? "#dc2626" : wd === 6 ? "#2563eb" : "#0f172a") + '">' + d + (isT ? ' <span style="font-size:10px;color:#b45309">오늘</span>' : '') + '</div>';
+    if(mob){ if(its.length) h += '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:2px">' + its.slice(0, 6).map(function(x){ return '<span style="width:9px;height:9px;border-radius:50%;background:' + (x.st === "done" ? "#cbd5e1" : TD_CAT[x.t.cat] || "#475569") + ';' + (x.st === "over" ? "outline:2px solid #dc2626" : "") + '"></span>'; }).join("") + (its.length > 6 ? '<b style="font-size:9px">+' + (its.length - 6) + '</b>' : '') + '</div>'; }
+    else { h += its.slice(0, 3).map(function(x){ var col = TD_CAT[x.t.cat] || "#475569", dn = x.st === "done"; return '<div title="' + esc(x.t.nm) + '" style="margin-top:2px;font-size:11px;line-height:1.35;padding:1px 4px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:' + (dn ? "#f1f5f9" : col) + ';color:' + (dn ? "#94a3b8" : "#fff") + ';' + (dn ? "text-decoration:line-through;" : "") + (x.st === "over" ? "box-shadow:inset 0 0 0 2px #7f1d1d;" : "") + '">' + (x.st === "over" ? "⚠ " : dn ? "✔ " : "") + esc(x.t.nm) + '</div>'; }).join("") + (its.length > 3 ? '<div style="font-size:10.5px;color:#475569;font-weight:800">+' + (its.length - 3) + '개</div>' : ''); }
+    h += '</div>'; }
+  h += '</div><div class="mut" style="font-size:11.5px;margin-top:6px">날짜를 누르면 그날 할 일 · 빨간 칸 = 안 하고 지난 것 · 초록 칸 = 다 함 · 노란 테두리 = 오늘</div></div>';
+  // 고른 날
+  var sd = TD.day && TD.day.slice(0, 7) === ym ? TD.day : "";
+  if(sd){ var its2 = M[sd] || [], D2 = _tdD(sd);
+    h += '<div class="card" style="margin-bottom:10px;border:2px solid #1d4ed8"><b style="font-size:15px">' + (+sd.slice(5, 7)) + '월 ' + (+sd.slice(8, 10)) + '일 (' + ["일", "월", "화", "수", "목", "금", "토"][D2.getDay()] + ') — ' + its2.length + '개</b>' + (can ? ' ' + _bsB("#16a34a", "+ 이날 할 일", "tdEdit('');TD.e.t.freq='once';TD.e.t.dt='" + sd + "';_tdEdDraw()", "padding:3px 10px;font-size:12.5px") : '');
+    if(!its2.length) h += '<div class="mut" style="margin-top:6px">이날은 할 일이 없어요</div>';
+    its2.forEach(function(x){ h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;flex-wrap:wrap"><div style="flex:1;min-width:170px">' + _tdCatTag(x.t.cat) + ' <b>' + esc(x.t.nm) + '</b><div style="font-size:12px;color:#64748b">' + _tdFreqTxt(x.t) + (x.t.note ? ' · ' + esc(x.t.note) : '') + '</div></div>';
+      h += x.st === "done" ? '<span style="color:#16a34a;font-weight:800;font-size:12.5px">' + (x.skip ? "넣기 전" : "✔ " + esc((x.dn || {}).by || "") + " " + esc(String((x.dn || {}).at || "").slice(5, 16))) + '</span>' + (can && !x.skip ? ' <a href="javascript:void 0" onclick="tdUndoAt(\'' + x.id + '\',\'' + x.pk + '\')" style="font-size:11.5px;color:#dc2626">취소</a>' : '')
+        : (can ? _bsB(x.st === "over" ? "#dc2626" : "#16a34a", "✅ 했어요", "tdDoneAt('" + x.id + "','" + x.pk + "')", window.innerWidth < 760 ? "padding:3px 8px;font-size:12px;font-weight:800" : "padding:5px 12px;font-weight:800") : '');
+      h += (can ? ' ' + _bsB("#475569", "✏", "tdEdit('" + x.id + "')", "padding:4px 8px") : '') + '</div>'; });
+    h += '</div>'; }
+  // 이달 할 일 한눈에 (날짜순)
+  var ks = Object.keys(M).sort(), n = 0; ks.forEach(function(k){ n += M[k].length; });
+  if(n){ h += '<div class="card" style="margin-bottom:10px"><b>' + m + '월 할 일 ' + n + '개</b>' + ks.map(function(k){ return M[k].map(function(x){ return '<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13px;border-bottom:1px solid #f8fafc;' + (x.st === "done" ? "opacity:.5" : "") + '"><b style="min-width:52px;color:' + (x.st === "over" ? "#dc2626" : k === today ? "#b45309" : "#334155") + '">' + (+k.slice(5, 7)) + '/' + (+k.slice(8, 10)) + '</b>' + _tdCatTag(x.t.cat) + '<span style="flex:1">' + (x.st === "done" ? "✔ " : x.st === "over" ? "⚠ " : "") + esc(x.t.nm) + '</span></div>'; }).join(""); }).join("") + '</div>'; }
+  return h;
+}
+function tdDoneAt(id, pk){ var t = (_tdS().tasks || {})[id]; if(!t) return; var v = { at: new Date(Date.now() + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 16), by: _tdWho() };
+  _tdRef("done/" + id + "/" + pk).set(v).then(function(){ TD.D.done = TD.D.done || {}; TD.D.done[id] = TD.D.done[id] || {}; TD.D.done[id][pk] = v; toast("✅ " + t.nm); draw(); _tdBadge(); }).catch(function(e){ toast("저장 실패: " + e.message, true); }); }
+function tdUndoAt(id, pk){ var t = (_tdS().tasks || {})[id] || {}; if(!confirm((t.nm || "") + " — 했음 표시를 취소할까요?")) return; _tdRef("done/" + id + "/" + pk).remove().then(function(){ if(TD.D.done && TD.D.done[id]) delete TD.D.done[id][pk]; draw(); _tdBadge(); }); }
