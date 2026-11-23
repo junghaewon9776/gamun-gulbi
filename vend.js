@@ -720,8 +720,9 @@ function _vdLedgerMob(vid, list, raw, can, v){
 // ════════ 📁 서류철 라벨 — 생산일지·해썹일지 같은 서류 화일철 번호표 (거래처 장부와 따로) ════════
 //   /main/Vend/doc/{id} = { no(분류번호 D-01…), nm(서류 이름), cat(라벨 윗줄 분류), keep(보존기간), note }
 //   라벨은 거래처 화일철 라벨과 같은 모양·프리셋으로 뽑아요
-function _vdLblV(){ if(VD.kind !== "doc") return _vdS().v || {}; var o = {}, D = _vdS().doc || {}; Object.keys(D).forEach(function(k){ o[k] = Object.assign({ doc: 1 }, D[k]); }); return o; }
-function _vdLblKs(){ return VD.kind === "doc" ? _vdDocKs() : _vdVs(VD.kind); }
+function _vdLblV(){ if(VD.kind !== "doc") return _vdS().v || {}; var o = {}, D = _vdS().doc || {}, V = _vdS().v || {}; Object.keys(D).forEach(function(k){ o[k] = Object.assign({ doc: 1 }, D[k]); }); Object.keys(V).forEach(function(k){ o["v:" + k] = V[k]; }); return o; }
+function _vdLblKs(){ return VD.kind === "doc" ? _vdDocKs().concat(_vdVs("bp").map(function(k){ return "v:" + k; }), _vdVs("raw").map(function(k){ return "v:" + k; })) : _vdVs(VD.kind); }
+var VD_VG = [{ code: "A", nm: "비품 거래처", v: "bp" }, { code: "C", nm: "원료 거래처", v: "raw" }];   // 거래처 장부 화일철 (번호 글자 고정)
 function _vdDocKs(){ var D = _vdS().doc || {}; return Object.keys(D).sort(function(a, b){ var x = String(D[a].no || "~"), y = String(D[b].no || "~"); return x.localeCompare(y, "ko", { numeric: true }) || String(D[a].nm).localeCompare(String(D[b].nm)); }); }
 function _vdDocNext(pre0){   // 글자(분류코드) 받으면 그 글자 다음 번호 · 없으면 마지막에 쓴 글자 — 처음이면 F-01
   var D = _vdS().doc || {}, pre = String(pre0 || VD.docPre || "").toUpperCase(), cnt = {};
@@ -736,11 +737,11 @@ function dVdDoc(){
   if(q) ks = ks.filter(function(k){ var d = D[k]; return [d.no, d.nm, d.cat, d.keep, d.note].join("").toLowerCase().replace(/\s/g, "").indexOf(q) >= 0; });
   var h = '<div class="card" style="margin-bottom:10px;background:' + K.bg + ';border:1px solid ' + K.bd + '"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div><b style="font-size:18px;color:' + K.c + '">📁 서류철 라벨</b><div class="mut" style="font-size:12.5px">생산작업일지·해썹일지 같은 서류 화일철에 붙일 번호표 — 분류번호·보존기간까지 라벨에 나와요</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">';
   h += _vdB("#b45309", "🏷 라벨 뽑기", "vdLabelPop('')") + (can ? _vdB("#7c3aed", "⚙ 분류코드", "vdGrpEdit()") + _vdB("#0f766e", "🛡 해썹 양식 가져오기", "vdDocHc()") + _vdB("#16a34a", "+ 서류", "vdDocEdit('')") : "") + '</div></div></div>';
-  var G = _vdGrps(); if(G.length){ var all = _vdS().doc || {}, cn = function(c){ return Object.keys(all).filter(function(k){ return _vdDocPre(all[k].no) === c; }).length; };
-    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + [{ code: "", nm: "전체" }].concat(G).map(function(g){ var on = (VD.dg || "") === g.code; return '<button class="btn" onclick="VD.dg=\'' + g.code + '\';draw()" style="padding:5px 12px;font-size:13px;font-weight:800;background:' + (on ? "#7c2d12" : "#fff") + ';color:' + (on ? "#fff" : "#7c2d12") + ';border:1.5px solid #7c2d12">' + (g.code ? '<b>' + esc(g.code) + '</b> ' : '') + esc(g.nm) + (g.code ? ' <span style="opacity:.7">' + cn(g.code) + '</span>' : '') + '</button>'; }).join("") + '</div>';
+  var G = _vdGrps(); { var all = _vdS().doc || {}, cn = function(c){ var vg = VD_VG.filter(function(x){ return x.code === c; })[0]; if(vg) return _vdVs(vg.v).length; return Object.keys(all).filter(function(k){ return _vdDocPre(all[k].no) === c; }).length; };
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + [{ code: "", nm: "전체" }].concat(G, VD_VG).map(function(g){ var on = (VD.dg || "") === g.code; return '<button class="btn" onclick="VD.dg=\'' + g.code + '\';draw()" style="padding:5px 12px;font-size:13px;font-weight:800;background:' + (on ? "#7c2d12" : "#fff") + ';color:' + (on ? "#fff" : "#7c2d12") + ';border:1.5px solid #7c2d12">' + (g.code ? '<b>' + esc(g.code) + '</b> ' : '') + esc(g.nm) + (g.code ? ' <span style="opacity:.7">' + cn(g.code) + '</span>' : '') + '</button>'; }).join("") + '</div>';
     if(VD.dg) ks = ks.filter(function(k){ return _vdDocPre(D[k].no) === VD.dg; }); }
   h += '<input type="search" id="vdDq" placeholder="🔍 분류번호·서류 이름으로 찾기" value="' + esc(VD.dq || "") + '" oninput="VD.dq=this.value;clearTimeout(VD.dqT);VD.dqT=setTimeout(function(){draw();var e=document.getElementById(\'vdDq\');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length)}},300)" style="width:100%;max-width:360px;padding:8px 10px;font-size:15px;border:2px solid #cbd5e1;border-radius:8px;margin-bottom:8px;box-sizing:border-box">';
-  if(!ks.length) return h + '<div class="card" style="text-align:center;color:#94a3b8;padding:24px">' + (q ? '찾는 서류가 없어요' : '아직 서류가 없어요 — ' + (can ? '[+ 서류] 로 만들어 주세요 (예: F-01 보건증 · 보존 2년)' : '관리자가 등록하면 보여요')) + '</div>';
+  if(!ks.length && !VD_VG.some(function(vg){ return _vdVs(vg.v).length; })) return h + '<div class="card" style="text-align:center;color:#94a3b8;padding:24px">' + (q ? '찾는 서류가 없어요' : '아직 서류가 없어요 — ' + (can ? '[+ 서류] 로 만들어 주세요 (예: F-01 보건증 · 보존 2년)' : '관리자가 등록하면 보여요')) + '</div>';
   var row = function(k){ var d = D[k], r = '<div onclick="' + (can ? "vdDocEdit('" + k + "')" : "") + '" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #f1f5f9;' + (can ? "cursor:pointer" : "") + '">';
     r += '<span style="background:#1e293b;color:#fff;border-radius:6px;padding:3px 8px;font-size:13px;font-weight:900;min-width:44px;text-align:center;flex:none">' + esc(d.no || "-") + '</span>';
     r += '<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">' + esc(d.nm || "") + '</div><div style="font-size:12px;color:#64748b">' + [d.cat ? esc(d.cat) : "", d.note ? "📝 " + esc(d.note) : ""].filter(Boolean).join(" · ") + '</div></div>';
@@ -752,6 +753,11 @@ function dVdDoc(){
   secs.forEach(function(sc){ if(!sc.ks.length && (VD.dg || q || sc.other)) return;
     h += '<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:#fff7ed;border-bottom:2px solid #fed7aa"><b style="font-size:15px;color:#7c2d12">' + (sc.code ? '<span style="background:#7c2d12;color:#fff;border-radius:6px;padding:1px 8px;margin-right:6px">' + esc(sc.code) + '</span>' : '📂 ') + esc(sc.nm) + ' <span style="font-weight:400;font-size:12.5px;color:#9a3412">' + sc.ks.length + '개</span></b><span style="display:flex;gap:4px">' + (sc.ks.length ? _vdB("#b45309", "🏷 이 분류 라벨", "vdLabelGrp('" + esc(sc.code) + "'," + (sc.code ? 0 : 1) + ")", "padding:3px 9px;font-size:12px") : '') + (can && sc.code && !sc.other ? _vdB("#16a34a", "+ 서류", "vdDocEdit('','" + esc(sc.code) + "')", "padding:3px 9px;font-size:12px") : '') + '</span></div>';
     h += sc.ks.length ? sc.ks.map(row).join("") : '<div class="mut" style="padding:10px 12px;font-size:12.5px">아직 이 분류 서류가 없어요</div>';
+    h += '</div>'; });
+  var V = _vdS().v || {};
+  VD_VG.forEach(function(vg){ if(VD.dg && VD.dg !== vg.code) return; var vk = _vdVs(vg.v).filter(function(k){ var v = V[k]; return !q || [v.no, v.nm].join("").toLowerCase().replace(/\s/g, "").indexOf(q) >= 0; }); if(!vk.length) return;
+    h += '<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:' + VD_K[vg.v].bg + ';border-bottom:2px solid ' + VD_K[vg.v].bd + '"><b style="font-size:15px;color:' + VD_K[vg.v].c + '"><span style="background:' + VD_K[vg.v].c + ';color:#fff;border-radius:6px;padding:1px 8px;margin-right:6px">' + vg.code + '</span>' + VD_K[vg.v].ic + ' ' + vg.nm + ' <span style="font-weight:400;font-size:12.5px">' + vk.length + '곳 · 거래처 장부에서 관리</span></b>' + _vdB("#b45309", "🏷 이 분류 라벨", "vdLabelGrp('" + vg.code + "')", "padding:3px 9px;font-size:12px") + '</div>';
+    vk.forEach(function(k){ var v = V[k]; h += '<div onclick="CTAB=\'' + (vg.v === "raw" ? "vdRaw" : "vdBp") + '\';VD.sel=\'' + k + '\';VD.y=\'\';VD.q=\'\';VD.edit=\'\';VD.toEnd=1;draw();scrollTo(0,0)" title="눌러서 이 거래처 장부로" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer"><span style="background:#1e293b;color:#fff;border-radius:6px;padding:3px 8px;font-size:13px;font-weight:900;min-width:44px;text-align:center;flex:none">' + esc(v.no || "-") + '</span><div style="flex:1;min-width:0;font-weight:800;font-size:15px">' + esc(v.nm || "") + ' <span style="font-weight:400;font-size:12px;color:#64748b">' + vg.nm + ' 장부</span></div><button class="btn" onclick="event.stopPropagation();vdLabelPop(\'v:' + k + '\')" title="이 거래처 라벨만" style="background:#b45309;color:#fff;padding:4px 8px;font-size:12px;flex:none">🏷</button></div>'; });
     h += '</div>'; });
   return h;
 }
@@ -799,7 +805,7 @@ function vdGrpEdit(L){
 }
 function vdGrpSave(){
   var L = VD.ge.map(function(g){ return { code: String(g.code || "").toUpperCase().trim(), nm: String(g.nm || "").trim(), o: g.o || "" }; }).filter(function(g){ return g.code || g.nm; });
-  var seen = {}; for(var i = 0; i < L.length; i++){ if(!/^[A-Z]{1,3}$/.test(L[i].code)) return toast("글자는 영어 1~3자로 넣어 주세요" + (L[i].nm ? " (" + L[i].nm + ")" : ""), true); if(!L[i].nm) return toast(L[i].code + " 분류 이름을 넣어 주세요", true); if(seen[L[i].code]) return toast("글자가 겹쳐요: " + L[i].code, true); seen[L[i].code] = 1; }
+  var seen = {}; for(var i = 0; i < L.length; i++){ if(!/^[A-Z]{1,3}$/.test(L[i].code)) return toast("글자는 영어 1~3자로 넣어 주세요" + (L[i].nm ? " (" + L[i].nm + ")" : ""), true); if(!L[i].nm) return toast(L[i].code + " 분류 이름을 넣어 주세요", true); if(seen[L[i].code]) return toast("글자가 겹쳐요: " + L[i].code, true); if(L[i].code === "A" || L[i].code === "C") return toast("A·C 는 거래처 장부(비품 A · 원료 C) 번호라서 못 써요", true); seen[L[i].code] = 1; }
   var up = { "set/docGrp": L.map(function(g){ return { code: g.code, nm: g.nm }; }) }, D = _vdS().doc || {}, ch = 0;
   var mv = L.filter(function(g){ return g.o && g.o !== g.code; });
   if(mv.length){ var n = 0; mv.forEach(function(g){ Object.keys(D).forEach(function(k){ if(_vdDocPre(D[k].no) === g.o) n++; }); });
@@ -833,6 +839,8 @@ function vdDocHcGo(){
 }
 
 // 🏷 분류 하나 통째로 라벨 (서류철) — none=1 이면 번호 글자 없는 것
-function vdLabelGrp(code, none){ var D = _vdS().doc || {}; VD_LBL.only = ""; VD_LBL.sel = {}; Object.keys(D).forEach(function(k){ if(none ? !_vdDocPre(D[k].no) || !_vdGrps().some(function(g){ return g.code === _vdDocPre(D[k].no); }) : _vdDocPre(D[k].no) === code) VD_LBL.sel[k] = 1; }); vdLabelPop(""); }
-function _vdLblGrpBar(){ var G = _vdGrps(); if(!G.length) return "";
+function vdLabelGrp(code, none){ var D = _vdS().doc || {}, vg = VD_VG.filter(function(x){ return x.code === code; })[0]; VD.kind = "doc"; VD_LBL.only = ""; VD_LBL.sel = {};
+  if(vg) _vdVs(vg.v).forEach(function(k){ VD_LBL.sel["v:" + k] = 1; });
+  else Object.keys(D).forEach(function(k){ if(none ? !_vdDocPre(D[k].no) || !_vdGrps().some(function(g){ return g.code === _vdDocPre(D[k].no); }) : _vdDocPre(D[k].no) === code) VD_LBL.sel[k] = 1; }); vdLabelPop(""); }
+function _vdLblGrpBar(){ var G = _vdGrps().concat(VD_VG.filter(function(vg){ return _vdVs(vg.v).length; })); if(!G.length) return "";
   return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:6px;font-size:12.5px"><b>분류로 고르기</b>' + G.map(function(g){ return _vdB("#7c2d12", esc(g.code) + " " + esc(g.nm), "vdLabelGrp('" + esc(g.code) + "')", "padding:3px 9px;font-size:12px"); }).join("") + '</div>'; }
