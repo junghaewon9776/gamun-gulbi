@@ -59,7 +59,7 @@ function _ykCalc(w){
   c.misc = w.misc !== "" && w.misc != null ? _bsN(w.misc) : st.misc.mode === "pct" ? sub * _bsN(st.misc.val) / 100 : _bsN(st.misc.val);
   o.cost = c; o.total = sub + c.misc;
   o.rev = { sale: 0, whole: 0, cost: 0, adj: 0 };
-  o.rows.forEach(function(x){ x.P = _ykPx(x.I, w.dt); ["sale", "whole", "cost", "adj"].forEach(function(k){ x[k] = x.pd * x.P[k]; o.rev[k] += x[k]; }); });
+  o.rows.forEach(function(x){ x.P = _ykPx(x.I, w.pxDt || w.dt); /* pxDt = '지금 가격으로' 누른 날 (없으면 작업일 가격) */ ["sale", "whole", "cost", "adj"].forEach(function(k){ x[k] = x.pd * x.P[k]; o.rev[k] += x[k]; }); });
   // 총원가 나누기 = 원가표 금액 비율 (비싼 품목이 원가를 더 가져감) · 원가표 빈 품목은 원가표 있는 품목들의 마리당 평균으로 셈 · 원가표가 하나도 없으면 마리수 비율
   var S1 = 0, M1 = 0, D1 = 0; o.rows.forEach(function(x){ if(x.pd && x.P.cost){ S1 += x.pd * x.P.cost; M1 += x.pmi; D1 += x.pd; } });
   o.tblCover = o.pd ? D1 / o.pd : 0;   // 원가표 있는 품목이 차지하는 두름 비율 — 80% 안 되면 원가표 판단 안 함
@@ -143,7 +143,7 @@ function _ykEditor(){
   var E = YK.ed, w = E.w, S = _ykS(), can = _ykCan(), items = Object.keys(S.items || {}).map(function(k){ return S.items[k].nm; }), mats = Object.keys(S.mats || {}).map(function(k){ return S.mats[k].nm; });
   var people = Object.keys(S.people || {}).filter(function(n){ return w.ws.indexOf(n) < 0; }).sort(function(a, b){ return ((S.people[a].on !== false) ? 0 : 1) - ((S.people[b].on !== false) ? 0 : 1) || a.localeCompare(b); });
   var h = '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div>' + _bsB("#475569", "← 목록", "if(confirm('저장 안 한 내용은 사라져요. 목록으로 갈까요?')){YK.ed=null;draw()}") + ' <strong style="font-size:17px;margin-left:6px">🪢 ' + (E.id ? "엮거리 작업" : "새 엮거리 작업") + '</strong> <span style="font-size:15px;font-weight:900;color:#b45309;margin-left:6px" id="ykLot">' + esc(_ykLot(w.dt)) + '</span></div>';
-  h += '<div style="display:flex;gap:6px;flex-wrap:wrap">' + _bsB("#0e7490", "🖨 전표", "ykPrintSlip()", _ykSB()) + _bsB("#7c3aed", "🏷 라벨", "ykPrintLabel()", _ykSB()) + _bsB("#475569", "🖨 작업현황표", "ykPrintSheet()", _ykSB()) + _bsB("#b45309", "📊 원가분석표", "ykPrintAnal()", _ykSB()) + _bsB("#475569", "🖨 생산작업일지", "ykPrintProd()", _ykSB()) + (can ? _bsB("#16a34a", "💾 저장", "ykSave()", "padding:8px 20px") : "") + '</div></div></div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap">' + _bsB("#0e7490", "🖨 전표", "ykPrintSlip()", _ykSB()) + _bsB("#7c3aed", "🏷 라벨", "ykPrintLabel()", _ykSB()) + _bsB("#475569", "🖨 작업현황표", "ykPrintSheet()", _ykSB()) + _bsB("#b45309", "📊 원가분석표", "ykPrintAnal()", _ykSB()) + _bsB("#475569", "🖨 생산작업일지", "ykPrintProd()", _ykSB()) + (YK.ed && YK.ed.id ? _ykPxBtn(YK.ed.id, YK.ed.w) : "") + (can ? _bsB("#16a34a", "💾 저장", "ykSave()", "padding:8px 20px") : "") + '</div></div></div>';
   if(!E.id && can) h += '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:-4px 0 10px;font-size:12.5px"><span style="color:#64748b;font-weight:700">🧹 비우기</span>' + [["all", "전체 초기화"]].map(function(o){ return '<button class="btn" onclick="ykReset(\'' + o[0] + '\')" style="padding:3px 9px;font-size:12px;font-weight:800;background:' + (o[0] === "all" ? "#dc2626" : "#475569") + ';color:#fff">' + o[1] + '</button>'; }).join("") + '<span class="mut" style="font-size:11.5px">지난 작업에서 불러온 걸 지워요</span></div>';
   // 기본 · 원료
   h += '<div class="card" style="margin-bottom:10px"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:13px">';
@@ -1072,7 +1072,7 @@ function ykPrintAnal(L){
   _ykWin("원가분석표", "@page{size:A4 portrait;margin:10mm}.pg{padding:8mm 6mm;page-break-after:always}.pg:last-child{page-break-after:auto}", L.map(function(w){ return '<div class="pg">' + _ykAnalHtml(w, true) + '</div>'; }).join(""));
 }
 function ykOpenGo(id){ closePopup(); YK.ed = { id: id, w: JSON.parse(JSON.stringify(_ykS().works[id])) }; YK.ed.w.mats = YK.ed.w.mats || []; YK.ed.w.ws = YK.ed.w.ws || []; YK.ed.w.rows = YK.ed.w.rows || []; if(typeof switchTab === "function") switchTab("ykWork"); else { CTAB = "ykWork"; draw(); } scrollTo(0, 0); }
-function ykAnalPop(id){ var w = (_ykS().works || {})[id]; if(!w) return; openPopup('<div style="max-height:84vh;overflow:auto">' + _ykAnalHtml(w) + '</div><div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px">' + _bsB("#475569", "닫기", "closePopup()") + _bsB("#b45309", "🖨 인쇄", "ykPrintAnal([_ykS().works['" + id + "']])") + _bsB("#2563eb", "작업 열기", "ykOpenGo('" + id + "')") + '</div>', 1020); }
+function ykAnalPop(id){ var w = (_ykS().works || {})[id]; if(!w) return; YK.anPop = id; openPopup('<div style="max-height:84vh;overflow:auto">' + _ykAnalHtml(w) + '</div><div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap">' + _ykPxBtn(id, w) + _bsB("#475569", "닫기", "closePopup()") + _bsB("#b45309", "🖨 인쇄", "ykPrintAnal([_ykS().works['" + id + "']])") + _bsB("#2563eb", "작업 열기", "ykOpenGo('" + id + "')") + '</div>', 1020); }
 
 // ── 📊 원가분석 화면: 기간 안 작업들을 한 표로 비교 + 품목별 비율 비교 ──
 function dYkAnal(){
@@ -1432,4 +1432,21 @@ function _ykRenDo(j, n){
   w.rows.forEach(function(r){ if(r.c && o in r.c){ r.c[n] = r.c[o]; delete r.c[o]; } });
   if(YK.ed.qn === o) YK.ed.qn = n;
   closePopup(); var y = window.scrollY; draw(); scrollTo(0, y); toast("👵 " + o + " → " + n);
+}
+
+// 💲 작업마다 정품 가격 기준일 — 예전 작업도 지금 정품 가격(판매·도매·원가·조절도매)으로 다시 계산 · 되돌리기 가능
+function _ykPxDiff(w){ return (w.rows || []).some(function(r){ var I = _ykItem(r.item); if(!I || !I.ph) return false; var a = _ykPx(I, w.dt), b = _ykPxOf(I); return YK_PF.some(function(k){ return a[k] !== b[k]; }); }); }
+function _ykPxBtn(id, w){
+  if(!_ykCan()) return "";
+  if(w.pxDt) return '<span style="display:inline-flex;gap:4px;align-items:center;background:#f0fdfa;border:1px solid #5eead4;border-radius:7px;padding:2px 4px 2px 8px;font-size:12.5px;color:#0f766e;font-weight:800">💲 ' + esc(String(w.pxDt).replace(/-/g, ".")) + ' 가격' + _bsB("#64748b", "↩ 그때 가격", "ykPxSet(['" + id + "'],0)", "padding:3px 8px;font-size:12px") + '</span>';
+  return _ykPxDiff(w) ? _bsB("#0f766e", "💲 지금 가격으로", "ykPxSet(['" + id + "'],1)", _ykSB ? _ykSB() : "") : "";
+}
+function ykPxSet(ids, on){
+  var W = _ykS().works || {}, t = _bsToday(), up = {};
+  ids.forEach(function(k){ if(W[k]) up["works/" + k + "/pxDt"] = on ? t : null; });
+  if(!Object.keys(up).length) return;
+  if(ids.length > 1 && !confirm(ids.length + "건을 " + (on ? "지금 정품 가격(" + t.replace(/-/g, ".") + ")으로" : "작업한 날 가격으로") + " 다시 계산할까요?")) return;
+  _ykRef().update(up).then(function(){ ids.forEach(function(k){ if(!W[k]) return; if(on) W[k].pxDt = t; else delete W[k].pxDt; if(YK.ed && YK.ed.id === k){ if(on) YK.ed.w.pxDt = t; else delete YK.ed.w.pxDt; } });
+    toast(on ? "💲 지금 정품 가격으로 계산해요" : "↩ 작업한 날 가격으로 계산해요"); if(YK.anPop && ids.indexOf(YK.anPop) >= 0 && ids.length === 1) ykAnalPop(YK.anPop); draw(); })
+    .catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
