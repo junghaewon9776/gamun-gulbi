@@ -80,6 +80,7 @@ function dFrPlan(){
   h += _bsB("#b91c1c", "🖨 " + yr + "년 소방계획서 인쇄", "frPrint()") + (can ? _bsB("#0f766e", "＋ " + nx + "년 만들기 (" + (Y.length ? Y[Y.length - 1] : yr) + "년 복사)", "frNewYear('" + nx + "')") : "") + '</div></div>';
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' + (Y.length ? Y : [yr]).concat(Y.indexOf(yr) < 0 && Y.length ? [yr] : []).filter(function(v, i, a){ return a.indexOf(v) === i; }).sort().map(function(y){ var on = y === yr; return '<button class="btn" onclick="FR.yr=\'' + y + '\';draw()" style="padding:5px 14px;font-weight:900;background:' + (on ? "#b91c1c" : "#fff") + ';color:' + (on ? "#fff" : "#b91c1c") + ';border:1.5px solid #b91c1c">' + y + '년' + (_frPlan(y) ? '' : ' (저장 전)') + '</button>'; }).join("") + '</div>';
   if(!saved) h += '<div style="margin-top:8px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:8px 10px;font-size:13px">아직 저장 전이에요 — 빈 양식이에요. 위 [＋ 만들기]로 앞 해 것을 복사하거나, 칸마다 ✏ 고쳐서 저장하면 ' + yr + '년 것으로 저장돼요.</div>';
+  h += '<div style="margin-top:8px;font-size:12.5px;color:#475569">📄 <b>한글 양식 그대로</b> 받기 — 텔레그램 파일봇에게 <b>소방계획서 ' + yr + '</b> 보내기, 또는 PC 바탕화면 <b>소방계획서 만들기</b> 아이콘 (PC가 켜져 있어야 해요) · 이 화면 🖨 인쇄는 간단 보기용</div>';
   h += '</div>';
   var A = _frAlerts(yr, P);
   if(A.length) h += '<div class="card" style="margin-bottom:10px;background:#fef2f2;border:2px solid #fca5a5"><b style="color:#b91c1c">⏰ 챙길 것 ' + A.length + '개</b>' + A.map(function(a){ return '<div style="font-size:13.5px;margin-top:4px">' + a[0] + ' ' + esc(a[1]) + '</div>'; }).join("") + '</div>';
@@ -138,7 +139,7 @@ function frNewYear(ny){
   if(_frPlan(ny)) return toast(ny + "년 것이 이미 있어요", true);
   if(!confirm(src + "년 소방계획서를 복사해서 " + ny + "년 것을 만들까요?\n(교육·훈련 실시 기록, 화기취급 일지, 대리자 지정은 비우고 새로 적어요)")) return;
   var P = JSON.parse(JSON.stringify(_frGet(src))); ["edurec", "hot", "proxy"].forEach(function(k){ P[k] = { rows: [] }; });
-  P.rev = P.rev || { rows: [] }; P.rev.rows = (P.rev.rows || []).concat([{ dt: _bsToday(), txt: ny + "년 소방계획 수립", by: (P.gen || {}).mgr || "", chk: (P.gen || {}).ownerNm || "" }]);
+  P.rev = P.rev || { rows: [] }; P.rev.rows = (P.rev.rows || []).concat([{ dt: _bsToday(), txt: ny + "년 소방계획 수립", by: (P.gen || {}).mgr || "", chk: "", ok: (P.gen || {}).ownerNm || "" }]);
   P.edu = P.edu || {}; P.edu.no = ny + "년 제1차"; P.upAt = new Date().toISOString();
   var up = {}; up["plans/" + ny] = P; if(!_frPlan(src)) up["plans/" + src] = Object.assign(_frGet(src), { upAt: new Date().toISOString() });
   _frRef().update(up).then(function(){ FR.D.plans = FR.D.plans || {}; Object.keys(up).forEach(function(p){ FR.D.plans[p.split("/")[1]] = up[p]; }); FR.yr = ny; toast("＋ " + ny + "년 소방계획서 만들었어요 — 바뀐 칸만 고쳐 주세요"); draw(); })
