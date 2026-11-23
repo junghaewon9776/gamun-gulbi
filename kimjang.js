@@ -1,7 +1,7 @@
 // ════════ 🥬 김장 — 포기 수만 넣으면 재료 양·비용 자동 · 4일 작업 일정·달력 · 인쇄 ════════
 //   (엑셀 '김장김치 담는법 200포기 기준' 을 웹으로 — 부세 작업은 뺌)
 //   /main/Kimjang/{해} = { pogi(올해 포기 수), base(재료 양 기준 포기 수 = 200), day3(담는 날 = 3일차),
-//                          mat:{id:{nm, q(base 포기일 때 양), u(단위), how(손질), note, price(단위당 단가), div(몇 솥에 나눠 넣나), ok(준비됨), ord}},
+//                          mat:{id:{nm, q(base 포기일 때 양), u(단위), how(손질), note, price(단위당 단가), cap(솥 하나에 최대 양 → 솥 수 = 양÷cap 올림), div(솥 수 고정 — 예전), potOf(이 재료 양 = 그 재료 솥 수 · 육수), ok(준비됨), ord}},
 //                          steps:{id:{d(0~3일차), nm, ok, ord}}, todo:{일차: 할 일 id} }
 //   재료 양 = q × 포기 ÷ base · 개·단처럼 나눠 못 사는 건 올림 · 금액 = 양 × 단가 · 한 포기당 = 총비용 ÷ 포기
 //   📅 할 일에 넣기 = /main/Todo/tasks 에 '한 번' 할 일 4개 (분류 김장) → 할 일 달력·텔레그램 알림에 같이 나옴
@@ -32,12 +32,13 @@ var KJ_MAT0 = [
   ["말린 고추", 6, "kg", "잘 안 갈리면 씨 빼기", "10근"],
   ["통깨", 1.5, "kg", "", ""],
   ["빻은 깨", 1.5, "kg", "", ""],
-  ["찹쌀", 4.8, "kg", "다시마·멸치·디포리 육수로 풀 쑤기", "찹쌀풀용 3되 (1되 ≈ 1.6kg)", 2],
+  ["찹쌀", 4, "kg", "육수로 풀 쑤기", "엑셀: 3되 · 2솥에 2kg씩 물 가득 (물이 적으면 불지 않고 밥이 됨)", { cap: 2 }],
+  ["육수", 2, "솥", "다시마·멸치·디포리 넣고 끓이기 · 물 가득", "찹쌀 솥 수만큼 (솥 하나에 찹쌀 2kg까지)", { potOf: "찹쌀" }],
   ["매실액", 1, "kg", "", "깨 바가지로 한 통"]
 ];
 var KJ_STEP0 = [
   [0, "배추·무 구해 두기"], [0, "배추 절일 통 준비 (노란 물통 3개 · 노란 대형 물통 1개 · 고추장굴비 통 등)"], [0, "배추 절일 통 씻어 두기"], [0, "김치 담을 통 씻어 두기"],
-  [0, "찹쌀풀 쑤어 두기 (다시마·멸치·디포리 육수)"], [0, "박스·비닐 20개 준비"],
+  [0, "육수 끓여서 찹쌀풀 쑤어 두기 (다시마·멸치·디포리 · 솥 수는 재료표)"], [0, "박스·비닐 20개 준비"],
   [1, "배추 다듬기"], [1, "무 다듬기"], [1, "속 재료 준비"], [1, "노란 통 2개에 소금 1포씩 + 물 가득"], [1, "배추 자른 면에 소금 뿌리고 통에 쟁이기"],
   [1, "숨이 죽으면 사이사이 소금 뿌리기"], [1, "소금물에 잠기게 하기"], [1, "16~18시간 절이기"], [1, "다 절면 바구니에 비닐 씌워 눌러 두기"],
   [2, "배추 씻기"], [2, "재료 손질"], [2, "배·사과·무·생강·마늘·청각(+말린 고추) 갈기"], [2, "갓·미나리·쪽파·당근 썰기"], [2, "간 것 + 젓갈 + 고춧가루 섞어 두기 (고춧가루 불리기)"],
@@ -74,8 +75,10 @@ function _kjPut(path, val, msg){
 // ── 계산 ──
 function _kjBase(S){ return _kjN(S.base) || 200; }
 function _kjPogi(S){ return _kjN(S.pogi) || _kjBase(S); }
-function _kjQty(m, S){ var x = _kjN(m.q) * _kjPogi(S) / _kjBase(S); return KJ_CONT[m.u] ? Math.round(x * 10) / 10 : Math.ceil(x - 1e-9); }
-function _kjDiv(m, S){ var n = _kjN(m.div); if(n < 2) return ""; var x = _kjQty(m, S) / n; return n + "솥 · 솥마다 " + _kjNum(KJ_CONT[m.u] ? Math.round(x * 10) / 10 : x) + (m.u || ""); }   // 예: 2솥 · 솥마다 2.4kg
+function _kjQty(m, S){ var lk = m.potOf && (S.mat || {})[m.potOf]; if(lk && lk !== m) return _kjPots(lk, S) || 0;   // 육수 = 찹쌀 솥 수
+  var x = _kjN(m.q) * _kjPogi(S) / _kjBase(S); return KJ_CONT[m.u] ? Math.round(x * 10) / 10 : Math.ceil(x - 1e-9); }
+function _kjPots(m, S){ var c = _kjN(m.cap); if(c > 0){ var raw = _kjN(m.q) * _kjPogi(S) / _kjBase(S); return Math.max(1, Math.ceil(raw / c - 1e-9)); } return Math.round(_kjN(m.div)); }   // 솥 수
+function _kjDiv(m, S){ if(m.potOf) return ""; var n = _kjPots(m, S); if(!n || (n < 2 && !_kjN(m.cap))) return ""; var x = _kjQty(m, S) / n; return n + "솥 · 솥마다 " + _kjNum(Math.round(x * 10) / 10) + (m.u || "") + (_kjN(m.cap) ? " (최대 " + _kjNum(_kjN(m.cap)) + (m.u || "") + ")" : ""); }   // 예: 3솥 · 솥마다 2.4kg (최대 2.4kg)
 function _kjMatKs(S){ var M = S.mat || {}; return Object.keys(M).sort(function(a, b){ return _kjN(M[a].ord) - _kjN(M[b].ord) || (a < b ? -1 : 1); }); }
 function _kjIsCab(m){ return String(m.nm || "").replace(/\s/g, "") === "배추"; }
 function _kjCost(S){
@@ -108,7 +111,8 @@ function kjSeed(from){
   if(from){ var P = KJ.ALL[from]; o.base = _kjBase(P); o.pogi = _kjPogi(P);
     Object.keys(P.mat || {}).forEach(function(k){ var m = Object.assign({}, P.mat[k]); delete m.ok; o.mat[k] = m; });
     Object.keys(P.steps || {}).forEach(function(k){ var s = Object.assign({}, P.steps[k]); delete s.ok; o.steps[k] = s; }); }
-  else { KJ_MAT0.forEach(function(r, i){ var m = { nm: r[0], q: r[1], u: r[2], how: r[3], note: r[4], ord: i + 1 }; if(r[5]) m.div = r[5]; o.mat["m" + ("0" + (i + 1)).slice(-2)] = m; });
+  else { var ids = {}; KJ_MAT0.forEach(function(r, i){ ids[r[0]] = "m" + ("0" + (i + 1)).slice(-2); });
+    KJ_MAT0.forEach(function(r, i){ var m = { nm: r[0], q: r[1], u: r[2], how: r[3], note: r[4], ord: i + 1 }, x = r[5] || {}; if(x.cap) m.cap = x.cap; if(x.potOf) m.potOf = ids[x.potOf]; o.mat[ids[r[0]]] = m; });
     KJ_STEP0.forEach(function(r, i){ o.steps["s" + ("0" + (i + 1)).slice(-2)] = { d: r[0], nm: r[1], ord: i + 1 }; }); }
   _kjRef(y).update(o).then(function(){ KJ.ALL[y] = Object.assign(KJ.ALL[y] || {}, o); toast("🥬 " + y + "년 김장 자료를 넣었어요"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
@@ -161,7 +165,7 @@ function kjMatEdit(k){
   var h = '<h3 style="margin:0 0 10px">' + (k ? "재료 고치기" : "+ 재료") + '</h3>' + I("재료 이름", "kjm_nm", m.nm, "예: 굴");
   h += '<div style="display:flex;gap:6px">' + '<div style="flex:1">' + I(p + "포기에 필요한 양", "kjm_q", q, "예: 10", "number") + '</div><div style="flex:1">' + I("단위", "kjm_u", m.u, "kg · 개 · 단") + '</div></div>';
   h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:-4px 0 8px">' + KJ_UNIT.map(function(u){ return '<button class="btn" type="button" onclick="document.getElementById(\'kjm_u\').value=\'' + u + '\'" style="padding:3px 9px;font-size:12.5px;background:#f0fdf4;color:#15803d;border:1px solid #86efac">' + u + '</button>'; }).join("") + '</div>';
-  h += I("손질 방법", "kjm_how", m.how, "예: 갈기 · 2cm로 썰기") + I("메모", "kjm_note", m.note, "예: 파란 봉지 3봉지") + I("단가 (단위당 원)", "kjm_pr", _kjN(m.price) || "", "예: 25000", "number") + I("몇 솥(번)에 나눠 넣나요", "kjm_div", _kjN(m.div) || "", "예: 2 — 비우면 안 나눔", "number");
+  h += I("손질 방법", "kjm_how", m.how, "예: 갈기 · 2cm로 썰기") + I("메모", "kjm_note", m.note, "예: 파란 봉지 3봉지") + I("단가 (단위당 원)", "kjm_pr", _kjN(m.price) || "", "예: 25000", "number") + (m.potOf ? '<div class="mut" style="font-size:12.5px;margin-bottom:8px">🍲 이 재료 양은 「' + esc(((S.mat || {})[m.potOf] || {}).nm || "") + '」 솥 수를 저절로 따라가요</div>' : I("솥 하나에 최대 몇 " + esc(m.u || "") + " (넘으면 솥이 늘어요)", "kjm_cap", _kjN(m.cap) || "", "예: 2 — 비우면 안 나눔", "number"));
   h += '<div class="mut" style="font-size:12px;margin-bottom:6px">포기 수를 바꾸면 이 양도 같은 비율로 바뀌어요</div>';
   h += '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:10px"><span>' + (k ? _kjB("#dc2626", "🗑 지우기", "kjMatDel('" + k + "')") : "") + '</span><span style="display:flex;gap:6px">' + _kjB("#475569", "취소", "closePopup()") + _kjB("#16a34a", "💾 저장", "kjMatSave('" + (k || "") + "')", "padding:8px 20px") + '</span></div>';
   openPopup(h, 440);
@@ -172,7 +176,7 @@ function kjMatSave(k){
   var q = _kjN(g("kjm_q")), o = Object.assign({}, k ? M[k] : {}, { nm: nm, u: g("kjm_u"), how: g("kjm_how"), note: g("kjm_note") });
   o.q = Math.round(q * _kjBase(S) / _kjPogi(S) * 1000) / 1000;   // 기준 포기 수로 바꿔 저장
   var pr = _kjN(g("kjm_pr")); if(pr) o.price = pr; else delete o.price;
-  var dv = Math.round(_kjN(g("kjm_div"))); if(dv > 1) o.div = dv; else delete o.div;
+  if(document.getElementById("kjm_cap")){ var cp = _kjN(g("kjm_cap")); if(cp > 0) o.cap = cp; else delete o.cap; delete o.div; }
   if(!k){ var mx = 0; Object.keys(M).forEach(function(x){ mx = Math.max(mx, _kjN(M[x].ord)); }); o.ord = mx + 1; }
   var id = k || _kjRef(_kjY() + "/mat").push().key;
   _kjPut("mat/" + id, o, "💾 " + nm).then(function(){ closePopup(); draw(); });
