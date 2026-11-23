@@ -19,7 +19,7 @@ var FR_SEC = [
     ["bArea", "건축면적 (㎡)"], ["tArea", "연면적 (㎡)"], ["fArea", "바닥면적 (㎡)"], ["fl", "지상 층수"], ["bfl", "지하 층수"], ["hgt", "높이 (m)"], ["str", "구조"], ["roof", "지붕"], ["use", "용도"], ["appr", "사용승인일", "date"],
     ["stair", "계단 (구분·구역·제연설비)"], ["lift", "승강기 (승용·비상용)"], ["live", "거주인원"], ["work", "근무인원"], ["elder", "고령자"], ["kid", "영유아"], ["dis", "장애인 (이동/시각/청각/언어)"],
     ["access", "소방차 진입로·주차 (정보카드)"], ["keepYr", "계획서 보관 기간 (년)"], ["keepAt", "계획서 보관장소"]] },
-  { k: "ins", t: "화재보험 (5.0)", rows: [["from", "가입 시작", 18], ["to", "가입 끝", 18], ["co", "보험사", 24], ["tgt", "가입대상", 16], ["amt", "가입금액", 24]], dt: { from: 1, to: 1 } },
+  { k: "ins", t: "화재보험 (5.0) — 그해 보험 한 건", f: [["from", "가입 시작", "date"], ["to", "가입 끝", "date"], ["co", "보험사"], ["tgt", "가입대상"], ["amt", "가입금액"]] },
   { k: "chk", t: "자체점검 (6.0)", f: [["work", "작동기능점검 날짜", "date"], ["workHow", "작동기능점검 방식 (자체/외주)"], ["full", "종합정밀점검 날짜 (해당 시)", "date"], ["fullHow", "종합정밀점검 방식"], ["agent", "업무대행 업체 (있으면)"], ["agentTel", "업무대행 연락처·면허번호"], ["agentTerm", "대행기간"], ["note", "비고"]] },
   { k: "daily", t: "일상적 안전관리 (8.0)", rows: [["kind", "구분", 18], ["item", "관리 항목", 42], ["cyc", "관리 주기", 40]] },
   { k: "proxy", t: "소방안전관리(보조)자 대리자 지정 (8.2)", rows: [["dt", "작성일자", 16], ["nm", "대리자 성명", 18], ["term", "대리기간", 24], ["why", "지정사유", 26], ["ok", "확인(관계인)", 16]] },
@@ -54,7 +54,9 @@ var FR_SEED = {
 function _frYears(){ return Object.keys(_frS().plans || {}).sort(); }
 function _frPlan(yr){ var P = (_frS().plans || {})[yr]; return P || null; }
 // 보이는 값: 저장된 해 → 그 값 / 처음 여는 해 → 기본값
-function _frGet(yr){ var P = _frPlan(yr); return P ? P : JSON.parse(JSON.stringify(FR_SEED)); }
+function _frGet(yr){ var P = _frPlan(yr); if(!P) return JSON.parse(JSON.stringify(FR_SEED));
+  if(P.ins && P.ins.rows && !P.ins.to && !P.ins.co){ var L = P.ins.rows.slice().sort(function(a, b){ return String(a.to || "").localeCompare(String(b.to || "")); }).pop() || {}; P.ins = Object.assign({}, L); }
+  return P; }
 function _frV(sec, k){ var x = (_frGet(FR.yr) || {})[sec] || {}; var S = FR_SEC.filter(function(s){ return s.k === sec; })[0]; return (S && S.rows && S.f ? (x.f || {}) : x)[k]; }
 function _frSecVal(P, s){ var x = P[s.k] || {}; return { f: s.rows && s.f ? (x.f || {}) : (s.rows ? {} : x), rows: s.rows ? (x.rows || []) : [], note: x.note || "" }; }
 function _frDt(v){ return v ? String(v).replace(/-/g, ".") : ""; }
@@ -63,7 +65,7 @@ function _frDt(v){ return v ? String(v).replace(/-/g, ".") : ""; }
 function _frAlerts(yr, P){
   var A = [], t = _bsToday(), ty = +t.slice(0, 4);
   (P.ext && P.ext.rows || []).forEach(function(r){ var y = _bsN(r.yr); if(y && ty - y >= 10) A.push(["🧯", "소화기 " + r.loc + " — " + y + "년 제조, " + (ty - y) + "년 됨 (분말소화기 내용연수 10년 → 교체 또는 성능검사)"]); });
-  var ins = (P.ins && P.ins.rows || []).map(function(r){ return r.to; }).filter(Boolean).sort().pop();
+  var ins = (P.ins || {}).to;
   if(!ins || ins < t) A.push(["🛡", ins ? "화재보험 기간이 끝났어요 (" + _frDt(ins) + ") — 새 보험 기간을 적어 주세요" : "화재보험 가입기간을 적어 주세요"]);
   var w = (P.chk || {}).work; if(!w || String(w).slice(0, 4) < String(yr)) A.push(["🔎", "작동기능점검 날짜를 적어 주세요 (" + yr + "년)"]);
   if(+yr === ty && t.slice(5) >= "11-01" && !_frPlan(String(ty + 1))) A.push(["📅", (ty + 1) + "년 소방계획서는 " + ty + "년 12월 31일까지 작성 — [＋ " + (ty + 1) + "년 만들기]"]);
@@ -80,6 +82,7 @@ function dFrPlan(){
   h += _bsB("#b91c1c", "🖨 " + yr + "년 소방계획서 인쇄", "frPrint()") + (can ? _bsB("#0f766e", "＋ " + nx + "년 만들기 (" + (Y.length ? Y[Y.length - 1] : yr) + "년 복사)", "frNewYear('" + nx + "')") : "") + '</div></div>';
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' + (Y.length ? Y : [yr]).concat(Y.indexOf(yr) < 0 && Y.length ? [yr] : []).filter(function(v, i, a){ return a.indexOf(v) === i; }).sort().map(function(y){ var on = y === yr; return '<button class="btn" onclick="FR.yr=\'' + y + '\';draw()" style="padding:5px 14px;font-weight:900;background:' + (on ? "#b91c1c" : "#fff") + ';color:' + (on ? "#fff" : "#b91c1c") + ';border:1.5px solid #b91c1c">' + y + '년' + (_frPlan(y) ? '' : ' (저장 전)') + '</button>'; }).join("") + '</div>';
   if(!saved) h += '<div style="margin-top:8px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:8px 10px;font-size:13px">아직 저장 전이에요 — 빈 양식이에요. 위 [＋ 만들기]로 앞 해 것을 복사하거나, 칸마다 ✏ 고쳐서 저장하면 ' + yr + '년 것으로 저장돼요.</div>';
+  if(P.orig && P.orig.url) h += '<div style="margin-top:8px;font-size:13px">📎 그해 실제 한글 계획서 : <a href="' + esc(P.orig.url) + '" target="_blank" rel="noopener"><b>' + esc(P.orig.nm || "원본 파일") + '</b></a></div>';
   h += '<div style="margin-top:8px;font-size:12.5px;color:#475569">📄 <b>한글 양식 그대로</b> 받기 — 텔레그램 파일봇에게 <b>소방계획서 ' + yr + '</b> 보내기, 또는 PC 바탕화면 <b>소방계획서 만들기</b> 아이콘 (PC가 켜져 있어야 해요) · 이 화면 🖨 인쇄는 간단 보기용</div>';
   h += '</div>';
   var A = _frAlerts(yr, P);
@@ -140,7 +143,7 @@ function frNewYear(ny){
   if(!confirm(src + "년 소방계획서를 복사해서 " + ny + "년 것을 만들까요?\n(교육·훈련 실시 기록, 화기취급 일지, 대리자 지정은 비우고 새로 적어요)")) return;
   var P = JSON.parse(JSON.stringify(_frGet(src))); ["edurec", "hot", "proxy"].forEach(function(k){ P[k] = { rows: [] }; });
   P.rev = P.rev || { rows: [] }; P.rev.rows = (P.rev.rows || []).concat([{ dt: _bsToday(), txt: ny + "년 소방계획 수립", by: (P.gen || {}).mgr || "", chk: "", ok: (P.gen || {}).ownerNm || "" }]);
-  P.edu = P.edu || {}; P.edu.no = ny + "년 제1차"; P.upAt = new Date().toISOString();
+  P.edu = P.edu || {}; P.edu.no = ny + "년 제1차"; P.upAt = new Date().toISOString(); delete P.orig;
   var up = {}; up["plans/" + ny] = P; if(!_frPlan(src)) up["plans/" + src] = Object.assign(_frGet(src), { upAt: new Date().toISOString() });
   _frRef().update(up).then(function(){ FR.D.plans = FR.D.plans || {}; Object.keys(up).forEach(function(p){ FR.D.plans[p.split("/")[1]] = up[p]; }); FR.yr = ny; toast("＋ " + ny + "년 소방계획서 만들었어요 — 바뀐 칸만 고쳐 주세요"); draw(); })
     .catch(function(e){ toast("저장 실패: " + e.message, true); });
@@ -179,7 +182,7 @@ function frPrint(ri){
     ["인원현황", "거주 " + (V("gen", "live") || "-") + "명 · 근무 " + (V("gen", "work") || "-") + "명", "고령자·영유아·장애인", (V("gen", "elder") || "-") + " · " + (V("gen", "kid") || "-") + " · " + (V("gen", "dis") || "-")],
     ["소방안전관리자", V("gen", "mgr") + " (선임 " + _frDt(g.mgrDate) + ")", "소방안전관리 보조자", (V("gen", "sub") || "-") + (g.subDate ? " (선임 " + _frDt(g.subDate) + ")" : "")],
     ["업무대행", (V("chk", "agent") || "-") + " " + V("chk", "agentTel"), "대행기간", V("chk", "agentTerm") || "-"]]);
-  b += '<div class="st">화재보험</div>' + tb("ins", null, 1);
+  var IN = P.ins || {}; b += '<div class="st">화재보험</div><table><tr><th>가입기간</th><th>보험사명</th><th>가입대상</th><th>가입금액</th></tr><tr><td>' + _frDt(IN.from) + (IN.from || IN.to ? ' ~ ' : '') + _frDt(IN.to) + '</td><td>' + esc(IN.co || "") + '</td><td>' + esc(IN.tgt || "") + '</td><td>' + esc(IN.amt || "") + '</td></tr></table>';
   b += '<h3>6.0 자체점검</h3><p>「소방시설 설치 및 관리에 관한 법률」 제22조에 따른 자체점검을 아래와 같이 정기적으로 실시해야 한다. ※ [사용승인일 : ' + _frDt(g.appr) + ']</p>';
   b += '<table><tr><th>구 분</th><th>점 검 시 기</th><th>점 검 방 식</th></tr><tr><td>작동기능점검</td><td>' + _frDt((P.chk || {}).work) + '</td><td>' + V("chk", "workHow") + '</td></tr><tr><td>종합정밀점검</td><td>' + _frDt((P.chk || {}).full) + '</td><td>' + V("chk", "fullHow") + '</td></tr></table>' + (V("chk", "note") ? '<div class="nt">비고. ' + V("chk", "note") + '</div>' : '');
   b += '<h3>8.0 일상적 안전관리</h3><p>소방안전관리대상물의 화재예방 및 피해완화를 위해 일상적 안전관리 활동을 아래와 같이 지속적으로 실시해야 한다.</p>' + tb("daily", null, 3) + note("daily");
