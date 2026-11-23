@@ -526,6 +526,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="haccp.js?v=20261123i1"></script>
 <script src="fire.js?v=20261123g1"></script>
 <script src="todo.js?v=20261123b1"></script>
+<script src="kimjang.js?v=20261124a1"></script>
 <script src="yk.js?v=20261123i1"></script>
 <script src="docprint.js?v=20261118c"></script>
 <script src="vend.js?v=20261123k2"></script>
@@ -1698,6 +1699,8 @@ function mkTabs(){
   ]});
   // ── 📅 해야 할 일 (매일·매주·매월·매년 + 알림) ──
   if(ME && ME.r!=="kid" && typeof dTodo==="function") cats.push({id:"todo",label:"📅 할 일",items:[{k:"todo",l:"해야 할 일"}]});
+  // ── 🥬 김장 (포기 수 → 재료 양·비용 자동 · 4일 일정·달력 · 인쇄) ──
+  if(ME && ME.r!=="kid" && typeof dKjMat==="function") cats.push({id:"kimjang",label:"🥬 김장",items:[{k:"kjMat",l:"재료·비용"},{k:"kjCal",l:"일정·달력"}]});
   // ── 🔥 소방 (소방계획서 해마다 고치고 인쇄) ──
   if(ME && ME.r!=="kid" && typeof dFrPlan==="function") cats.push({id:"fire",label:"🔥 소방",items:[{k:"frPlan",l:"소방계획서"}]});
   // ── 🛡 해썹 일지 (양식 자유 · 손글씨 · QR · 한 달 서류 한번에) ──
@@ -6264,6 +6267,8 @@ function _drawInner(){
   else if(CTAB=="vdDoc")el.innerHTML=dVdDoc();
   else if(CTAB=="frPlan")el.innerHTML=dFrPlan();
   else if(CTAB=="todo")el.innerHTML=dTodo();
+  else if(CTAB=="kjMat")el.innerHTML=dKjMat();
+  else if(CTAB=="kjCal")el.innerHTML=dKjCal();
   else if(CTAB=="hcToday")el.innerHTML=dHcToday();
   else if(CTAB=="hcView")el.innerHTML=dHcView();
   else if(CTAB=="hcForm")el.innerHTML=dHcForm();
