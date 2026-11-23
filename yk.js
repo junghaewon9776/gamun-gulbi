@@ -912,11 +912,11 @@ function ykPrintProd(L){
     if(!ord.length) g(_ykKindOf(w));
     ord.forEach(function(k){ var sp = _ykSaltPct(st, k), x = G[k], raw = (k === "부세" ? "부세" : "참조기") + (w.origin ? " (" + w.origin + ")" : ""), salt = Math.round(x.kg * sp / 100 * 10) / 10;
       var b = '<div class="pg"><h1>생 산 작 업 일 지</h1><table class="w"><tr><th>생산일자</th><td>' + _bsMD(w.dt) + '</td><th>제품명</th><td><b>' + esc(k) + '</b>' + (ord.length > 1 ? ' <span style="font-size:11px">(' + (ord.indexOf(k) + 1) + '/' + ord.length + ')</span>' : '') + '</td></tr></table><div style="margin:4mm 0 2mm;font-weight:800">원재료명 또는 성분 및 투입량</div><table class="w"><tr><th>원재료명 또는 성분명</th><th>배합비율(%)</th><th>투입량(kg)</th><th>비고</th></tr>';
-      b += '<tr><td>' + esc(raw) + '</td><td class="r">' + (100 - sp) + '</td><td class="r">' + (x.kg ? _bsW(Math.round(x.kg * 10) / 10) : '') + '</td><td style="font-size:11.5px">' + esc(x.mats.join(", ")) + '</td></tr><tr><td>소금</td><td class="r">' + sp + '</td><td class="r">' + (x.kg ? _bsW(salt) : '') + '</td><td></td></tr></table>';
+      b += '<tr><td>' + esc(raw) + '</td><td class="r">' + (100 - sp) + '</td><td class="r">' + (x.kg ? _bsW(Math.round(x.kg * 10) / 10) : '') + '</td><td></td></tr><tr><td>소금</td><td class="r">' + sp + '</td><td class="r">' + (x.kg ? _bsW(salt) : '') + '</td><td></td></tr></table>';
       b += '<table class="w" style="margin-top:4mm"><tr><th>기 타</th><td colspan="3" style="height:14mm">' + esc(w.note || "") + '</td></tr><tr><th>포장방법 및 단위</th><td>' + esc(w.boxMat || "박스/스티로폼/팩") + '</td><th>생산량(두름)</th><td>' + _bsW(x.doo) + '</td></tr><tr><th>작 업 자</th><td>공장장</td><th>유통기한</th><td>작업일자로부터 2년</td></tr></table></div>';
       pages.push(b); }); });
   var T = pages.length === 1 ? L[0].dt : pages.length + "장";
-  _ykWin("생산작업일지 " + T, '@page{size:A4;margin:12mm}.pg{width:186mm;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;letter-spacing:10px;font-size:24px;margin:2mm 0 6mm}.w{width:100%}.w td,.w th{border:1px solid #333;padding:5px 7px;font-size:13px}.w th{background:#eef2f7}.r{text-align:right}', pages.join(""));
+  _ykWin("생산작업일지 " + T, '@page{size:A4;margin:0}html,body{margin:0}.pg{box-sizing:border-box;width:210mm;padding:12mm 12mm 0;margin:0 auto;break-after:page}.pg:last-child{break-after:auto}h1{text-align:center;letter-spacing:10px;font-size:24px;margin:2mm 0 6mm}.w{width:100%}.w td,.w th{border:1px solid #333;padding:5px 7px;font-size:13px}.w th{background:#eef2f7}.r{text-align:right}', pages.join(""));
 }
 
 // ════════ 📥📤 엑셀로 한꺼번에 등록 — 정품 · 원료 · 이모(명단 + 신고 정보) ════════
