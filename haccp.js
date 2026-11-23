@@ -106,6 +106,7 @@ function dHcToday(){
   var h = _hcHead("📝 해썹 기록", "실제로 점검·측정한 것만 적어요 · 기준을 벗어나면 빨갛게 + 개선조치");
   h += '<div class="card" style="margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>날짜</b><input type="date" value="' + dt + '" onchange="HC.dt=this.value;draw()" style="width:160px;padding:6px;border:1px solid #cbd5e1;border-radius:6px">' + (dt !== _bsToday() ? _bsB("#64748b", "오늘로", "HC.dt='';draw()", "padding:4px 10px") : '') +
     '<span style="font-size:14px;font-weight:800;color:' + (done.length === due.length ? "#16a34a" : "#ea580c") + '">해야 할 일지 ' + due.length + '개 중 ' + done.length + '개 함</span></div>';
+  if(can) h += _hcQuick(dt);
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:10px">';
   fl.forEach(function(k){ var f = F[k], L = _hcDone(k, dt), ok = f.freq === "each" || L.length, bad = L.some(function(r){ return r.bad; });
     h += '<div class="card" style="border-top:4px solid ' + (f.cat === "CCP" ? "#dc2626" : "#0f766e") + '"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><div><b style="font-size:15px">' + esc(f.nm) + '</b> <span style="font-size:11px;background:' + (f.cat === "CCP" ? "#fee2e2" : "#ccfbf1") + ';border-radius:8px;padding:1px 7px">' + esc(f.cat || "") + '</span> <span class="mut" style="font-size:12px">' + (HC_FREQ[f.freq] || "") + '</span></div>';
@@ -261,12 +262,12 @@ function dHcForm(){
   var h = _hcHead("⚙ 해썹 양식 관리", "업체 양식이 오면 여기서 그대로 만들어요 · 줄을 두 번 누르면 수정");
   h += '<div class="card" style="margin-bottom:10px;display:grid;grid-template-columns:2fr 2fr auto;gap:8px;align-items:end;font-size:13px"><label>업체명 (서류 위에 찍힘)<input id="hs_co" value="' + esc(S.co) + '" ' + (boss ? "" : "disabled") + ' style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label><label>결재란 (쉼표로)<input id="hs_sign" value="' + esc(S.sign.join(", ")) + '" ' + (boss ? "" : "disabled") + ' style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>' + (boss ? _bsB("#0f766e", "💾 저장", "hcSetSave()", "padding:8px 16px") : "") + '</div>';
   if(!fl.length) return h + _hcEmpty();
-  h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;flex-wrap:wrap;gap:6px"><b>양식 ' + fl.length + '개</b><div style="display:flex;gap:6px">' + (boss ? _bsB("#0369a1", "🧊 냉동고 " + (_hcS().set && _hcS().set.frz ? _hcS().set.frz.length + "대" : "관리"), "hcFrzEdit()") + _bsB("#64748b", "📋 기본 양식 더 넣기", "hcPresetPick()") + _bsB("#0f766e", "+ 새 양식", "hcFormEdit('')") : "") + '</div></div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0fdfa"><th style="padding:6px;text-align:left">순서</th><th style="text-align:left">양식</th><th style="text-align:left">모양</th><th style="text-align:left">구분</th><th style="text-align:left">주기</th><th style="text-align:right">항목·칸</th><th style="text-align:center">사용</th><th></th></tr></thead><tbody>';
+  h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;flex-wrap:wrap;gap:6px"><b>양식 ' + fl.length + '개</b><div style="display:flex;gap:6px">' + (boss ? _bsB("#b45309", "🔔 알림" + (((_hcS().set || {}).tg || {}).on ? " 켜짐" : ""), "hcTgEdit()") + _bsB("#0369a1", "🧊 냉동고 " + (_hcS().set && _hcS().set.frz ? _hcS().set.frz.length + "대" : "관리"), "hcFrzEdit()") + _bsB("#64748b", "📋 기본 양식 더 넣기", "hcPresetPick()") + _bsB("#0f766e", "+ 새 양식", "hcFormEdit('')") : "") + '</div></div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0fdfa"><th style="padding:6px;text-align:left">순서</th><th style="text-align:left">양식</th><th style="text-align:left">모양</th><th style="text-align:left">구분</th><th style="text-align:left">주기</th><th style="text-align:right">항목·칸</th><th style="text-align:center">사용</th><th></th></tr></thead><tbody>';
   fl.forEach(function(k){ var f = F[k];
     h += '<tr style="' + (f.off ? "opacity:.55" : "") + '"><td style="padding:6px;border-bottom:1px solid #f1f5f9">' + _bsN(f.ord) + '</td><td style="border-bottom:1px solid #f1f5f9;font-weight:800">' + esc(f.nm) + '</td><td style="border-bottom:1px solid #f1f5f9">' + (f.kind === "chk" ? "☑ 점검표" : "📝 기록표") + '</td><td style="border-bottom:1px solid #f1f5f9">' + esc(f.cat || "") + '</td><td style="border-bottom:1px solid #f1f5f9">' + (HC_FREQ[f.freq] || "") + '</td><td style="border-bottom:1px solid #f1f5f9;text-align:right">' + (f.kind === "chk" ? (f.items || []).length : (f.cols || []).length) + '</td><td style="border-bottom:1px solid #f1f5f9;text-align:center">' + (f.off ? "끔" : "✅") + '</td><td style="border-bottom:1px solid #f1f5f9;padding:4px;white-space:nowrap">' + (boss ? _bsB("#2563eb", "수정", "hcFormEdit('" + k + "')", "padding:3px 9px") + ' ' + _bsB("#7c3aed", "복사", "hcFormCopy('" + k + "')", "padding:3px 9px") : "") + ' ' + _bsB("#475569", "🖨 빈 양식", "hcPrintBlank('" + k + "')", "padding:3px 9px") + ' ' + _bsB("#0f766e", "📱 QR", "hcQrPrint('" + k + "')", "padding:3px 9px") + '</td></tr>'; });
   return h + '</tbody></table></div>';
 }
-function hcSetSave(){ var co = (document.getElementById("hs_co") || {}).value.trim(), sg = (document.getElementById("hs_sign") || {}).value.split(/[,，]/).map(function(x){ return x.trim(); }).filter(function(x){ return x; }); var v = { co: co, sign: sg }; _hcRef("set").set(v).then(function(){ HC.D.set = v; toast("저장"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); }); }
+function hcSetSave(){ var co = (document.getElementById("hs_co") || {}).value.trim(), sg = (document.getElementById("hs_sign") || {}).value.split(/[,，]/).map(function(x){ return x.trim(); }).filter(function(x){ return x; }); var v = { co: co, sign: sg }; _hcRef("set").update(v).then(function(){ HC.D.set = Object.assign({}, HC.D.set || {}, v); toast("저장"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); }); }
 function hcPrintBlank(k){ var f = JSON.parse(JSON.stringify(_hcS().forms[k])); f._id = "__blank__"; _hcWin(f.nm + " (빈 양식)", _hcPage(f, (HC.ym || _bsToday().slice(0, 7)))); }
 function hcPresetAll(){
   if(!_hcBoss()) return; if(_hcForms(true).length && !confirm("기본 양식을 더 넣을까요? (이름 같은 양식은 건너뜀)")) return;
@@ -344,4 +345,81 @@ function hcFrzSave(){
   Object.keys(F).forEach(function(k){ var f = F[k]; if(f.frz || f.off || !/냉동고/.test(f.nm) || f.kind !== "log") return; var n = (f.cols || []).filter(function(c){ return /냉동고/.test(c.lb); }).length; if(n < 2) return;
     if(!Object.keys(R[k] || {}).length) up["forms/" + k + "/off"] = true; else msg.push("(예전 「" + f.nm + "」은 기록이 있어서 그대로 둠 — 안 쓰면 수정에서 '안 씀')"); });
   _hcRef().update(up).then(function(){ closePopup(); HC.D = null; _hcLoad(); toast("🧊 냉동고 " + L.length + "대 저장" + (msg.length ? " — 새 기록부: " + msg.join(", ") : "")); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+
+
+// ════════ ⚡ 한 번에 적기 — 매일 일지 중 아직 안 한 것만 한 줄씩 (실제로 확인·측정한 값만) ════════
+function _hcQuick(dt){
+  var F = _hcS().forms || {}, L = _hcForms().filter(function(k){ var f = F[k]; return f.freq === "day" && !_hcDone(k, dt).length; });
+  HC.qk = L;
+  if(!L.length) return '';
+  var now = new Date(), hm = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
+  var ip = 'padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:15px;box-sizing:border-box';
+  var h = '<div class="card" style="margin-bottom:10px;border:2px solid #f59e0b;background:#fffbeb"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px"><b style="font-size:15.5px">⚡ 한 번에 적기 — 오늘 아직 안 한 매일 일지 ' + L.length + '개</b><span class="mut" style="font-size:12px">실제로 확인·측정한 값만 · 기준 벗어나면 빨갛게</span></div>';
+  L.forEach(function(k, n){ var f = F[k];
+    h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px dashed #fcd34d"><b style="min-width:150px;font-size:14px">' + esc(f.nm) + '</b>';
+    if(f.kind === "chk"){
+      h += f.sig ? _bsB("#0f766e", "✏ 점검하기 (서명 있음)", "hcChkEdit('" + k + "')", "padding:6px 12px") : _bsB("#16a34a", "✓ 이상 없음 — 확인했어요 (" + (f.items || []).length + "항목)", "hcQuickChk(" + n + ")", "padding:6px 12px") + ' ' + _bsB("#64748b", "하나씩", "hcChkEdit('" + k + "')", "padding:6px 10px");
+    } else if(f.hw || (f.cols || []).length > 6){
+      h += _bsB("#0f766e", "✏ 적기", "hcLogEdit('" + k + "','')", "padding:6px 12px");
+    } else {
+      (f.cols || []).forEach(function(c, i){ var id = "hq_" + n + "_" + i, sd = _hcStdTxt(c);
+        h += '<label style="font-size:11.5px;color:#475569;display:flex;flex-direction:column">' + esc(c.lb) + (c.unit ? ' (' + esc(c.unit) + ')' : '');
+        if(c.type === "ok") h += '<select id="' + id + '" style="' + ip + '"><option value=""></option><option value="O">적합 ○</option><option value="X">부적합 ×</option></select>';
+        else h += '<input id="' + id + '" type="' + (c.type === "num" ? "number" : c.type === "time" ? "time" : c.type === "date" ? "date" : "text") + '"' + (c.type === "num" ? ' step="any" inputmode="decimal" placeholder="' + esc(sd) + '" oninput="_hcQChk(' + n + ')"' : '') + ' value="' + (c.type === "time" ? hm : c.type === "date" ? dt : "") + '" style="' + ip + ';width:' + (c.type === "num" ? "96px" : c.type === "text" ? "140px" : "110px") + '">';
+        h += '</label>'; });
+      h += _bsB("#16a34a", "💾", "hcQuickLog(" + n + ")", "padding:7px 14px;align-self:flex-end");
+    }
+    h += '</div>'; });
+  return h + '</div>';
+}
+function _hcQChk(n){ var k = HC.qk[n], f = _hcS().forms[k]; (f.cols || []).forEach(function(c, i){ var e = document.getElementById("hq_" + n + "_" + i); if(!e) return; var b = _hcBadCol(c, e.value === "" ? "" : (c.type === "num" ? _bsN(e.value) : e.value)); e.style.borderColor = b ? "#dc2626" : "#cbd5e1"; e.style.background = b ? "#fef2f2" : ""; }); }
+function _hcSaveRec(fid, key, r){ var ref = key ? _hcRef("recs/" + fid + "/" + key) : _hcRef("recs/" + fid).push(), id = key || ref.key;
+  return ref.set(r).then(function(){ HC.D.recs = HC.D.recs || {}; HC.D.recs[fid] = HC.D.recs[fid] || {}; HC.D.recs[fid][id] = r; }); }
+function hcQuickChk(n){
+  var k = HC.qk[n], f = _hcS().forms[k], dt = HC.dt || _bsToday(), v = {};
+  if(!confirm("「" + f.nm + "」 " + (f.items || []).length + "항목을 지금 실제로 다 확인했나요?\n하나라도 문제가 있으면 「하나씩」으로 적어 주세요.")) return;
+  (f.items || []).forEach(function(it, i){ v[i] = "O"; });
+  _hcSaveRec(k, dt, { dt: dt, v: v, note: "", fix: "", bad: false, by: (ME && (ME.nm || ME.id)) || CID || "", at: new Date().toISOString(), quick: true }).then(function(){ toast(f.nm + " 저장"); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+function hcQuickLog(n){
+  var k = HC.qk[n], f = _hcS().forms[k], dt = HC.dt || _bsToday(), v = {}, bad = [];
+  (f.cols || []).forEach(function(c, i){ var e = document.getElementById("hq_" + n + "_" + i), x = e ? String(e.value).trim() : ""; if(x === "") return; v[i] = c.type === "num" ? _bsN(x) : x; if(_hcBadCol(c, v[i])) bad.push(c.lb); });
+  var need = (f.cols || []).filter(function(c, i){ return (c.type === "num" || c.type === "ok") && v[i] === undefined; });
+  if(need.length) return toast("측정값을 넣어 주세요: " + need.map(function(c){ return c.lb; }).join(", "), true);
+  var fix = "";
+  if(bad.length){ fix = prompt("⚠ 기준 벗어남: " + bad.join(", ") + "\n개선조치를 적어 주세요 (예: 냉동고 문 닫고 30분 뒤 다시 측정 -19℃)", ""); if(fix === null) return; fix = fix.trim(); if(!fix) return toast("기준을 벗어나면 개선조치를 꼭 적어야 해요", true); }
+  _hcSaveRec(k, "", { dt: dt, v: v, fix: fix, bad: bad.length > 0, by: (ME && (ME.nm || ME.id)) || CID || "", at: new Date().toISOString(), quick: true }).then(function(){ toast(f.nm + " 저장" + (bad.length ? " (부적합)" : "")); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+
+// ════════ 🔔 알림 (텔레그램) — PC 의 파일봇이 읽어서 보냄: 텔레그램파일봇/haccp_notify.py ════════
+//  /main/Haccp/set/tg = { on, am, pm, off:[0~6 (일=0)], since, to:[{nm,id}], boss:true }
+function hcTgEdit(){
+  if(!_hcBoss()) return toast("관리자만 바꿀 수 있어요", true);
+  var T = JSON.parse(JSON.stringify(((_hcS().set || {}).tg) || {})); T.to = T.to || []; if(T.am == null) T.am = 9; if(T.pm == null) T.pm = 17; if(!T.off) T.off = [0]; if(!T.since) T.since = _bsToday(); if(T.boss == null) T.boss = true;
+  HC.tg = T; _hcTgDraw();
+}
+function _hcTgDraw(){
+  var T = HC.tg, ip = 'padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;box-sizing:border-box';
+  var h = '<h3 style="margin:0 0 6px">🔔 해썹 일지 알림 <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3>'
+    + '<div class="mut" style="font-size:12.5px;line-height:1.6;margin-bottom:8px">PC의 텔레그램 파일봇이 보내요 (PC가 켜져 있어야 해요).<br>· <b>아침</b>: 오늘 적을 일지 목록 → 받을 사람에게<br>· <b>저녁</b>: 아직 안 적은 것만 → 받을 사람에게 (다 했으면 안 보냄)<br>· <b>빈 날 2일 이상</b>이면 → 사장님(파일봇 주인)에게</div>'
+    + '<label style="display:flex;gap:8px;align-items:center;font-size:15px;font-weight:800;margin-bottom:8px"><input type="checkbox" id="tg_on" style="width:20px;height:20px"' + (T.on ? ' checked' : '') + '>알림 켜기</label>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;font-size:13px"><label>아침 몇 시<input id="tg_am" type="number" min="0" max="23" value="' + T.am + '" style="width:100%;' + ip + '"></label><label>저녁 몇 시<input id="tg_pm" type="number" min="0" max="23" value="' + T.pm + '" style="width:100%;' + ip + '"></label><label>빈 날 따지기 시작일<input id="tg_since" type="date" value="' + esc(T.since) + '" style="width:100%;' + ip + '"></label></div>'
+    + '<div style="font-size:13px;margin:8px 0 4px;font-weight:700">쉬는 요일 (알림·빈 날 계산에서 뺌)</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + "일월화수목금토".split("").map(function(w, i){ return '<label style="border:1px solid #cbd5e1;border-radius:6px;padding:3px 8px;font-size:14px"><input type="checkbox" id="tg_off' + i + '"' + (T.off.indexOf(i) >= 0 ? ' checked' : '') + '> ' + w + '</label>'; }).join('') + '</div>'
+    + '<label style="display:flex;gap:6px;align-items:center;font-size:13.5px;margin-top:8px"><input type="checkbox" id="tg_boss"' + (T.boss ? ' checked' : '') + '>빈 날 2일 이상이면 사장님께 알림</label>'
+    + '<div style="font-size:13px;margin:10px 0 4px;font-weight:700">받을 사람 <span class="mut" style="font-weight:400;font-size:12px">— 비우면 사장님께만 가요</span></div>'
+    + '<div style="font-size:12px;background:#f1f5f9;border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.6">번호 알아내기: 받을 사람이 폰 텔레그램에서 <b>@jhwphoto_bot</b> (photobot)을 찾아 <b>/start</b> 를 보내면 봇이 「내 번호」를 알려 줘요 → 그 숫자를 아래에 적기</div>';
+  T.to.forEach(function(p, i){ h += '<div style="display:flex;gap:6px;margin-bottom:4px"><input id="tg_nm' + i + '" value="' + esc(p.nm || "") + '" placeholder="이름" style="width:120px;' + ip + '"><input id="tg_id' + i + '" value="' + esc(p.id || "") + '" placeholder="텔레그램 번호" inputmode="numeric" style="flex:1;' + ip + '">' + _bsB("#64748b", "✕", "_hcTgSync();HC.tg.to.splice(" + i + ",1);_hcTgDraw()", "padding:4px 10px") + '</div>'; });
+  h += _bsB("#0f766e", "+ 받을 사람", "_hcTgSync();HC.tg.to.push({nm:'',id:''});_hcTgDraw()", "padding:5px 12px");
+  h += '<div style="text-align:right;margin-top:12px">' + _bsB("#16a34a", "💾 저장", "hcTgSave()", "padding:9px 22px") + '</div>';
+  openPopup('<div style="max-height:86vh;overflow:auto">' + h + '</div>', 560);
+}
+function _hcTgSync(){ var T = HC.tg, g = function(id){ return document.getElementById(id); };
+  if(!g("tg_on")) return; T.on = g("tg_on").checked; T.am = Math.min(23, Math.max(0, _bsN(g("tg_am").value))); T.pm = Math.min(23, Math.max(0, _bsN(g("tg_pm").value))); T.since = g("tg_since").value; T.boss = g("tg_boss").checked;
+  T.off = []; for(var i = 0; i < 7; i++) if(g("tg_off" + i).checked) T.off.push(i);
+  T.to.forEach(function(p, i){ var a = g("tg_nm" + i), b = g("tg_id" + i); if(a) p.nm = a.value.trim(); if(b) p.id = b.value.replace(/[^\d-]/g, ""); }); }
+function hcTgSave(){
+  _hcTgSync(); var T = HC.tg; T.to = T.to.filter(function(p){ return p.id; });
+  if(T.pm <= T.am) return toast("저녁 시각이 아침보다 늦어야 해요", true);
+  _hcRef("set/tg").set(T).then(function(){ HC.D.set = HC.D.set || {}; HC.D.set.tg = T; closePopup(); toast("🔔 알림 설정 저장" + (T.on ? " — 켜짐" : " — 꺼짐")); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
