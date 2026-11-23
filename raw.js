@@ -398,3 +398,81 @@ async function rwExcel(){
   a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })); a.download = "원료수불부_생산일지_" + _bsToday() + ".xlsx";
   document.body.appendChild(a); a.click(); a.remove(); hideLoading(); toast("엑셀 받았어요");
 }
+
+// ════════ 📄 시험검사성적서 — 가공식품(고추장굴비·갈치젓…) 검사 받은 성적서 보관 ════════
+//   /main/Raw/tests/{id} = { prod(제품), dt(검사일), org(검사기관), no(성적서 번호), items(검사항목), res(적합|부적합), next(다음 검사일), files[url], note }
+//   파일(사진·PDF)은 구글 드라이브에 올라가요 (구매 증빙과 같은 방식)
+var RW_T = { prod: "", files: [], keep: [] };
+function _rwProds(){ var m = {}, R = _rwS().recipes || {}, T = _rwS().tests || {}; Object.keys(R).forEach(function(k){ if(R[k].nm && !R[k].off) m[R[k].nm] = 1; }); Object.keys(T).forEach(function(k){ if(T[k].prod) m[T[k].prod] = 1; }); return Object.keys(m).sort(); }
+function _rwDday(d){ if(!d) return null; var a = new Date(d + "T00:00:00"), b = new Date(_bsToday() + "T00:00:00"); return Math.round((a - b) / 864e5); }
+function _rwNextTag(d){ var n = _rwDday(d); if(n == null) return ''; var c = n < 0 ? "#dc2626" : n <= 30 ? "#ea580c" : "#475569", bg = n < 0 ? "#fee2e2" : n <= 30 ? "#ffedd5" : "#f1f5f9";
+  return '<span style="background:' + bg + ';color:' + c + ';border-radius:6px;padding:1px 7px;font-size:12px;font-weight:800;white-space:nowrap">다음 검사 ' + _bsMD(d) + ' (' + (n < 0 ? (-n) + "일 지남" : n === 0 ? "오늘" : "D-" + n) + ')</span>'; }
+function _rwFileTag(u, i, rm){ var pdf = /pdf/i.test(u) && !/thumbnail/.test(u), th = typeof imgSrc === "function" ? imgSrc(u) : u;
+  return '<span style="position:relative;display:inline-block">' + '<a href="' + esc(u) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="눌러서 크게 보기"><img src="' + esc(th) + '" onerror="this.outerHTML=\'<span style=&quot;display:inline-flex;width:54px;height:54px;align-items:center;justify-content:center;border:1px solid #cbd5e1;border-radius:6px;font-size:24px;background:#fff&quot;>📄</span>\'" style="width:54px;height:54px;object-fit:cover;border:1px solid #cbd5e1;border-radius:6px;background:#fff"></a>' + (rm ? '<button type="button" onclick="' + rm + '" style="position:absolute;top:-5px;right:-5px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:18px;padding:0">×</button>' : '') + '</span>'; }
+function dRwTest(){
+  var g = _rwGate(); if(g) return g;
+  var T = _rwS().tests || {}, can = _rwCan(), P = _rwProds(), f = RW_T.prod;
+  var ks = Object.keys(T).filter(function(k){ return !f || T[k].prod === f; }).sort(function(a, b){ return String(T[b].dt).localeCompare(String(T[a].dt)); });
+  var h = '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><strong style="font-size:18px">📄 시험검사성적서</strong> <span class="mut" style="font-size:12px;margin-left:6px">가공식품 검사 받은 성적서 — 사진·PDF 보관 · 다음 검사일 알림</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">' + (can ? _bsB("#16a34a", "+ 성적서", "rwTestEdit('')") : "") + _bsB("#0e7490", "🖨 관리대장 인쇄", "rwTestPrint()") + '</div></div></div>';
+  // 제품마다 가장 최근 검사 → 다음 검사일 다가오면 알림
+  var last = {}; Object.keys(T).forEach(function(k){ var t = T[k]; if(!last[t.prod] || String(t.dt) > String(last[t.prod].dt)) last[t.prod] = t; });
+  var due = Object.keys(last).filter(function(p){ var n = _rwDday(last[p].next); return n != null && n <= 30; });
+  if(due.length) h += '<div class="card" style="margin-bottom:10px;background:#fff7ed;border:2px solid #fdba74"><b style="color:#c2410c">⏰ 검사 받을 때가 됐어요</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' + due.map(function(p){ return '<span style="font-size:13px"><b>' + esc(p) + '</b> ' + _rwNextTag(last[p].next) + '</span>'; }).join("") + '</div></div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + [""].concat(P).map(function(p){ var on = f === p; return '<button class="btn" onclick="RW_T.prod=\'' + esc(p) + '\';draw()" style="padding:5px 12px;font-size:13px;font-weight:800;background:' + (on ? "#0e7490" : "#fff") + ';color:' + (on ? "#fff" : "#0e7490") + ';border:1.5px solid #0e7490">' + (p ? esc(p) : "전체") + '</button>'; }).join("") + '</div>';
+  if(!ks.length) return h + '<div class="card" style="text-align:center;color:#94a3b8;padding:24px">아직 성적서가 없어요' + (can ? ' — [+ 성적서] 로 사진이나 PDF를 올려 주세요' : '') + '</div>';
+  ks.forEach(function(k){ var t = T[k], bad = t.res === "부적합";
+    h += '<div class="card" onclick="' + (can ? "rwTestEdit('" + k + "')" : "") + '" style="margin-bottom:8px;padding:10px 12px;border-left:4px solid ' + (bad ? "#dc2626" : "#16a34a") + ';' + (can ? "cursor:pointer" : "") + '">';
+    h += '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><div><b style="font-size:16px">' + esc(t.prod || "") + '</b> <span style="background:' + (bad ? "#fee2e2;color:#b91c1c" : "#dcfce7;color:#166534") + ';border-radius:6px;padding:1px 8px;font-size:12.5px;font-weight:900">' + esc(t.res || "적합") + '</span></div><span style="font-size:13px;color:#334155">검사일 <b>' + _bsMD(t.dt) + '</b></span></div>';
+    var info = [t.org ? "🏢 " + esc(t.org) : "", t.no ? "No. " + esc(t.no) : "", t.items ? "🔬 " + esc(t.items) : ""].filter(Boolean).join(" · ");
+    if(info) h += '<div style="font-size:12.5px;color:#475569;margin-top:3px">' + info + '</div>';
+    if(t.note) h += '<div style="font-size:12px;color:#64748b">📝 ' + esc(t.note) + '</div>';
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">' + (t.files || []).map(function(u, i){ return _rwFileTag(u, i); }).join("") + (t.next ? _rwNextTag(t.next) : '') + (!(t.files || []).length ? '<span style="font-size:12px;color:#b45309">📎 파일 없음</span>' : '') + '</div></div>'; });
+  return h;
+}
+function rwTestEdit(k){
+  var t = k ? ((_rwS().tests || {})[k] || {}) : { prod: RW_T.prod || "", dt: _bsToday(), res: "적합" };
+  RW_T.k = k; RW_T.files = []; RW_T.keep = (t.files || []).slice();
+  var I = function(lb, id, v, ex){ return '<label style="display:block;font-size:13px;font-weight:700;margin-bottom:8px">' + lb + '<input id="' + id + '" value="' + esc(v || "") + '" ' + (ex || "") + ' style="width:100%;padding:8px;font-size:16px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;font-weight:400"></label>'; };
+  var h = '<h3 style="margin:0 0 10px">' + (k ? "성적서 고치기" : "+ 시험검사성적서") + '</h3>';
+  h += I("제품", "rt_prod", t.prod, 'list="rt_pl" placeholder="예: 고추장굴비"') + '<datalist id="rt_pl">' + _rwProds().map(function(p){ return '<option value="' + esc(p) + '">'; }).join("") + '</datalist>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + I("검사일", "rt_dt", t.dt, 'type="date"') + I("검사기관", "rt_org", t.org, 'placeholder="예: ○○식품분석원"') + '</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + I("성적서 번호", "rt_no", t.no) + I("검사항목", "rt_items", t.items, 'placeholder="예: 대장균군, 세균수"') + '</div>';
+  h += '<label style="display:block;font-size:13px;font-weight:700;margin-bottom:4px">결과</label><input type="hidden" id="rt_res" value="' + esc(t.res || "적합") + '"><div style="display:flex;gap:6px;margin-bottom:8px">' + ["적합", "부적합"].map(function(r){ var on = (t.res || "적합") === r, c = r === "적합" ? "#16a34a" : "#dc2626"; return '<button type="button" class="btn rtRes" data-r="' + r + '" data-c="' + c + '" onclick="document.getElementById(\'rt_res\').value=\'' + r + '\';document.querySelectorAll(\'.rtRes\').forEach(function(b){var o=b.dataset.r===\'' + r + '\';b.style.background=o?b.dataset.c:\'#fff\';b.style.color=o?\'#fff\':b.dataset.c})" style="flex:1;padding:7px;font-weight:900;border:2px solid ' + c + ';background:' + (on ? c : "#fff") + ';color:' + (on ? "#fff" : c) + '">' + r + '</button>'; }).join("") + '</div>';
+  h += '<label style="display:block;font-size:13px;font-weight:700;margin-bottom:4px">다음 검사일 <span class="mut" style="font-weight:400;font-size:12px">— 비우면 알림 없음</span></label><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><input id="rt_next" type="date" value="' + esc(t.next || "") + '" style="padding:7px;font-size:15px;border:1px solid #cbd5e1;border-radius:7px">' + [["6개월 뒤", 6], ["1년 뒤", 12], ["2년 뒤", 24]].map(function(o){ return '<button type="button" class="btn" onclick="rwTestNext(' + o[1] + ')" style="padding:4px 10px;font-size:12.5px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1">' + o[0] + '</button>'; }).join("") + '<button type="button" class="btn" onclick="document.getElementById(\'rt_next\').value=\'\'" style="padding:4px 10px;font-size:12.5px;background:#fff;color:#64748b;border:1px solid #cbd5e1">안 적음</button></div>';
+  h += '<label style="display:block;font-size:13px;font-weight:700;margin-bottom:4px">성적서 파일 (사진·PDF)</label><div id="rt_files" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px"></div><input type="file" id="rt_fin" accept="image/*,.pdf,application/pdf" multiple onchange="rwTestPick(this)" style="font-size:13px;margin-bottom:8px">';
+  h += I("메모", "rt_note", t.note);
+  h += '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:10px"><span>' + (k ? _bsB("#dc2626", "🗑 지우기", "rwTestDel('" + k + "')") : "") + '</span><span style="display:flex;gap:6px">' + _bsB("#475569", "취소", "closePopup()") + _bsB("#16a34a", "💾 저장", "rwTestSave()", "padding:8px 20px") + '</span></div>';
+  openPopup(h, 520); _rwTestFiles();
+}
+function rwTestNext(m){ var d = (document.getElementById("rt_dt") || {}).value || _bsToday(), a = new Date(d + "T00:00:00"); a.setMonth(a.getMonth() + m); var z = new Date(a.getTime() - a.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); document.getElementById("rt_next").value = z; }
+function rwTestPick(el){ Array.prototype.forEach.call(el.files || [], function(f){ RW_T.files.push(f); }); el.value = ""; _rwTestFiles(); }
+function _rwTestFiles(){ var e = document.getElementById("rt_files"); if(!e) return;
+  var h = RW_T.keep.map(function(u, i){ return _rwFileTag(u, i, "RW_T.keep.splice(" + i + ",1);_rwTestFiles()"); }).join("");
+  h += RW_T.files.map(function(f, i){ return '<span style="position:relative;display:inline-flex;align-items:center;gap:4px;border:1px dashed #16a34a;border-radius:6px;padding:4px 8px;font-size:12px;background:#f0fdf4">' + (/pdf/i.test(f.type) ? "📄" : "🖼") + ' ' + esc(f.name) + ' <b style="color:#16a34a">새로</b><button type="button" onclick="RW_T.files.splice(' + i + ',1);_rwTestFiles()" style="background:#dc2626;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;padding:0">×</button></span>'; }).join("");
+  e.innerHTML = h || '<span class="mut" style="font-size:12px">아직 파일 없음</span>'; }
+async function rwTestSave(){
+  var g = function(id){ return String((document.getElementById(id) || {}).value || "").trim(); }, k = RW_T.k;
+  var o = { prod: g("rt_prod"), dt: g("rt_dt"), org: g("rt_org"), no: g("rt_no"), items: g("rt_items"), res: g("rt_res") || "적합", next: g("rt_next"), note: g("rt_note") };
+  if(!o.prod) return toast("제품을 넣어 주세요", true);
+  if(!o.dt) return toast("검사일을 넣어 주세요", true);
+  var urls = [];
+  if(RW_T.files.length){
+    try { var out = []; for(var i = 0; i < RW_T.files.length; i++){ var r = await compressOne(RW_T.files[i]); out.push({ name: "시험성적서_" + o.prod + "_" + o.dt + "_" + (r.name || RW_T.files[i].name), dataUrl: r.dataUrl }); }
+      urls = await uploadAll(out, "", "test"); } catch(e){ hideLoading(); return toast("파일 올리기 실패: " + (e.message || e), true); }
+    hideLoading();
+    if(urls.length < RW_T.files.length && !confirm("파일 " + (RW_T.files.length - urls.length) + "개가 안 올라갔어요. 올라간 것만으로 저장할까요?")) return;
+  }
+  o.files = RW_T.keep.concat(urls);
+  var ref = k ? _rwRef("tests/" + k) : _rwRef("tests").push(), id = k || ref.key;
+  showLoading("저장 중...");
+  ref.set(o).then(function(){ hideLoading(); RW.D.tests = RW.D.tests || {}; RW.D.tests[id] = o; RW_T.files = []; closePopup(); toast("💾 " + o.prod + " 성적서 저장"); draw(); }).catch(function(e){ hideLoading(); toast("저장 실패: " + e.message, true); });
+}
+function rwTestDel(k){ var t = (_rwS().tests || {})[k] || {}; if(!confirm(_bsMD(t.dt) + " " + (t.prod || "") + " 성적서를 지울까요? (드라이브 파일은 그대로 남아요)")) return; _rwRef("tests/" + k).remove().then(function(){ delete RW.D.tests[k]; closePopup(); toast("지웠어요"); draw(); }); }
+// 🖨 시험검사성적서 관리대장 (화일철 맨 앞장)
+function rwTestPrint(){
+  var T = _rwS().tests || {}, f = RW_T.prod, ks = Object.keys(T).filter(function(k){ return !f || T[k].prod === f; }).sort(function(a, b){ return String(T[a].prod).localeCompare(String(T[b].prod)) || String(T[a].dt).localeCompare(String(T[b].dt)); });
+  var b = '<div class="pg"><h1>시험검사성적서 관리대장</h1>' + (f ? '<div style="text-align:right;margin-bottom:2mm">제품: <b>' + esc(f) + '</b></div>' : '') + '<table><tr><th style="width:6%">번호</th><th>제품명</th><th style="width:13%">검사일</th><th>검사기관</th><th style="width:14%">성적서 번호</th><th>검사항목</th><th style="width:8%">결과</th><th style="width:13%">다음 검사일</th></tr>';
+  ks.forEach(function(k, i){ var t = T[k]; b += '<tr><td class="c">' + (i + 1) + '</td><td>' + esc(t.prod || "") + '</td><td class="c">' + _bsMD(t.dt) + '</td><td>' + esc(t.org || "") + '</td><td>' + esc(t.no || "") + '</td><td>' + esc(t.items || "") + '</td><td class="c"><b>' + esc(t.res || "적합") + '</b></td><td class="c">' + (t.next ? _bsMD(t.next) : "") + '</td></tr>'; });
+  for(var i = ks.length; i < 20; i++) b += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+  _rwWin("시험검사성적서_관리대장", b + '</table></div>');
+}

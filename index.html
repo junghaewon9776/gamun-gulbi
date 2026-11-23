@@ -522,7 +522,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="theme.js?v=20261104e"></script>
 <script src="kids.js?v=20261116a"></script>
 <script src="buse.js?v=20261118za"></script>
-<script src="raw.js?v=20261117g"></script>
+<script src="raw.js?v=20261123a1"></script>
 <script src="haccp.js?v=20261117b"></script>
 <script src="yk.js?v=20261123f1"></script>
 <script src="docprint.js?v=20261118c"></script>
@@ -1699,7 +1699,7 @@ function mkTabs(){
     {k:"hcToday",l:"오늘 기록"},{k:"hcView",l:"기록·출력"},{k:"hcForm",l:"양식 관리"}
   ]});
   if(ME && ME.r!=="kid" && typeof dRwProd==="function") cats.push({id:"raw",label:"🧪 원료수불부",items:[
-    {k:"rwProd",l:"생산일지"},{k:"rwStock",l:"원료 재고·수불부"},{k:"rwRecipe",l:"배합표"}
+    {k:"rwProd",l:"생산일지"},{k:"rwStock",l:"원료 재고·수불부"},{k:"rwTest",l:"시험검사성적서"},{k:"rwRecipe",l:"배합표"}
   ]});
   // ── 🏢 거래처 장부 (비품 거래 A01~ · 원료 구입 C01~ — 예전 엑셀 장부 모양, 미수금) — super/admin ──
   if(ME && (ME.r==="super" || ME.r==="admin") && typeof dVdBp==="function") cats.push({id:"vend",label:"🏢 거래처 장부",items:[
@@ -6260,6 +6260,7 @@ function _drawInner(){
   else if(CTAB=="hcView")el.innerHTML=dHcView();
   else if(CTAB=="hcForm")el.innerHTML=dHcForm();
   else if(CTAB=="rwStock")el.innerHTML=dRwStock();
+  else if(CTAB=="rwTest")el.innerHTML=dRwTest();
   else if(CTAB=="rwRecipe")el.innerHTML=dRwRecipe();
   else if(CTAB=="bsWork")el.innerHTML=dBsWork();
   else if(CTAB=="bsStock")el.innerHTML=dBsStock();
