@@ -106,6 +106,7 @@ function dHcToday(){
   var h = _hcHead("📝 해썹 기록", "실제로 점검·측정한 것만 적어요 · 기준을 벗어나면 빨갛게 + 개선조치");
   h += '<div class="card" style="margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>날짜</b><input type="date" value="' + dt + '" onchange="HC.dt=this.value;draw()" style="width:160px;padding:6px;border:1px solid #cbd5e1;border-radius:6px">' + (dt !== _bsToday() ? _bsB("#64748b", "오늘로", "HC.dt='';draw()", "padding:4px 10px") : '') +
     '<span style="font-size:14px;font-weight:800;color:' + (done.length === due.length ? "#16a34a" : "#ea580c") + '">해야 할 일지 ' + due.length + '개 중 ' + done.length + '개 함</span></div>';
+  h += _hcIotStrip();
   if(can) h += _hcQuick(dt);
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:10px">';
   fl.forEach(function(k){ var f = F[k], L = _hcDone(k, dt), ok = f.freq === "each" || L.length, bad = L.some(function(r){ return r.bad; });
@@ -262,7 +263,7 @@ function dHcForm(){
   var h = _hcHead("⚙ 해썹 양식 관리", "업체 양식이 오면 여기서 그대로 만들어요 · 줄을 두 번 누르면 수정");
   h += '<div class="card" style="margin-bottom:10px;display:grid;grid-template-columns:2fr 2fr auto;gap:8px;align-items:end;font-size:13px"><label>업체명 (서류 위에 찍힘)<input id="hs_co" value="' + esc(S.co) + '" ' + (boss ? "" : "disabled") + ' style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label><label>결재란 (쉼표로)<input id="hs_sign" value="' + esc(S.sign.join(", ")) + '" ' + (boss ? "" : "disabled") + ' style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"></label>' + (boss ? _bsB("#0f766e", "💾 저장", "hcSetSave()", "padding:8px 16px") : "") + '</div>';
   if(!fl.length) return h + _hcEmpty();
-  h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;flex-wrap:wrap;gap:6px"><b>양식 ' + fl.length + '개</b><div style="display:flex;gap:6px">' + (boss ? _bsB("#b45309", "🔔 알림" + (((_hcS().set || {}).tg || {}).on ? " 켜짐" : ""), "hcTgEdit()") + _bsB("#0369a1", "🧊 냉동고 " + (_hcS().set && _hcS().set.frz ? _hcS().set.frz.length + "대" : "관리"), "hcFrzEdit()") + _bsB("#64748b", "📋 기본 양식 더 넣기", "hcPresetPick()") + _bsB("#0f766e", "+ 새 양식", "hcFormEdit('')") : "") + '</div></div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0fdfa"><th style="padding:6px;text-align:left">순서</th><th style="text-align:left">양식</th><th style="text-align:left">모양</th><th style="text-align:left">구분</th><th style="text-align:left">주기</th><th style="text-align:right">항목·칸</th><th style="text-align:center">사용</th><th></th></tr></thead><tbody>';
+  h += '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;flex-wrap:wrap;gap:6px"><b>양식 ' + fl.length + '개</b><div style="display:flex;gap:6px">' + (boss ? _bsB("#be123c", "🌡 온도계" + (((_hcS().set || {}).iot || {}).on ? " 켜짐" : ""), "hcIotEdit()") + _bsB("#b45309", "🔔 알림" + (((_hcS().set || {}).tg || {}).on ? " 켜짐" : ""), "hcTgEdit()") + _bsB("#0369a1", "🧊 냉동고 " + (_hcS().set && _hcS().set.frz ? _hcS().set.frz.length + "대" : "관리"), "hcFrzEdit()") + _bsB("#64748b", "📋 기본 양식 더 넣기", "hcPresetPick()") + _bsB("#0f766e", "+ 새 양식", "hcFormEdit('')") : "") + '</div></div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0fdfa"><th style="padding:6px;text-align:left">순서</th><th style="text-align:left">양식</th><th style="text-align:left">모양</th><th style="text-align:left">구분</th><th style="text-align:left">주기</th><th style="text-align:right">항목·칸</th><th style="text-align:center">사용</th><th></th></tr></thead><tbody>';
   fl.forEach(function(k){ var f = F[k];
     h += '<tr style="' + (f.off ? "opacity:.55" : "") + '"><td style="padding:6px;border-bottom:1px solid #f1f5f9">' + _bsN(f.ord) + '</td><td style="border-bottom:1px solid #f1f5f9;font-weight:800">' + esc(f.nm) + '</td><td style="border-bottom:1px solid #f1f5f9">' + (f.kind === "chk" ? "☑ 점검표" : "📝 기록표") + '</td><td style="border-bottom:1px solid #f1f5f9">' + esc(f.cat || "") + '</td><td style="border-bottom:1px solid #f1f5f9">' + (HC_FREQ[f.freq] || "") + '</td><td style="border-bottom:1px solid #f1f5f9;text-align:right">' + (f.kind === "chk" ? (f.items || []).length : (f.cols || []).length) + '</td><td style="border-bottom:1px solid #f1f5f9;text-align:center">' + (f.off ? "끔" : "✅") + '</td><td style="border-bottom:1px solid #f1f5f9;padding:4px;white-space:nowrap">' + (boss ? _bsB("#2563eb", "수정", "hcFormEdit('" + k + "')", "padding:3px 9px") + ' ' + _bsB("#7c3aed", "복사", "hcFormCopy('" + k + "')", "padding:3px 9px") : "") + ' ' + _bsB("#475569", "🖨 빈 양식", "hcPrintBlank('" + k + "')", "padding:3px 9px") + ' ' + _bsB("#0f766e", "📱 QR", "hcQrPrint('" + k + "')", "padding:3px 9px") + '</td></tr>'; });
   return h + '</tbody></table></div>';
@@ -422,4 +423,86 @@ function hcTgSave(){
   _hcTgSync(); var T = HC.tg; T.to = T.to.filter(function(p){ return p.id; });
   if(T.pm <= T.am) return toast("저녁 시각이 아침보다 늦어야 해요", true);
   _hcRef("set/tg").set(T).then(function(){ HC.D.set = HC.D.set || {}; HC.D.set.tg = T; closePopup(); toast("🔔 알림 설정 저장" + (T.on ? " — 켜짐" : " — 꺼짐")); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+
+
+// ════════ 🌡 온도계 (ESP32 아두이노) — PC 파일봇(텔레그램파일봇/iot_server.py)이 받아서 정한 시각에 일지에 「자동 측정」 ════════
+//  /main/Haccp/set/iot = { on, key, times:["09:00","17:00"], devs:[{id, nm, fid, col}] }
+//  /main/Haccp/iot/{온도계} = 최신값 {t, at} · /main/Haccp/iot/_srv = {ip, port} · 5분 기록은 /main/HaccpIotLog (무거워서 따로)
+function _hcIotStrip(){
+  var I = (_hcS().set || {}).iot || {}, L = _hcS().iot || {}; if(!I.on || !(I.devs || []).length) return '';
+  var F = _hcS().forms || {}, now = Date.now();
+  return '<div class="card" style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>🌡 온도계</b>' + (I.devs || []).map(function(d){
+    var x = L[d.id], c = ((F[d.fid] || {}).cols || [])[d.col] || {}, at = x && x.at ? new Date(String(x.at).replace(" ", "T")).getTime() : 0, old = !at || now - at > 30 * 60000, bad = x && _hcBadCol(c, x.t);
+    return '<span style="border:2px solid ' + (bad ? "#dc2626" : old ? "#94a3b8" : "#16a34a") + ';border-radius:8px;padding:3px 10px;font-size:14px;background:' + (bad ? "#fef2f2" : "#fff") + '"><b>' + esc(d.nm || d.id) + '</b> ' + (x ? '<b style="font-size:16px;color:' + (bad ? "#dc2626" : old ? "#64748b" : "#0f172a") + '">' + x.t + '℃</b> <span class="mut" style="font-size:11.5px">' + esc(String(x.at).slice(11, 16)) + (old ? ' · 끊김?' : '') + '</span>' : '<span class="mut">아직 안 들어옴</span>') + '</span>'; }).join('')
+    + '<span class="mut" style="font-size:11.5px">' + (I.times || []).join("·") + ' 에 일지 자동 기록 · 화면 새로 열면 최신값</span></div>';
+}
+function hcIotEdit(){
+  if(!_hcBoss()) return toast("관리자만 바꿀 수 있어요", true);
+  var I = JSON.parse(JSON.stringify(((_hcS().set || {}).iot) || {}));
+  if(!I.key){ var a = new Uint8Array(9); (window.crypto || window.msCrypto).getRandomValues(a); I.key = Array.prototype.map.call(a, function(b){ return ("0" + b.toString(16)).slice(-2); }).join(""); }
+  if(!I.times) I.times = ["09:00", "17:00"];
+  if(!I.devs){ var fz = Object.keys(_hcS().forms || {}).filter(function(k){ return /온도/.test(_hcS().forms[k].nm); })[0]; I.devs = fz ? (_hcS().forms[fz].cols || []).map(function(c, i){ return c.type === "num" ? { id: "frz" + i, nm: c.lb, fid: fz, col: i } : null; }).filter(Boolean) : []; }
+  HC.iot = I; _hcIotDraw();
+}
+function _hcIotDraw(){
+  var I = HC.iot, F = _hcS().forms || {}, L = _hcS().iot || {}, srv = L._srv || {}, ip = 'padding:5px;border:1px solid #cbd5e1;border-radius:6px;font-size:13.5px;box-sizing:border-box';
+  var logF = _hcForms().filter(function(k){ return F[k].kind !== "chk"; });
+  var h = '<h3 style="margin:0 0 6px">🌡 온도계 (아두이노) <button class="btn" style="background:#475569;float:right" onclick="closePopup()">닫기</button></h3>'
+    + '<div class="mut" style="font-size:12.5px;line-height:1.65;margin-bottom:8px">와이파이 아두이노(ESP32)가 5분마다 <b>PC 파일봇</b>으로 온도를 보내요 → 아래 <b>시각</b>에 해썹 일지에 <b>실제 받은 값</b>을 「자동 측정」으로 적어요. 그 시각 30분 안에 받은 값이 없으면 안 적고 텔레그램으로 알려요. 기준을 2번 연달아 벗어나도 바로 알림 (🔔 알림의 받을 사람 + 사장님).<br>PC: <b>' + esc(srv.ip || "아직 모름 — 파일봇 켜지면 나옴") + (srv.port ? ':' + srv.port : '') + '</b> <span style="font-size:11.5px">(PC 주소가 바뀌면 아두이노 코드도 다시 받아야 해요 → 공유기에서 이 PC 주소 고정 권장)</span></div>'
+    + '<label style="display:flex;gap:8px;align-items:center;font-size:15px;font-weight:800;margin-bottom:8px"><input type="checkbox" id="io_on" style="width:20px;height:20px"' + (I.on ? ' checked' : '') + '>온도계 받기 켜기</label>'
+    + '<label style="font-size:13px">일지에 적을 시각 (쉼표로)<input id="io_times" value="' + esc((I.times || []).join(", ")) + '" style="width:100%;' + ip + '"></label>'
+    + '<div style="font-size:13px;font-weight:800;margin:10px 0 4px">온도계 — 하나에 아두이노 한 개</div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#f1f5f9"><th style="padding:4px">이름(영문·숫자)</th><th>표시 이름</th><th>적을 일지</th><th>칸</th><th>지금</th><th></th></tr>';
+  (I.devs || []).forEach(function(d, i){
+    var cols = ((F[d.fid] || {}).cols || []), x = L[d.id];
+    h += '<tr><td style="padding:3px"><input id="io_id' + i + '" value="' + esc(d.id) + '" style="width:80px;' + ip + '"></td><td><input id="io_nm' + i + '" value="' + esc(d.nm || "") + '" style="width:100px;' + ip + '"></td>'
+      + '<td><select id="io_f' + i + '" onchange="_hcIotSync();HC.iot.devs[' + i + '].col=-1;_hcIotDraw()" style="' + ip + ';max-width:150px">' + logF.map(function(k){ return '<option value="' + esc(k) + '"' + (k === d.fid ? ' selected' : '') + '>' + esc(F[k].nm) + '</option>'; }).join('') + '</select></td>'
+      + '<td><select id="io_c' + i + '" style="' + ip + '">' + cols.map(function(c, j){ return c.type === "num" ? '<option value="' + j + '"' + (j === +d.col ? ' selected' : '') + '>' + esc(c.lb) + '</option>' : ''; }).join('') + '</select></td>'
+      + '<td style="white-space:nowrap">' + (x ? x.t + '℃ <span class="mut" style="font-size:11px">' + esc(String(x.at).slice(5, 16)) + '</span>' : '<span class="mut">-</span>') + '</td>'
+      + '<td style="white-space:nowrap">' + _bsB("#0f766e", "📄 코드", "_hcIotSync();hcIotIno(" + i + ")", "padding:3px 8px") + ' ' + _bsB("#64748b", "✕", "_hcIotSync();HC.iot.devs.splice(" + i + ",1);_hcIotDraw()", "padding:3px 8px") + '</td></tr>'; });
+  h += '</table>' + _bsB("#0f766e", "+ 온도계", "_hcIotSync();var n=HC.iot.devs.length+1;HC.iot.devs.push({id:'frz'+n,nm:'냉동고 '+n,fid:'" + (logF[0] || "") + "',col:-1});_hcIotDraw()", "padding:5px 12px;margin-top:6px");
+  h += '<div style="font-size:12px;margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px">열쇠: <code>' + esc(I.key) + '</code> — 아두이노 코드에 자동으로 들어가요 (다른 사람이 가짜 값을 못 보내게)</div>';
+  h += '<div style="text-align:right;margin-top:12px">' + _bsB("#16a34a", "💾 저장", "hcIotSave()", "padding:9px 22px") + '</div>';
+  openPopup('<div style="max-height:86vh;overflow:auto">' + h + '</div>', 720);
+}
+function _hcIotSync(){ var I = HC.iot, g = function(id){ return document.getElementById(id); }; if(!g("io_on")) return;
+  I.on = g("io_on").checked; I.times = g("io_times").value.split(/[,，\s]+/).map(function(t){ var m = t.match(/^(\d{1,2}):?(\d{2})$/); return m ? ("0" + m[1]).slice(-2) + ":" + m[2] : ""; }).filter(Boolean);
+  (I.devs || []).forEach(function(d, i){ var a = g("io_id" + i), b = g("io_nm" + i), f = g("io_f" + i), c = g("io_c" + i); if(a) d.id = a.value.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 30); if(b) d.nm = b.value.trim(); if(f) d.fid = f.value; if(c && c.value !== "") d.col = +c.value; }); }
+function hcIotSave(){
+  _hcIotSync(); var I = HC.iot, ids = {};
+  for(var i = 0; i < I.devs.length; i++){ var d = I.devs[i]; if(!d.id) return toast("온도계 이름(영문·숫자)을 적어 주세요", true); if(ids[d.id]) return toast("온도계 이름이 겹쳐요: " + d.id, true); ids[d.id] = 1; if(!d.fid || d.col == null || d.col < 0) return toast(d.id + " — 적을 일지·칸을 골라 주세요", true); }
+  if(I.on && !I.times.length) return toast("일지에 적을 시각을 넣어 주세요 (예: 09:00, 17:00)", true);
+  _hcRef("set/iot").set(I).then(function(){ HC.D.set = HC.D.set || {}; HC.D.set.iot = I; closePopup(); toast("🌡 온도계 설정 저장" + (I.on ? " — 켜짐 (PC 파일봇이 2분 안에 읽어요)" : "")); draw(); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
+}
+// 📄 아두이노(ESP32 + DS18B20) 코드 — 와이파이 이름·비번만 고쳐서 올리면 됨
+function hcIotIno(i){
+  var I = HC.iot, d = I.devs[i], srv = (_hcS().iot || {})._srv || {};
+  var code = [
+    '// 🌡 가문굴비 해썹 온도계 — ' + (d.nm || d.id) + '  (ESP32 + DS18B20 방수 온도센서)',
+    '// 배선: 센서 빨강=3.3V, 검정=GND, 노랑=GPIO4  + 노랑-3.3V 사이에 4.7kΩ 저항',
+    '// 라이브러리(아두이노 IDE › 라이브러리 관리): OneWire, DallasTemperature   보드: ESP32 Dev Module',
+    '// 5분마다 재서 PC 파일봇으로 보냄. PC 주소가 바뀌면 SERVER 만 고치면 돼요',
+    '#include <WiFi.h>', '#include <HTTPClient.h>', '#include <OneWire.h>', '#include <DallasTemperature.h>', '',
+    'const char* WIFI_NAME = "와이파이이름";      // ← 고치기',
+    'const char* WIFI_PASS = "와이파이비번";      // ← 고치기',
+    'const char* SERVER    = "http://' + (srv.ip || "192.168.0.10") + ':' + (srv.port || 8765) + '";',
+    'const char* DEV       = "' + d.id + '";',
+    'const char* KEY       = "' + I.key + '";',
+    'const unsigned long EVERY_MS = 5UL * 60UL * 1000UL;   // 5분', '',
+    'OneWire ow(4);', 'DallasTemperature sensors(&ow);', '',
+    'void wifiOn(){', '  if(WiFi.status() == WL_CONNECTED) return;', '  WiFi.begin(WIFI_NAME, WIFI_PASS);',
+    '  for(int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) delay(500);', '}', '',
+    'void setup(){', '  Serial.begin(115200);', '  sensors.begin();', '  WiFi.mode(WIFI_STA);', '  wifiOn();', '}', '',
+    'void loop(){',
+    '  sensors.requestTemperatures();', '  float t = sensors.getTempCByIndex(0);',
+    '  Serial.printf("%s %.1f C\\n", DEV, t);',
+    '  if(t > -100){                       // -127 = 센서 빠짐 → 안 보냄',
+    '    wifiOn();',
+    '    if(WiFi.status() == WL_CONNECTED){',
+    '      HTTPClient http;',
+    '      String url = String(SERVER) + "/t?d=" + DEV + "&t=" + String(t, 1) + "&k=" + KEY;',
+    '      http.begin(url);', '      int code = http.GET();', '      Serial.printf("보냄: %d\\n", code);', '      http.end();',
+    '    }', '  }', '  delay(EVERY_MS);', '}', ''].join("\r\n");
+  var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([code], { type: "text/plain;charset=utf-8" })); a.download = "haccp_" + d.id + ".ino"; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast("📄 " + d.id + " 코드 받았어요 — 와이파이 이름·비번만 고쳐서 올리세요");
 }
