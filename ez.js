@@ -1,9 +1,10 @@
 // ════════ 📒 이지판매 자료 — 이지판매에서 뽑은 엑셀(매출명세서·매입명세서·수금·지급)을 올려서 어디서든 보기 ════════
 //   입력은 이지판매에서만. 여기는 '올리기 + 보기' 전용 (super/admin)
-//   /main/Ez/r/{kind}/{YYYY-MM}/{줄키} = { d 날짜, c 거래처, i 품목, s 규격, s2 상세규격, u 단위, g 구분, q 수량, p 단가, a 공급가액, t 세액, m 합계(수금·지급은 금액), n 전표번호, mo 메모, jm 전표메모 }
-//   /main/Ez/s/{kind}/{YYYY-MM}/{거래처키} = { c, n 줄 수, m 합계, q 수량 }   ← 거래처 목록·원장에서 어느 달을 불러올지
-//   /main/Ez/si/{kind}/{YYYY-MM}/{품목키} = { i, s, q, m }                    ← 품목 수량(재고 맞추기)
-//   /main/Ez/meta/{kind} = { from, to, at, by, rows, file }                    ← 올린 자료 범위 → '다음엔 ○일부터' 안내
+//   /ezData/r/{kind}/{YYYY-MM}/{줄키} = { d 날짜, c 거래처, i 품목, s 규격, s2 상세규격, u 단위, g 구분, q 수량, p 단가, a 공급가액, t 세액, m 합계(수금·지급은 금액), n 전표번호, mo 메모, jm 전표메모 }
+//   /ezData/s/{kind}/{YYYY-MM}/{거래처키} = { c, n 줄 수, m 합계, q 수량 }   ← 거래처 목록·원장에서 어느 달을 불러올지
+//   /ezData/si/{kind}/{YYYY-MM}/{품목키} = { i, s, q, m }                    ← 품목 수량(재고 맞추기)
+//   /ezData/meta/{kind} = { from, to, at, by, rows, file }                    ← 올린 자료 범위 → '다음엔 ○일부터' 안내
+//   /ezData/cust/{거래처키} = { c, code, g 구분, tel, hp, fax, addr, ceo, bno, biz } · /ezData/item/{품목키} = { code, i, s, s2, u, pin 입고가, pwh 도매가, prt 소매가, cat }  ← 거래처등록·상품등록 (통째로 바꿈)
 //   kind: sale 매출 · buy 매입 · col 수금 · pay 지급
 //   올리기 = 그 엑셀의 '검색기간' 안에 있는 줄을 통째로 이지판매 최신으로 바꿔 씀 (겹치게 올려도 두 번 안 잡힘)
 //   ⚠ 공개 코드 — 고객 이름·금액은 DB에만
@@ -14,7 +15,7 @@ var EZ_K = {
   col:  { nm: "수금", who: "매출처", ic: "💵", c: "#16a34a" },
   pay:  { nm: "지급", who: "매입처", ic: "💸", c: "#dc2626" }
 };
-function _ezRef(p){ return fbDb.ref("/main/Ez" + (p ? "/" + p : "")); }
+function _ezRef(p){ return fbDb.ref("/ezData" + (p ? "/" + p : "")); }   // /main 밖 — /main 은 로그인 때 통째로 받아서(common.js) 5MB 넣으면 다 느려짐
 function _ezCan(){ return !!ME && (ME.r === "super" || ME.r === "admin"); }
 function _ezN(v){ var n = Number(String(v == null ? "" : v).replace(/[,원\s]/g, "")); return isFinite(n) ? n : 0; }
 function _ezW(n){ return Math.round(n).toLocaleString("ko-KR"); }
@@ -53,6 +54,8 @@ function dEzUp(){
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px">';
   [["sale", "매출명세서"], ["buy", "매입명세서"], ["col", "수금현황"], ["pay", "지급현황"]].forEach(function(x){ var K = EZ_K[x[0]];
     h += '<div class="card" style="margin:0;border-left:5px solid ' + K.c + '"><b style="font-size:15px;color:' + K.c + '">' + K.ic + ' ' + K.nm + '</b> <span class="mut" style="font-size:12px">이지판매 「' + x[1] + '」</span><div style="font-size:13px;margin-top:6px;line-height:1.6">' + _ezNextTxt(x[0]) + '</div></div>'; });
+  [["cust", "👥 거래처등록", "거래처 전화·주소 — 원장 위에 나와요"], ["item", "🏷 상품등록", "상품 이름·규격·단가"]].forEach(function(x){ var m = (EZ.meta || {})[x[0]];
+    h += '<div class="card" style="margin:0;border-left:5px solid #64748b"><b style="font-size:15px">' + x[1] + '</b> <span class="mut" style="font-size:12px">' + x[2] + '</span><div style="font-size:13px;margin-top:6px">' + (m ? _ezW(m.rows) + '개 · ' + esc(String(m.at || "").slice(5, 16)) + ' 올림 <span class="mut">(새 거래처·상품 생기면 다시 올리기)</span>' : '<span style="color:#b91c1c;font-weight:800">아직 안 올림</span> — 날짜 상관없이 통째로') + '</div></div>'; });
   h += '</div><div class="card mut" style="font-size:12.5px;margin-top:10px;line-height:1.7">· 뽑는 법: 이지판매 → 해당 화면 → 기간 고르기 (거래처는 <b>모든 거래처</b>) → [출 력] → 엑셀 저장<br>· <b>오늘 것은 빼고 어제까지</b> — 오늘 전표는 아직 다 안 넣었을 수 있어서 재고가 틀어져요<br>· 지난 날 전표를 나중에 고쳤으면 그 날부터 다시 뽑아 올리면 그 기간이 새로 바뀌어요</div>';
   return h;
 }
@@ -62,13 +65,15 @@ function _ezDt(v){ if(v instanceof Date) return new Date(v.getTime() + 12 * 3600
 // 머리줄 → 종류·칸
 function _ezHead(H){
   var f = function(re){ for(var i = 0; i < H.length; i++) if(re.test(H[i])) return i; return -1; };
-  var o = { d: f(/^(매출|매입|수금|지급)?일자$|^날짜$/), c: f(/^(매출처|매입처|거래처)|고객/), i: f(/^품목명$/), s: f(/^규격$/), s2: f(/^상세규격$/), u: f(/^단위$/), g: f(/^구분$/), q: f(/^수량$/), p: f(/^단가$/), a: f(/^공급가액$/), t: f(/^세액$/), n: f(/^전표번호$/), mo: f(/^메모$/), jm: f(/^전표메모$/) };
+  var o = { d: f(/^(매출|매입|수금|지급)?일자$|^날짜$/), c: f(/^(매출처|매입처|거래처)|고객|^업체명$/), pm: f(/^결[제재]방법$/), bg: f(/^비고$/), i: f(/^품목명$/), s: f(/^규격$/), s2: f(/^상세규격$/), u: f(/^단위$/), g: f(/^구분$/), q: f(/^수량$/), p: f(/^단가$/), a: f(/^공급가액$/), t: f(/^세액$/), n: f(/^전표번호$/), mo: f(/^메모$|^메모사항$/), jm: f(/^전표메모$/) };
   var hs = H.join("|"), kind = "";
   if(/매출일자/.test(hs) && o.i >= 0){ kind = "sale"; o.m = f(/^매출합계$/); }
   else if(/매입일자/.test(hs) && o.i >= 0){ kind = "buy"; o.m = f(/^매입합계$/); }
   else if(/수금/.test(hs)){ kind = "col"; o.m = f(/^수금액$|^수금합계$|^금액$|^합계$/); }
   else if(/지급/.test(hs)){ kind = "pay"; o.m = f(/^지급액$|^지급합계$|^금액$|^합계$/); }
   if(o.d < 0 || o.c < 0 || o.m < 0) kind = "";
+  if(!kind && f(/^거래처명$/) >= 0 && f(/^거래처구분$/) >= 0) return { kind: "cust", col: { code: f(/^코드$/), c: f(/^거래처명$/), g: f(/^거래처구분$/), tel: f(/^전화번호$/), hp: f(/^핸드폰번호$/), fax: f(/^팩스번호$/), a1: f(/^주소1$/), a2: f(/^주소2$/), ceo: f(/^성명/), bno: f(/^사업자등록번호$/), biz: f(/^상호/) } };
+  if(!kind && f(/^품목명$/) >= 0 && f(/^재고단위$/) >= 0) return { kind: "item", col: { code: f(/^코드$/), i: f(/^품목명$/), s: f(/^규격$/), s2: f(/^상세규격$/), u: f(/^재고단위$/), pin: f(/^입고가$/), pwh: f(/^도매가$/), prt: f(/^소매가$/), cat: f(/^상품분류$/) } };
   return { kind: kind, col: o };
 }
 async function ezRead(files){
@@ -82,12 +87,22 @@ async function ezRead(files){
       var pm = H.join(" ").match(/검색기간:?(\d{4}-\d{2}-\d{2})부터(\d{4}-\d{2}-\d{2})까지/); if(pm){ from = pm[1]; to = pm[2]; }
       var hd = _ezHead(H); if(hd.kind){ hr = r; HD = hd; } }
     if(!HD){ bad.push(files[fi].name + ": 무슨 자료인지 모르겠어요 (매출명세서·매입명세서·수금·지급 현황만)"); continue; }
-    var C = HD.col, rows = [], seq = {}, mn = "", mx = "";
+    var C = HD.col, rows = [], seq = {}, mn = "", mx = "", prev = null;
+    if(HD.kind === "cust" || HD.kind === "item"){ var LS = {}, nn = 0;
+      for(var r3 = hr + 1; r3 <= ws.rowCount; r3++){ var R3 = ws.getRow(r3), x3 = {};
+        Object.keys(C).forEach(function(k){ if(C[k] < 0) return; var v = _ezCell(R3.getCell(C[k] + 1)); if(v === "" || v == null) return; x3[k] = /^p(in|wh|rt)$/.test(k) ? _ezN(v) : String(v).trim(); });
+        if(HD.kind === "cust"){ if(!x3.c) continue; if(x3.a1 || x3.a2){ x3.addr = [x3.a1, x3.a2].filter(Boolean).join(" "); } delete x3.a1; delete x3.a2; if(x3.biz === x3.c) delete x3.biz; LS[_ezKey(x3.c)] = x3; }
+        else { if(!x3.i) continue; ["pin", "pwh", "prt"].forEach(function(k){ if(!x3[k]) delete x3[k]; }); LS[_ezKey(x3.i + (x3.s ? "|" + x3.s : ""))] = x3; }
+        nn++; }
+      out.push({ file: files[fi].name, kind: HD.kind, list: LS, n: nn }); continue; }
     for(var r2 = hr + 1; r2 <= ws.rowCount; r2++){ var R = ws.getRow(r2), g = function(k){ return C[k] >= 0 ? _ezCell(R.getCell(C[k] + 1)) : ""; };
-      var d = _ezDt(g("d")); if(!d) continue;   // (누계)·빈 줄 건너뜀
-      var x = { d: d, c: String(g("c")).trim() };
-      ["i", "s", "s2", "u", "g", "mo", "jm", "n"].forEach(function(k){ var v = String(g(k)).trim(); if(v) x[k] = v; });
+      var d = _ezDt(g("d")), cv = String(g("c")).trim(), inh = false, sub = false;
+      R.eachCell(function(cc){ if(/^\((일계|월계|누계|소계|합계)/.test(String(_ezCell(cc)).trim())) sub = true; }); if(sub) continue;   // 합계 줄은 어느 칸에 있든 건너뜀
+      if(!d){ if(prev && !cv && _ezN(g("m"))){ d = prev.d; cv = prev.c; inh = true; } else continue; }   // 한 전표에 나눠 받은 둘째 줄부터는 날짜·업체 칸이 비어 있음 → 윗줄 것 / (일계)·(누계)는 건너뜀
+      var x = { d: d, c: cv };
+      ["i", "s", "s2", "u", "g", "mo", "jm", "n", "pm", "bg"].forEach(function(k){ var v = String(g(k)).trim(); if(v) x[k] = v; });
       ["q", "p", "a", "t", "m"].forEach(function(k){ var v = _ezN(g(k)); if(v) x[k] = v; });
+      if(inh && !x.n && prev.n) x.n = prev.n; prev = x;
       var nk = x.n || d.replace(/-/g, ""); seq[nk] = (seq[nk] || 0) + 1; x._k = _ezKey(nk) + "_" + ("00" + seq[nk]).slice(-3);
       rows.push(x); if(!mn || d < mn) mn = d; if(!mx || d > mx) mx = d; }
     if(!from){ from = mn; to = mx; }
@@ -96,10 +111,11 @@ async function ezRead(files){
   hideLoading(); EZ.up = out;
   if(!out.length) return toast("올릴 자료를 못 찾았어요" + (bad.length ? " — " + bad[0] : ""), true);
   var h = '<h3 style="margin:0 0 8px">📤 이지판매 자료 — 미리 보기</h3><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#f1f5f9"><th style="padding:6px;text-align:left">파일</th><th style="padding:6px">종류</th><th style="padding:6px">기간 (이 안은 새로 바꿈)</th><th style="padding:6px;text-align:right">줄</th><th style="padding:6px;text-align:right">거래처</th><th style="padding:6px;text-align:right">합계</th></tr>';
-  out.forEach(function(o){ var K = EZ_K[o.kind], cs = {}, sm = 0; o.rows.forEach(function(x){ cs[x.c] = 1; sm += x.m || 0; });
+  out.forEach(function(o){ if(o.list){ h += '<tr><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;font-size:12px">' + esc(o.file) + '</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:800">' + (o.kind === "cust" ? "👥 거래처등록" : "🏷 상품등록") + '</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:center">통째로 바꿈</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:800">' + _ezW(Object.keys(o.list).length) + '</td><td></td><td></td></tr>'; return; }
+    var K = EZ_K[o.kind], cs = {}, sm = 0; o.rows.forEach(function(x){ cs[x.c] = 1; sm += x.m || 0; });
     h += '<tr><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;font-size:12px">' + esc(o.file) + '</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:800;color:' + K.c + '">' + K.ic + ' ' + K.nm + '</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:center">' + esc(o.from) + ' ~ ' + esc(o.to) + '</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:800">' + _ezW(o.rows.length) + '</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:right">' + _ezW(Object.keys(cs).length) + '</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:right">' + _ezW(sm) + '</td></tr>'; });
   h += '</table>' + (bad.length ? '<div style="color:#b91c1c;font-size:12px;margin-top:6px">' + bad.map(esc).join("<br>") + '</div>' : '');
-  if(out.some(function(o){ return o.to >= _ezToday(); })) h += '<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px;font-size:12.5px;margin-top:8px">⚠ <b>오늘 날짜까지</b> 들어 있어요 — 오늘 전표를 아직 다 안 넣었으면 재고가 틀어질 수 있어요. 다 넣은 뒤 다시 올리면 오늘 것도 새로 바뀌어요.</div>';
+  if(out.some(function(o){ return o.to && o.to >= _ezToday(); })) h += '<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px;font-size:12.5px;margin-top:8px">⚠ <b>오늘 날짜까지</b> 들어 있어요 — 오늘 전표를 아직 다 안 넣었으면 재고가 틀어질 수 있어요. 다 넣은 뒤 다시 올리면 오늘 것도 새로 바뀌어요.</div>';
   h += '<div class="mut" style="font-size:12px;margin-top:8px">기간 안에 이미 있던 자료는 지우고 이 엑셀로 바꿔요 · 기간 밖은 그대로</div><div style="display:flex;gap:6px;justify-content:flex-end;margin-top:12px">' + _ezB("#475569", "닫기", "closePopup()") + _ezB("#16a34a", "올리기", "ezSave()", "padding:8px 18px") + '</div>';
   openPopup(h, 680);
 }
@@ -108,6 +124,7 @@ async function ezSave(){
   var L = EZ.up || []; if(!L.length) return; closePopup(); showLoading("올리는 중...");
   try {
     for(var li = 0; li < L.length; li++){ var o = L[li], k = o.kind, byM = {};
+      if(o.list){ await _ezRef(k).set(o.list); await _ezRef("meta/" + k).set({ at: new Date(Date.now() + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 16), by: (ME && (ME.nm || ME.id)) || "", rows: Object.keys(o.list).length, file: o.file }); EZ[k] = null; continue; }
       o.rows.forEach(function(x){ var ym = x.d.slice(0, 7); (byM[ym] = byM[ym] || []).push(x); });
       var have = Object.keys((EZ.s || {})[k] || {}), months = {};   // 이미 자료 있는 달 중 기간에 걸친 달 + 새 줄 있는 달
       have.forEach(function(ym){ if(ym >= o.from.slice(0, 7) && ym <= o.to.slice(0, 7)) months[ym] = 1; }); Object.keys(byM).forEach(function(ym){ months[ym] = 1; });
@@ -165,7 +182,9 @@ function _ezLedger(kind, ck){
   var K = EZ_K[kind], MK = EZ_K[K.money], ms = {}, nm = "";
   [kind, K.money].forEach(function(k){ Object.keys((EZ.s || {})[k] || {}).forEach(function(ym){ var x = EZ.s[k][ym][ck]; if(x){ ms[k + "|" + ym] = 1; nm = x.c; } }); });
   var need = Object.keys(ms).filter(function(p){ var a = p.split("|"); return !(EZ.R[a[0]] || {})[a[1]]; });
-  var head = '<div class="card" style="margin-bottom:10px;border-left:5px solid ' + K.c + '"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><div>' + _ezB("#475569", "← 목록", "EZ.sel='';draw()", "padding:4px 10px;font-size:12.5px") + ' <b style="font-size:18px;margin-left:6px">' + esc(nm || ck) + '</b> <span class="mut" style="font-size:12px">' + K.who + ' 원장 (이지판매)</span></div>' + _ezB("#334155", "🖨 인쇄", "ezPrint('" + kind + "')", "padding:4px 10px;font-size:12.5px") + '</div></div>';
+  if(!EZ.cust && !EZ.cl){ EZ.cl = 1; _ezRef("cust").once("value").then(function(s){ EZ.cust = s.val() || {}; EZ.cl = 0; draw(); }).catch(function(){ EZ.cl = 0; EZ.cust = {}; }); }
+  var CI = (EZ.cust || {})[ck] || {}, info = [CI.g, CI.hp, CI.tel, CI.addr, CI.ceo && "대표 " + CI.ceo, CI.bno].filter(Boolean).map(function(v){ return /^0\d{1,2}-?\d{3,4}-?\d{4}$/.test(v) ? '<a href="tel:' + esc(v) + '">' + esc(v) + '</a>' : esc(v); }).join(" · ");
+  var head = '<div class="card" style="margin-bottom:10px;border-left:5px solid ' + K.c + '"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><div>' + _ezB("#475569", "← 목록", "EZ.sel='';draw()", "padding:4px 10px;font-size:12.5px") + ' <b style="font-size:18px;margin-left:6px">' + esc(nm || ck) + '</b> <span class="mut" style="font-size:12px">' + K.who + ' 원장 (이지판매)</span></div>' + _ezB("#334155", "🖨 인쇄", "ezPrint('" + kind + "')", "padding:4px 10px;font-size:12.5px") + '</div>' + (info ? '<div style="font-size:12.5px;color:#475569;margin-top:6px">' + info + '</div>' : '') + '</div>';
   if(need.length){ if(!EZ.ldg){ EZ.ldg = 1; Promise.all(need.map(function(p){ var a = p.split("|"); return _ezMonth(a[0], a[1]); })).then(function(){ EZ.ldg = 0; draw(); }).catch(function(e){ EZ.ldg = 0; toast(e.message, true); }); }
     return head + '<div class="card mut">📡 ' + need.length + '달치 불러오는 중...</div>'; }
   var L = [];
@@ -177,9 +196,9 @@ function _ezLedger(kind, ck){
   if(EZ.y) h += '<div class="mut" style="font-size:12px;margin:-4px 0 8px">' + esc(EZ.y) + '년만 보는 중 — 잔액은 이 해 안에서만 계산 · ' + '<a href="javascript:void 0" onclick="EZ.y=\'\';draw()">전체 보기</a></div>';
   var rowsH = L.map(function(o){ var x = o.x, isM = o.k !== kind, am = isM ? 0 : (x.m || 0), py = isM ? (x.m || 0) : 0; bal += am - py; sm += am; pm += py;
     var first = isM || (x.n || "") !== lastN; lastN = isM ? "" : (x.n || "");
-    if(mob) return '<div style="padding:6px 10px;border-bottom:1px solid #f1f5f9;' + (isM ? "background:#f0fdf4" : "") + '"><div style="display:flex;gap:6px;align-items:baseline"><b style="font-size:12.5px;min-width:78px;color:' + (first ? "#0f172a" : "#cbd5e1") + '">' + esc(x.d.slice(2).replace(/-/g, ".")) + '</b><span style="flex:1;font-size:14px;font-weight:700">' + (isM ? '<span style="color:' + MK.c + '">' + MK.ic + ' ' + MK.nm + '</span>' : esc(x.i || "") + (x.s ? ' <span class="mut" style="font-size:11.5px">' + esc(x.s) + '</span>' : '')) + '</span><b style="font-size:13px;color:#b91c1c">' + _ezW(bal) + '</b></div><div style="font-size:12px;color:#475569;margin-left:84px">' + (isM ? '<b style="color:' + MK.c + '">' + _ezW(py) + '</b>' : (x.q ? _ezW(x.q) + ' × ' + _ezW(x.p || 0) + ' = ' : '') + '<b>' + _ezW(am) + '</b>' + (x.t ? ' (세 ' + _ezW(x.t) + ')' : '')) + (x.mo || x.jm ? ' · ' + esc([x.mo, x.jm].filter(Boolean).join(" ")) : '') + '</div></div>';
+    if(mob) return '<div style="padding:6px 10px;border-bottom:1px solid #f1f5f9;' + (isM ? "background:#f0fdf4" : "") + '"><div style="display:flex;gap:6px;align-items:baseline"><b style="font-size:12.5px;min-width:78px;color:' + (first ? "#0f172a" : "#cbd5e1") + '">' + esc(x.d.slice(2).replace(/-/g, ".")) + '</b><span style="flex:1;font-size:14px;font-weight:700">' + (isM ? '<span style="color:' + MK.c + '">' + MK.ic + ' ' + MK.nm + '</span>' : esc(x.i || "") + (x.s ? ' <span class="mut" style="font-size:11.5px">' + esc(x.s) + '</span>' : '')) + '</span><b style="font-size:13px;color:#b91c1c">' + _ezW(bal) + '</b></div><div style="font-size:12px;color:#475569;margin-left:84px">' + (isM ? '<b style="color:' + MK.c + '">' + _ezW(py) + '</b>' : (x.q ? _ezW(x.q) + ' × ' + _ezW(x.p || 0) + ' = ' : '') + '<b>' + _ezW(am) + '</b>' + (x.t ? ' (세 ' + _ezW(x.t) + ')' : '')) + (x.pm || x.bg || x.mo || x.jm ? ' · ' + esc([x.pm, x.bg, x.mo, x.jm].filter(Boolean).join(" ")) : '') + '</div></div>';
     var td = function(v, a, ex){ return '<td style="padding:4px 7px;border-bottom:1px solid #f1f5f9;text-align:' + (a || "left") + ';white-space:nowrap;' + (ex || "") + '">' + v + '</td>'; };
-    return '<tr style="' + (isM ? "background:#f0fdf4" : first ? "border-top:2px solid #e2e8f0" : "") + '">' + td(first ? esc(x.d) : '', '', "color:#334155") + td(isM ? '' : esc(x.n || ""), "center", "color:#94a3b8;font-size:11.5px") + td(isM ? '<b style="color:' + MK.c + '">' + MK.ic + ' ' + MK.nm + '</b>' : '<b>' + esc(x.i || "") + '</b>', '', "white-space:normal") + td(esc([x.s, x.s2].filter(Boolean).join(" ")), '', "font-size:12px;color:#64748b") + td(x.q ? _ezW(x.q) : '', "right") + td(x.p ? _ezW(x.p) : '', "right") + td(x.a ? _ezW(x.a) : '', "right") + td(x.t ? _ezW(x.t) : '', "right") + td(am ? '<b>' + _ezW(am) + '</b>' : '', "right") + td(py ? '<b style="color:' + MK.c + '">' + _ezW(py) + '</b>' : '', "right") + td('<b style="color:' + (bal > 0 ? "#b91c1c" : "#475569") + '">' + _ezW(bal) + '</b>', "right") + td(esc([x.g && x.g !== "매출" && x.g !== "매입" ? "[" + x.g + "]" : "", x.mo, x.jm].filter(Boolean).join(" ")), '', "font-size:12px;color:#64748b;white-space:normal") + '</tr>'; }).join("");
+    return '<tr style="' + (isM ? "background:#f0fdf4" : first ? "border-top:2px solid #e2e8f0" : "") + '">' + td(first ? esc(x.d) : '', '', "color:#334155") + td(isM ? '' : esc(x.n || ""), "center", "color:#94a3b8;font-size:11.5px") + td(isM ? '<b style="color:' + MK.c + '">' + MK.ic + ' ' + MK.nm + '</b>' : '<b>' + esc(x.i || "") + '</b>', '', "white-space:normal") + td(esc([x.s, x.s2].filter(Boolean).join(" ")), '', "font-size:12px;color:#64748b") + td(x.q ? _ezW(x.q) : '', "right") + td(x.p ? _ezW(x.p) : '', "right") + td(x.a ? _ezW(x.a) : '', "right") + td(x.t ? _ezW(x.t) : '', "right") + td(am ? '<b>' + _ezW(am) + '</b>' : '', "right") + td(py ? '<b style="color:' + MK.c + '">' + _ezW(py) + '</b>' : '', "right") + td('<b style="color:' + (bal > 0 ? "#b91c1c" : "#475569") + '">' + _ezW(bal) + '</b>', "right") + td(esc([x.g && x.g !== "매출" && x.g !== "매입" ? "[" + x.g + "]" : "", x.pm, x.bg, x.mo, x.jm].filter(Boolean).join(" ")), '', "font-size:12px;color:#64748b;white-space:normal") + '</tr>'; }).join("");
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + [[K.nm, sm, K.c], [MK.nm, pm, MK.c], [kind === "sale" ? "받을 돈" : "줄 돈", sm - pm, "#b91c1c"]].map(function(b){ return '<div style="flex:1;min-width:120px;background:#fff;border:1.5px solid ' + b[2] + ';border-radius:10px;padding:6px 10px"><div style="font-size:12px;color:#475569;font-weight:700">' + b[0] + '</div><div style="font-size:18px;font-weight:900;color:' + b[2] + '">' + _ezW(b[1]) + '</div></div>'; }).join("") + '</div>';
   if(!L.length) return h + '<div class="card mut">자료가 없어요</div>';
   if(mob) return h + '<div class="card" style="padding:0;overflow:hidden">' + rowsH + '</div>';

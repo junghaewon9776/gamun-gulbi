@@ -205,6 +205,10 @@
         }
       }
     },
+    "ezData": {
+      ".read": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')",
+      ".write": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')"
+    },
     "busePubCfg": {
       ".read": true,
       ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
