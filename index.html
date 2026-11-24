@@ -530,6 +530,7 @@ label{display:block;font-size:10px;color:#999;margin-bottom:3px}
 <script src="yk.js?v=20261123i1"></script>
 <script src="docprint.js?v=20261118c"></script>
 <script src="vend.js?v=20261123k2"></script>
+<script src="ez.js?v=20261124a1"></script>
 <script>
 // 🖱 숫자 칸 위에서 휠 굴려도 숫자 안 바뀌게 (화면만 내려가요) — 시스템 전체
 // 💰 금액 칸 저절로 콤마 (data-won 붙은 칸) — 읽을 땐 _bsN 등이 콤마를 빼고 숫자로 읽어요
@@ -1713,6 +1714,10 @@ function mkTabs(){
   // ── 🏢 거래처 장부 (비품 거래 A01~ · 원료 구입 C01~ — 예전 엑셀 장부 모양, 미수금) — super/admin ──
   if(ME && (ME.r==="super" || ME.r==="admin") && typeof dVdBp==="function") cats.push({id:"vend",label:"🏢 거래처 장부",items:[
     {k:"vdBp",l:"📦 비품 거래"},{k:"vdRaw",l:"🐟 원료 구입"},{k:"vdDoc",l:"📁 서류철 라벨"}
+  ]});
+  // ── 📒 이지판매 자료 (이지판매 엑셀 올려서 어디서든 보기 — 매출처·매입처 원장, 품목 수량) — super/admin ──
+  if(ME && (ME.r==="super" || ME.r==="admin") && typeof dEzSale==="function") cats.push({id:"ez",label:"📒 이지판매 자료",items:[
+    {k:"ezSale",l:"📤 매출처"},{k:"ezBuy",l:"📥 매입처"},{k:"ezItem",l:"📦 품목 수량"},{k:"ezUp",l:"⬆ 자료 올리기"}
   ]});
   if(ME && ME.r!=="kid" && typeof dBsWork==="function") cats.push({id:"buse",label:"🐟 부세 작업",items:[
     {k:"bsWork",l:"건조 작업 일정"},{k:"bsStock",l:"원료 입고·재고"},{k:"bsZone",l:"건조장 자리"}
@@ -6265,6 +6270,10 @@ function _drawInner(){
   else if(CTAB=="vdBp")el.innerHTML=dVdBp();
   else if(CTAB=="vdRaw")el.innerHTML=dVdRaw();
   else if(CTAB=="vdDoc")el.innerHTML=dVdDoc();
+  else if(CTAB=="ezSale")el.innerHTML=dEzSale();
+  else if(CTAB=="ezBuy")el.innerHTML=dEzBuy();
+  else if(CTAB=="ezItem")el.innerHTML=dEzItem();
+  else if(CTAB=="ezUp")el.innerHTML=dEzUp();
   else if(CTAB=="frPlan")el.innerHTML=dFrPlan();
   else if(CTAB=="todo")el.innerHTML=dTodo();
   else if(CTAB=="kjMat")el.innerHTML=dKjMat();
