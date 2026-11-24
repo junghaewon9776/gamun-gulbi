@@ -160,6 +160,31 @@
       "$uid": {
         ".read": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid",
         ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid"
+      },
+      "_battle": {
+        ".read": "auth != null && auth.token.sys === 'gamun'",
+        "$room": {
+          ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && ((!data.exists() && newData.child('host').val() === auth.uid) || data.child('host').val() === auth.uid)",
+          "p": {
+            "$uid": {
+              ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid"
+            }
+          },
+          "a": {
+            "$q": {
+              "$uid": {
+                ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid && !data.exists()"
+              }
+            }
+          },
+          "bz": {
+            "$q": {
+              "$uid": {
+                ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r === 'kid' && auth.uid === $uid && !data.exists()"
+              }
+            }
+          }
+        }
       }
     },
     "busePub": {
@@ -205,13 +230,22 @@
         }
       }
     },
-    "ezData": {
-      ".read": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')",
-      ".write": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')"
-    },
     "busePubCfg": {
       ".read": true,
       ".write": "auth != null && auth.token.sys === 'gamun' && auth.token.r !== 'kid'"
+    },
+    "YkInfo": {
+      ".read": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')",
+      ".write": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')",
+      "$n": {
+        "$f": {
+          ".validate": "newData.isString() && newData.val().length <= 300"
+        }
+      }
+    },
+    "ezData": {
+      ".read": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')",
+      ".write": "auth != null && auth.token.sys === 'gamun' && (auth.token.r === 'super' || auth.token.r === 'admin')"
     }
   }
 }
