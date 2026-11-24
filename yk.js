@@ -10,6 +10,9 @@ var YK = { D: null, loading: false, cur: "", ed: null, ym: "" };
 var YK_DEF = { rate: { 굴비: 600, 부세: 700 }, string: { price: 0, per: 0 }, salt: { pct: 7, price: 0 }, freeze: { mode: "kg", val: 0 }, pack: { val: 0 }, misc: { mode: "amt", val: 0 }, lblPer: 3 };
 function _ykS(){ return YK.D || {}; }
 function _ykSet(){ var s = _ykS().set || {}, o = JSON.parse(JSON.stringify(YK_DEF)); Object.keys(s).forEach(function(k){ o[k] = typeof s[k] === "object" && s[k] ? Object.assign({}, o[k], s[k]) : s[k]; }); return o; }
+// 소금 값: 설정은 20kg 1포당(salt.bag) — 예전 kg당(salt.price)만 있으면 그걸 씀
+function _ykSaltBag(st){ var b = st.salt.bag; return b !== "" && b != null ? _bsN(b) : _bsN(st.salt.price) * 20; }
+function _ykSaltKgWon(st){ return _ykSaltBag(st) / 20; }
 function _ykSaltPct(st, kind){ var b = st.salt.pctB; return kind === "부세" && b !== "" && b != null ? _bsN(b) : _bsN(st.salt.pct); }
 function _ykRef(p){ return fbDb.ref("/main/Yk" + (p ? "/" + p : "")); }
 function _ykKey(s){ return String(s || "").trim().replace(/[.#$\[\]\/]/g, "_"); }
@@ -52,7 +55,7 @@ function _ykCalc(w){
   o.pd = o.pd || 0; o.pmi = o.pmi || 0;
   o.actual = w.actual !== "" && w.actual != null ? _bsN(w.actual) : (o.hasReal ? o.pmi : o.mi);
   o.diff = o.actual - o.matMi;
-  var c = { mat: o.matCost, weave: o.weave, labor: _bsN(w.labor), string: _bsN(st.string.per) ? o.doo * _bsN(st.string.price) / _bsN(st.string.per) : 0, salt: o.saltKg * _bsN(st.salt.price),
+  var c = { mat: o.matCost, weave: o.weave, labor: _bsN(w.labor), string: _bsN(st.string.per) ? o.doo * _bsN(st.string.price) / _bsN(st.string.per) : 0, salt: o.saltKg * _ykSaltKgWon(st),
     freeze: st.freeze.mode === "kg" ? o.matKg * _bsN(st.freeze.val) : st.freeze.mode === "box" ? o.boxes * _bsN(st.freeze.val) : st.freeze.mode === "doo" ? o.doo * _bsN(st.freeze.val) : _bsN(st.freeze.val),
     pack: o.boxes * _bsN(st.pack.val) };
   var sub = Object.keys(c).reduce(function(s, k){ return s + c[k]; }, 0);
@@ -374,13 +377,13 @@ function ykPayDel(id){ if(!confirm("이 지급 기록을 지울까요?")) return
 // ════════ ⚙️ 엮거리 설정 (원가 단가 · 정품 · 원료 · 이모 명단) ════════
 function dYkSet(){
   var g = _ykGate(); if(g) return g;
-  var st = _ykSet(), S = _ykS(), can = _ykCan(), N = function(lb, path, v, ex){ var won = /^(rate\.|string\.price|salt\.price|freeze\.val|pack\.val)/.test(path); return '<label style="font-size:13px">' + lb + '<input ' + (can ? '' : 'disabled ') + (won ? 'type="text" inputmode="numeric" data-won' : 'type="number" step="any"') + ' value="' + esc(won ? _wonFmt(v) : v) + '" data-p="' + path + '" class="ykSetIn" ' + (ex || "") + ' style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; };
+  var st = _ykSet(), S = _ykS(), can = _ykCan(), N = function(lb, path, v, ex){ var won = /^(rate\.|string\.price|salt\.price|salt\.bag|freeze\.val|pack\.val)/.test(path); return '<label style="font-size:13px">' + lb + '<input ' + (can ? '' : 'disabled ') + (won ? 'type="text" inputmode="numeric" data-won' : 'type="number" step="any"') + ' value="' + esc(won ? _wonFmt(v) : v) + '" data-p="' + path + '" class="ykSetIn" ' + (ex || "") + ' style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px;box-sizing:border-box"></label>'; };
   var Sel = function(path, v, opts){ return '<select ' + (can ? '' : 'disabled ') + 'data-p="' + path + '" class="ykSetIn" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:5px">' + opts.map(function(o){ return '<option value="' + o[0] + '"' + (v === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select>'; };
   var h = _ykHead("⚙️ 엮거리 설정", "원가 단가 · 정품 · 원료 · 이모 명단 · 라벨 모양", can ? _bsB("#7c3aed", "🏷 라벨 모양 고치기", "ykLblEdit()", "padding:9px 14px") + " " + _bsB("#16a34a", "💾 원가 설정 저장", "ykSetSave()", "padding:9px 18px") : "");
   h += '<div class="card" style="margin-bottom:10px"><b>💰 원가 단가</b><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px">';
   h += N("엮거리 값 · 굴비 (두름당)", "rate.굴비", st.rate.굴비) + N("엮거리 값 · 부세 (두름당)", "rate.부세", st.rate.부세);
   h += N("엮거리 끈 한 다발 값 (원)", "string.price", st.string.price) + N("한 다발로 엮는 두름 수", "string.per", st.string.per);
-  h += N("굴비 소금 비율 (%)", "salt.pct", st.salt.pct) + N("부세 소금 비율 (%)", "salt.pctB", st.salt.pctB != null && st.salt.pctB !== "" ? st.salt.pctB : st.salt.pct) + N("소금 kg당 값 (원)", "salt.price", st.salt.price);
+  h += N("굴비 소금 비율 (%)", "salt.pct", st.salt.pct) + N("부세 소금 비율 (%)", "salt.pctB", st.salt.pctB != null && st.salt.pctB !== "" ? st.salt.pctB : st.salt.pct) + N("소금 20kg 1포당 값 (원)", "salt.bag", _ykSaltBag(st));
   h += '<label style="font-size:13px">냉동비 기준' + Sel("freeze.mode", st.freeze.mode, [["kg", "원료 kg당"], ["box", "박스당"], ["doo", "두름당"], ["amt", "한 작업에 얼마"]]) + '</label>' + N("냉동비 (원)", "freeze.val", st.freeze.val);
   h += N("포장비 · 박스당 (박스·트레이·비닐·라벨)", "pack.val", st.pack.val);
   h += '<label style="font-size:13px">잡비 기준' + Sel("misc.mode", st.misc.mode, [["amt", "한 작업에 얼마 (원)"], ["pct", "원가의 % "]]) + '</label>' + N("잡비 (원 또는 %)", "misc.val", st.misc.val) + N("박스당 라벨 장수", "lblPer", st.lblPer);
