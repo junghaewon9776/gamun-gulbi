@@ -1,6 +1,6 @@
 // ════════ 🥬 김장 — 포기 수만 넣으면 재료 양·비용 자동 · 4일 작업 일정·달력 · 인쇄 ════════
 //   (엑셀 '김장김치 담는법 200포기 기준' 을 웹으로 — 부세 작업은 뺌)
-//   /main/Kimjang/{해} = { pogi(올해 포기 수), base(재료 양 기준 포기 수 = 200), day3(담는 날 = 3일차),
+//   /main/Kimjang/{해} = { pogi(올해 포기 수), base(재료 양 기준 포기 수 = 200), day3(담는 날 = 3일차), dd:{0~2: 따로 옮긴 날짜 — 없으면 담는 날에서 하루씩 앞},
 //                          mat:{id:{nm, q(base 포기일 때 양), u(단위), how(손질), note, price(단위당 단가), cap(솥 하나에 최대 양 → 솥 수 = 양÷cap 올림), div(솥 수 고정 — 예전), potOf(이 재료 양 = 그 재료 솥 수 · 육수), ok(준비됨), ord}},
 //                          steps:{id:{d(0~3일차), nm, ok, ord}}, todo:{일차: 할 일 id} }
 //   재료 양 = q × 포기 ÷ base (올림·내림·반올림 없이 계산 그대로 — 사용자 요청) · 금액 = 양 × 단가 · 한 포기당 = 총비용 ÷ 포기
@@ -94,7 +94,7 @@ function _kjCost(S){
   return o;
 }
 function _kjAdd(dt, n){ var d = new Date(dt + "T00:00:00"); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
-function _kjDays(S){ if(!S.day3) return []; return [0, 1, 2, 3].map(function(i){ return _kjAdd(S.day3, i - 3); }); }
+function _kjDays(S){ if(!S.day3) return []; var O = S.dd || {}; return [0, 1, 2, 3].map(function(i){ return i < 3 && O[i] ? O[i] : _kjAdd(S.day3, i - 3); }); }   // 날마다 따로 옮길 수 있음 (일이 늘 정해진 게 아니라서)
 function _kjMD(dt){ var w = "일월화수목금토"[new Date(dt + "T00:00:00").getDay()]; return (+dt.slice(5, 7)) + "/" + (+dt.slice(8, 10)) + "(" + w + ")"; }
 function _kjStepKs(S, d){ var T = S.steps || {}; return Object.keys(T).filter(function(k){ return +T[k].d === d; }).sort(function(a, b){ return _kjN(T[a].ord) - _kjN(T[b].ord) || (a < b ? -1 : 1); }); }
 
@@ -192,7 +192,7 @@ function kjMatDel(k){ var m = (_kjS().mat || {})[k] || {}; if(!confirm((m.nm || 
 function dKjCal(){
   var w = _kjWait(); if(w) return w;
   var S = _kjS(), can = _kjCan(), today = _kjToday();
-  var h = '<div class="card" style="margin-bottom:10px;background:#f0fdf4;border:1px solid #86efac"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><b style="font-size:18px;color:#15803d">🥬 김장 — 일정·달력</b><div class="mut" style="font-size:12.5px">담는 날만 고르면 준비(0일차)·절이기·손질·버무리기 날짜가 저절로 나와요</div></div>' + _kjYearBar() + '</div></div>';
+  var h = '<div class="card" style="margin-bottom:10px;background:#f0fdf4;border:1px solid #86efac"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><b style="font-size:18px;color:#15803d">🥬 김장 — 일정·달력</b><div class="mut" style="font-size:12.5px">담는 날만 고르면 날짜가 저절로 나와요 · 날마다 따로 옮길 수 있고, 할 일은 ⠿ 끌어서 다른 날로</div></div>' + _kjYearBar() + '</div></div>';
   if(!S.mat && !S.steps) return h + _kjEmpty();
   var D = _kjDays(S);
   h += '<div class="card" style="margin-bottom:10px;border:2px solid #15803d"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px">🗓 담는 날 (3일차)</b>'
@@ -209,8 +209,10 @@ function dKjCal(){
   var T = S.steps || {}, mob = window.innerWidth < 760;
   h += '<div style="display:grid;grid-template-columns:' + (mob ? "1fr" : "repeat(auto-fit,minmax(240px,1fr))") + ';gap:8px">';
   [0, 1, 2, 3].forEach(function(d){ var ks = _kjStepKs(S, d), n = ks.filter(function(k){ return T[k].ok; }).length, c = KJ_DC[d], isT = D[d] === today;
-    h += '<div class="card" style="padding:0;overflow:hidden;margin:0;border:' + (isT ? "3px solid #f59e0b" : "1px solid " + c) + '"><div style="background:' + c + ';color:#fff;padding:7px 10px;display:flex;justify-content:space-between;align-items:center"><b style="font-size:15px">' + d + '일차 · ' + KJ_DAY[d] + (D[d] ? ' <span style="font-weight:700;font-size:13px">' + _kjMD(D[d]) + (isT ? " 오늘" : "") + '</span>' : '') + '</b><b style="font-size:13px">' + n + '/' + ks.length + '</b></div>';
-    h += ks.map(function(k){ var s = T[k]; return '<div style="display:flex;align-items:flex-start;gap:7px;padding:6px 10px;border-bottom:1px solid #f1f5f9;' + (s.ok ? "background:#f8fafc" : "") + '"><input type="checkbox" class="kjSt' + d + '"' + (s.ok ? " checked" : "") + (can ? ' onclick="kjStepOk(\'' + k + '\',this.checked)"' : " disabled") + ' style="width:18px;height:18px;margin-top:1px;flex:none"><span style="flex:1;font-size:14px;' + (s.ok ? "color:#94a3b8;text-decoration:line-through" : "") + '">' + esc(s.nm) + '</span>' + (can ? '<a href="javascript:void 0" onclick="kjStepEdit(\'' + k + '\')" style="font-size:12px;color:#475569;text-decoration:none">✏</a>' : '') + '</div>'; }).join("");
+    var mv = d < 3 && (S.dd || {})[d];
+    h += '<div class="card"' + (can ? ' ondragover="event.preventDefault();this.style.outline=\'3px dashed ' + c + '\'" ondragleave="this.style.outline=\'\'" ondrop="kjDrop(event,' + d + ',\'\')"' : '') + ' style="padding:0;overflow:hidden;margin:0;border:' + (isT ? "3px solid #f59e0b" : "1px solid " + c) + '"><div style="background:' + c + ';color:#fff;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:15px">' + d + '일차 · ' + KJ_DAY[d] + (D[d] && !can ? ' <span style="font-weight:700;font-size:13px">' + _kjMD(D[d]) + '</span>' : '') + (isT ? ' <span style="font-size:12px;background:#f59e0b;border-radius:5px;padding:0 5px">오늘</span>' : '') + (mv ? ' <span style="font-size:11px;background:rgba(255,255,255,.25);border-radius:5px;padding:0 5px">옮김</span>' : '') + '</b><b style="font-size:13px">' + n + '/' + ks.length + '</b></div>';
+    if(can && D[d]) h += '<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:12.5px"><span class="mut">날짜</span><input type="date" value="' + D[d] + '" onchange="kjDayAt(' + d + ',this.value)" style="padding:3px 6px;font-size:14px;font-weight:800;border:1.5px solid ' + c + ';border-radius:6px"><b style="color:' + c + '">' + _kjMD(D[d]).replace(/^[^(]*/, "") + '</b>' + (mv ? '<a href="javascript:void 0" onclick="kjDayAt(' + d + ',\'\')" style="font-size:12px;color:#dc2626;margin-left:auto">↺ 원래대로</a>' : '') + '</div>';
+    h += ks.map(function(k){ var s = T[k]; return '<div' + (can ? ' draggable="true" ondragstart="KJ.drag=\'' + k + '\';event.dataTransfer.effectAllowed=\'move\';try{event.dataTransfer.setData(\'text/plain\',\'' + k + '\')}catch(e){}" ondragover="event.preventDefault()" ondrop="event.stopPropagation();kjDrop(event,' + d + ',\'' + k + '\')" title="끌어서 다른 날·순서로 옮겨요"' : '') + ' style="display:flex;align-items:flex-start;gap:7px;padding:6px 10px;border-bottom:1px solid #f1f5f9;' + (can ? "cursor:grab;" : "") + (s.ok ? "background:#f8fafc" : "") + '">' + (can ? '<span style="color:#cbd5e1;font-size:14px;line-height:18px;flex:none">⠿</span>' : '') + '<input type="checkbox" class="kjSt' + d + '"' + (s.ok ? " checked" : "") + (can ? ' onclick="kjStepOk(\'' + k + '\',this.checked)"' : " disabled") + ' style="width:18px;height:18px;margin-top:1px;flex:none"><span style="flex:1;font-size:14px;' + (s.ok ? "color:#94a3b8;text-decoration:line-through" : "") + '">' + esc(s.nm) + '</span>' + (can ? '<a href="javascript:void 0" onclick="kjStepEdit(\'' + k + '\')" style="font-size:12px;color:#475569;text-decoration:none">✏</a>' : '') + '</div>'; }).join("");
     if(can) h += '<div style="padding:6px 10px">' + _kjB(c, "+ " + d + "일차 할 일", "kjStepEdit('', " + d + ")", "padding:3px 10px;font-size:12.5px") + '</div>';
     h += '</div>'; });
   return h + '</div>';
@@ -230,7 +232,24 @@ function _kjMonth(D, today){
   return h + '</div>';
 }
 function kjDay(v){
-  if(!v) return; _kjPut("day3", v, "🗓 담는 날 " + _kjMD(v)).then(function(){ if(_kjS().todo) kjTodo(1); draw(); });
+  if(!v) return; var S = _kjS(), O = S.dd || {}, ks = Object.keys(O).filter(function(i){ return O[i]; }), p = [];
+  if(S.day3 && ks.length && confirm("따로 옮겨 둔 날(" + ks.map(function(i){ return i + "일차"; }).join("·") + ")도 담는 날 바뀐 만큼 같이 옮길까요?\n(취소 = 그 날짜는 그대로)")){
+    var n = Math.round((new Date(v + "T00:00:00") - new Date(S.day3 + "T00:00:00")) / 864e5); ks.forEach(function(i){ p.push(_kjPut("dd/" + i, _kjAdd(O[i], n))); }); }
+  Promise.all(p).then(function(){ return _kjPut("day3", v, "🗓 담는 날 " + _kjMD(v)); }).then(function(){ if(_kjS().todo) kjTodo(1); draw(); });
+}
+// 하루만 따로 옮기기 (빈 값 = 원래대로: 담는 날에서 하루씩 앞)
+function kjDayAt(d, v){
+  if(d === 3) return kjDay(v);
+  _kjPut("dd/" + d, v || null, v ? "🗓 " + d + "일차 " + KJ_DAY[d] + " → " + _kjMD(v) : "↺ " + d + "일차 원래 날짜로").then(function(){ if(_kjS().todo) kjTodo(2); draw(); });
+}
+// 할 일 끌어 놓기 — 다른 날로 · 순서 바꾸기 (before = 이 줄 앞에, 빈 값 = 그날 맨 끝)
+function kjDrop(ev, d, before){
+  ev.preventDefault(); var el = ev.currentTarget; if(el && el.style) el.style.outline = "";
+  var k = KJ.drag; KJ.drag = ""; if(!k || k === before) return;
+  var S = _kjS(), T = S.steps || {}; if(!T[k]) return;
+  var L = _kjStepKs(S, d).filter(function(x){ return x !== k; }), i = before ? L.indexOf(before) : -1; if(i < 0) i = L.length; L.splice(i, 0, k);
+  var up = {}, from = +T[k].d; up[k + "/d"] = d; L.forEach(function(x, j){ up[x + "/ord"] = j + 1; T[x].ord = j + 1; }); T[k].d = d;
+  draw(); _kjRef(_kjY() + "/steps").update(up).then(function(){ if(from !== d) toast("↔ " + T[k].nm + " → " + d + "일차 " + KJ_DAY[d]); if(S.todo) kjTodo(2); }).catch(function(e){ toast("저장 실패: " + e.message, true); });
 }
 function kjStepOk(k, on){ _kjPut("steps/" + k + "/ok", on ? true : null); clearTimeout(KJ.okT); KJ.okT = setTimeout(draw, 250); }
 function kjStepEdit(k, d0){
@@ -257,7 +276,7 @@ function kjTodo(quiet){
     ids[d] = id; up["tasks/" + id] = { nm: "🥬 김장 " + d + "일차 — " + KJ_DAY[d], cat: "김장", freq: "once", dt: dt, lead: d === 0 ? 7 : 1, since: today < dt ? today : dt, note: (d === 0 ? "재료는 🥬 김장 > 재료·비용 · " : "") + nms.slice(0, 300) }; });
   fbDb.ref("/main/Todo").update(up).then(function(){ return _kjRef(y + "/todo").set(ids); }).then(function(){
     KJ.ALL[y].todo = ids; if(typeof TD === "object"){ TD.D = null; if(typeof _tdLoad === "function") _tdLoad(); }
-    toast(quiet ? "📅 할 일 날짜도 같이 바꿨어요" : "📅 할 일에 4개 넣었어요 (분류 김장)"); draw(); }).catch(function(e){ toast("할 일 저장 실패: " + e.message, true); });
+    if(quiet !== 2) toast(quiet ? "📅 할 일 날짜도 같이 바꿨어요" : "📅 할 일에 4개 넣었어요 (분류 김장)"); draw(); }).catch(function(e){ toast("할 일 저장 실패: " + e.message, true); });
 }
 
 // ════════ 🖨 인쇄 — 재료표(mat) · 준비·작업표(step) 따로 (둘 다 비우면 한 장에 같이) ════════
