@@ -3,13 +3,13 @@
 //   /main/Kimjang/{해} = { pogi(올해 포기 수), base(재료 양 기준 포기 수 = 200), day3(담는 날 = 3일차),
 //                          mat:{id:{nm, q(base 포기일 때 양), u(단위), how(손질), note, price(단위당 단가), cap(솥 하나에 최대 양 → 솥 수 = 양÷cap 올림), div(솥 수 고정 — 예전), potOf(이 재료 양 = 그 재료 솥 수 · 육수), ok(준비됨), ord}},
 //                          steps:{id:{d(0~3일차), nm, ok, ord}}, todo:{일차: 할 일 id} }
-//   재료 양 = q × 포기 ÷ base · 개·단처럼 나눠 못 사는 건 올림 · 금액 = 양 × 단가 · 한 포기당 = 총비용 ÷ 포기
+//   재료 양 = q × 포기 ÷ base (올림·내림·반올림 없이 계산 그대로 — 사용자 요청) · 금액 = 양 × 단가 · 한 포기당 = 총비용 ÷ 포기
 //   📅 할 일에 넣기 = /main/Todo/tasks 에 '한 번' 할 일 4개 (분류 김장) → 할 일 달력·텔레그램 알림에 같이 나옴
 var KJ = { ALL: null, loading: false, err: "", y: "" };
 var KJ_DAY = ["준비", "절이기", "손질", "버무리기"];
 var KJ_DC = ["#0369a1", "#b45309", "#7c3aed", "#15803d"];   // 일차별 색
 var KJ_UNIT = ["kg", "포기", "개", "단", "줌", "되", "포", "통", "L"];
-var KJ_CONT = { kg: 1, g: 1, L: 1, ml: 1 };   // 이 단위는 소수점 그대로 (나머진 올림)
+var KJ_CONT = { kg: 1, g: 1, L: 1, ml: 1 };   // (예전: 이 단위만 소수점 — 지금은 모든 단위 소수 한 자리 그대로)
 if(typeof TD_CAT === "object" && !TD_CAT["김장"]) TD_CAT["김장"] = "#15803d";
 
 // 엑셀 그대로 (200포기 기준)
@@ -53,7 +53,8 @@ function _kjY(){ return KJ.y || _kjToday().slice(0, 4); }
 function _kjS(){ return (KJ.ALL || {})[_kjY()] || {}; }
 function _kjB(bg, lb, on, ex){ return '<button class="btn" style="background:' + bg + ';color:#fff;font-weight:800;' + (ex || "") + '" onclick="' + on + '">' + lb + '</button>'; }
 function _kjWon(n){ return Math.round(n).toLocaleString("ko-KR") + "원"; }
-function _kjNum(n){ return (Math.round(n * 10) / 10).toLocaleString("ko-KR"); }
+function _kjNum(n){ return _kjX(n).toLocaleString("ko-KR", { maximumFractionDigits: 3 }); }
+function _kjX(n){ return Math.round(n * 1e6) / 1e6; }   // 계산 찌꺼기(0.30000000004)만 지움 — 올림·내림 아님
 function _kjLoad(){
   if(KJ.loading) return; KJ.loading = true; KJ.err = "";
   _kjRef().once("value").then(function(s){ KJ.loading = false; KJ.ALL = s.val() || {}; if(/^kj/.test(CTAB)) draw(); })
@@ -76,9 +77,13 @@ function _kjPut(path, val, msg){
 function _kjBase(S){ return _kjN(S.base) || 200; }
 function _kjPogi(S){ return _kjN(S.pogi) || _kjBase(S); }
 function _kjQty(m, S){ var lk = m.potOf && (S.mat || {})[m.potOf]; if(lk && lk !== m) return _kjPots(lk, S) || 0;   // 육수 = 찹쌀 솥 수
-  var x = _kjN(m.q) * _kjPogi(S) / _kjBase(S); return KJ_CONT[m.u] ? Math.round(x * 10) / 10 : Math.ceil(x - 1e-9); }
-function _kjPots(m, S){ var c = _kjN(m.cap); if(c > 0){ var raw = _kjN(m.q) * _kjPogi(S) / _kjBase(S); return Math.max(1, Math.ceil(raw / c - 1e-9)); } return Math.round(_kjN(m.div)); }   // 솥 수
-function _kjDiv(m, S){ if(m.potOf) return ""; var n = _kjPots(m, S); if(!n || (n < 2 && !_kjN(m.cap))) return ""; var x = _kjQty(m, S) / n; return n + "솥 · 솥마다 " + _kjNum(Math.round(x * 10) / 10) + (m.u || "") + (_kjN(m.cap) ? " (최대 " + _kjNum(_kjN(m.cap)) + (m.u || "") + ")" : ""); }   // 예: 3솥 · 솥마다 2.4kg (최대 2.4kg)
+  var x = _kjN(m.q) * _kjPogi(S) / _kjBase(S); return _kjX(x); }   // 올림·내림 없이 그대로 (350포기 무 26.25kg · 청각 12.25줌)
+function _kjPots(m, S){ var c = _kjN(m.cap); if(c > 0){ var raw = _kjN(m.q) * _kjPogi(S) / _kjBase(S); return _kjX(raw / c); } return Math.round(_kjN(m.div)); }   // 솥 수 소수 그대로 (7kg ÷ 2kg = 3.5솥 · 6.6kg = 3.3솥)
+function _kjDiv(m, S){ if(m.potOf) return ""; var n = _kjPots(m, S), q = _kjQty(m, S), c = _kjN(m.cap), u = m.u || ""; if(!n || (n < 2 && !c)) return "";
+  if(c > 0){ var full = Math.floor(q / c + 1e-9), rest = _kjX(q - full * c);   // 꽉 찬 솥 + 남은 것
+    if(rest <= 0) return n + "솥 · 솥마다 " + _kjNum(c) + u;
+    return n + "솥 · " + (full ? _kjNum(c) + u + "씩 " + full + "솥 + " : "") + "마지막 솥 " + _kjNum(rest) + u; }
+  return n + "솥 · 솥마다 " + _kjNum(q / n) + u; }   // 예: 3.5솥 · 2kg씩 3솥 + 마지막 솥 1kg
 function _kjMatKs(S){ var M = S.mat || {}; return Object.keys(M).sort(function(a, b){ return _kjN(M[a].ord) - _kjN(M[b].ord) || (a < b ? -1 : 1); }); }
 function _kjIsCab(m){ return String(m.nm || "").replace(/\s/g, "") === "배추"; }
 function _kjCost(S){
