@@ -59,7 +59,7 @@ function btLobby(){
       if(now - (R.ct || 0) > 3 * 3600000) return;   // 3시간 지난 방은 안 보임
       var ps = R.p || {}, n = Object.keys(ps).length, mine = !!ps[KC.uid];
       var watchB = BT_B("#0f766e", "btWatch('" + id + "')", "👀 관전");
-      h += '<div style="background:#fff;border-radius:14px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;border:2px solid ' + (mine ? "#f59e0b" : "#e2e8f0") + '"><div style="flex:1"><b style="font-size:19px">' + (R.mode === "buzz" ? "🔔 " : "⚡ ") + esc(R.title || "") + '</b><div style="color:#64748b;font-size:14px">👑 ' + esc(R.hostNm || "") + ' · ' + R.n + '문제 · 👦 ' + n + '명' + (R.st !== "wait" ? " · 하는 중" : "") + '</div></div>'
+      h += '<div style="background:#fff;border-radius:14px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;border:2px solid ' + (mine ? "#f59e0b" : "#e2e8f0") + '"><div style="flex:1"><b style="font-size:19px">' + (R.mode === "cw" ? "" : R.mode === "chain" ? "🗣 " : R.mode === "buzz" ? "🔔 " : "⚡ ") + esc(R.title || "") + '</b><div style="color:#64748b;font-size:14px">👑 ' + esc(R.hostNm || "") + ' · ' + (R.mode === "chain" ? "이어서 대기" : R.mode === "cw" ? "낱말 " + R.n + "개" : R.n + '문제') + ' · 👦 ' + n + '명' + (R.st !== "wait" ? " · 하는 중" : "") + '</div></div>'
         + '<div style="display:flex;flex-direction:column;gap:6px">' + (R.st === "wait" || mine ? BT_B(mine ? "#b45309" : "#1d4ed8", "btJoin('" + id + "')", mine ? "다시 들어가기" : "들어가기") : "") + (mine ? "" : watchB) + '</div></div>';
     });
     var el = document.getElementById("btRooms"); if(el) el.innerHTML = h || '<div style="text-align:center;color:#94a3b8;padding:24px">아직 열린 방이 없어요. 방을 만들어 봐요!</div>';
@@ -72,19 +72,24 @@ function _btLvs(sub){
   if(sub === "h") return (WSL.han || []).map(function(x){ return { id: x.id, t: x.t }; });
   if(sub === "e") return (WSL.eng || []).map(function(x){ return { id: x.id, t: x.t }; });
   if(sub === "g") return BT_GAMES;
+  if(sub === "w") return BT_NLV;
+  if(sub === "x") return typeof CW_SETS !== "undefined" ? CW_SETS : [];
   return ABC_LV.map(function(x){ return { id: x.id, t: x.t }; });
 }
 function btMake(){
   var P = BT.pick, b = _btBox(), L = _btLvs(P.sub);
+  if(P.mode === "chain" && P.sub !== "w") P.mode = "speed"; if(!P.ck) P.ck = "nat"; if(!P.tm) P.tm = 5;
+  if(P.sub === "x" && [6, 8, 10, 12].indexOf(P.n) < 0) P.n = 10; if(P.sub !== "x" && [5, 10, 15, 20].indexOf(P.n) < 0) P.n = 10;
   if(!L.some(function(x){ return x.id === P.lv; })) P.lv = L[0] ? L[0].id : "";
-  var tab = function(k, t){ var on = P.sub === k; return '<button onclick="BT.pick.sub=\'' + k + '\';btMake()" style="flex:1;border:0;border-radius:10px;padding:10px 4px;font-size:17px;font-weight:900;background:' + (on ? "#1e3a8a" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#1e293b") + '">' + t + '</button>'; };
+  var tab = function(k, t){ var on = P.sub === k; return '<button onclick="BT.pick.sub=\'' + k + '\';btMake()" style="flex:1 1 28%;border:0;border-radius:10px;padding:10px 4px;font-size:17px;font-weight:900;background:' + (on ? "#1e3a8a" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#1e293b") + '">' + t + '</button>'; };
   var opt = function(key, v, t){ var on = P[key] === v; return '<button onclick="BT.pick.' + key + '=' + JSON.stringify(v).replace(/"/g, "'") + ';btMake()" style="flex:1;border:0;border-radius:10px;padding:10px 4px;font-size:16px;font-weight:900;background:' + (on ? "#7c3aed" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#1e293b") + '">' + t + '</button>'; };
   b.innerHTML = '<div style="max-width:620px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:22px">➕ 방 만들기</b>' + BT_B("#475569", "btLobby()", "◀ 뒤로") + '</div>'
-    + '<div style="font-weight:900;margin:8px 0 6px">① 과목</div><div style="display:flex;gap:6px">' + tab("m", "🔢 수학") + tab("h", "🈶 한자") + tab("e", "🔤 영어") + tab("a", "🔤 ABC") + tab("g", "🎮 게임") + '</div>'
-    + '<div style="font-weight:900;margin:14px 0 6px">② 주제</div><select id="btLv" onchange="BT.pick.lv=this.value" style="width:100%;font-size:18px;padding:10px;border-radius:10px">' + L.map(function(x){ return '<option value="' + esc(x.id) + '"' + (x.id === P.lv ? " selected" : "") + '>' + esc(x.t) + '</option>'; }).join("") + '</select>'
+    + '<div style="font-weight:900;margin:8px 0 6px">① 과목</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + tab("m", "🔢 수학") + tab("h", "🈶 한자") + tab("e", "🔤 영어") + tab("a", "🔤 ABC") + tab("g", "🎮 게임") + tab("w", "🌍 나라") + tab("x", "✏️ 가로세로") + '</div>'
+    + (P.mode === "chain" ? '' : '<div style="font-weight:900;margin:14px 0 6px">② 주제</div><select id="btLv" onchange="BT.pick.lv=this.value" style="width:100%;font-size:18px;padding:10px;border-radius:10px">' + L.map(function(x){ return '<option value="' + esc(x.id) + '"' + (x.id === P.lv ? " selected" : "") + '>' + esc(x.t) + '</option>'; }).join("") + '</select>')
     + (P.sub === "a" ? '<div style="font-weight:900;margin:14px 0 6px">🔊 문제 내는 법</div><div style="display:flex;gap:6px">' + opt("how", "mix", "🔀 섞어서<br><small>아래 셋이 골고루</small>") + opt("how", "listen", "🔊 듣고 고르기<br><small>소리 듣고 글자 찾기</small>") + '</div><div style="display:flex;gap:6px;margin-top:6px">' + opt("how", "type", "✍️ 듣고 쓰기<br><small>들은 글자를 직접 쳐요</small>") + opt("how", "see", "👀 보고 고르기<br><small>소문자·소리 찾기</small>") + '</div>' : '')
-    + '<div style="font-weight:900;margin:14px 0 6px">③ 놀이 방식</div><div style="display:flex;gap:6px">' + opt("mode", "speed", "⚡ 스피드<br><small>다 같이 풀고 빠른 순서로 점수</small>") + opt("mode", "buzz", "🔔 먼저 누르기<br><small>먼저 누른 사람이 답하기</small>") + '</div>'
-    + '<div style="font-weight:900;margin:14px 0 6px">④ 문제 수</div><div style="display:flex;gap:6px">' + [5, 10, 15, 20].map(function(n){ return opt("n", n, n + "문제"); }).join("") + '</div>'
+    + (P.sub === "x" ? '<div style="font-weight:900;margin:14px 0 6px">③ 시간</div><div style="display:flex;gap:6px">' + [3, 5, 8].map(function(m){ return opt("tm", m, m + "분"); }).join("") + '</div><div style="color:#475569;font-size:15px;margin-top:6px">뜻풀이를 보고 낱말을 써요 · 먼저 맞힌 사람이 글자 수만큼 점수</div>' : '') + (P.sub === "x" ? '' : '<div style="font-weight:900;margin:14px 0 6px">③ 놀이 방식</div><div style="display:flex;gap:6px">' + opt("mode", "speed", "⚡ 스피드<br><small>다 같이 풀고 빠른 순서로 점수</small>") + opt("mode", "buzz", "🔔 먼저 누르기<br><small>먼저 누른 사람이 답하기</small>") + (P.sub === "w" ? opt("mode", "chain", "🗣 이어서 대기<br><small>돌아가며 이름 대기</small>") : "") + '</div>'
+    + (P.mode === "chain" ? '<div style="font-weight:900;margin:14px 0 6px">🗣 무엇을 댈까요?</div><div style="display:flex;gap:6px">' + opt("ck", "nat", "🏳 나라 이름") + opt("ck", "cap", "🏙 수도 이름") + '</div><div style="color:#475569;font-size:15px;margin-top:6px">돌아가며 하나씩 써요 · 이미 나온 이름은 안 돼요 · ' + (BT_CH_LIM / 1000) + '초 안에 못 쓰면 ❤️ 하나 빠져요 (❤️ 3개)</div>' : ''))
+    + (P.mode === "chain" ? '' : '<div style="font-weight:900;margin:14px 0 6px">④ 문제 수</div><div style="display:flex;gap:6px">' + (P.sub === "x" ? [6, 8, 10, 12] : [5, 10, 15, 20]).map(function(n){ return opt("n", n, n + (P.sub === "x" ? "낱말" : "문제")); }).join("") + '</div>')
     + BT_B("#15803d", "btCreate()", "✅ 방 열기", "width:100%;margin-top:18px;font-size:22px;padding:16px") + '</div>';
 }
 
@@ -98,6 +103,7 @@ function _btQ(q, right, wrong){ var c = shuffle([String(right)].concat(wrong)); 
 function btMakeQs(sub, lvId, n, how){
   var qs = [];
   if(sub === "g") return btGameQs(lvId, n);
+  if(sub === "w") return btNationQs(lvId, n);
   if(sub === "m"){
     var x = mLv(lvId); if(!x) return [];
     var seen = {}, extra = [];
@@ -148,10 +154,12 @@ function btMakeQs(sub, lvId, n, how){
 }
 function btCreate(){
   var P = BT.pick, sel = document.getElementById("btLv"); if(sel) P.lv = sel.value;
+  if(P.sub === "x") return _btCwCreate();
+  if(P.mode === "chain") return _btChainCreate();
   var qs = btMakeQs(P.sub, P.lv, P.n, P.sub === "a" ? P.how : "");
   if(qs.length < 3){ alert("이 주제로는 문제를 만들기 어려워요. 다른 주제를 골라 주세요."); return; }
   var lvT = (_btLvs(P.sub).filter(function(x){ return x.id === P.lv; })[0] || {}).t || "";
-  var title = { m: "🔢 ", h: "🈶 ", e: "🔤 ", a: "🔤 ABC ", g: "🎮 " }[P.sub] + lvT + (P.sub === "a" ? ({ listen: " · 🔊 듣고 고르기", type: " · ✍️ 듣고 쓰기", mix: " · 🔀 섞어서" }[P.how] || "") : "");
+  var title = { m: "🔢 ", h: "🈶 ", e: "🔤 ", a: "🔤 ABC ", g: "🎮 ", w: "🌍 " }[P.sub] + lvT + (P.sub === "a" ? ({ listen: " · 🔊 듣고 고르기", type: " · ✍️ 듣고 쓰기", mix: " · 🔀 섞어서" }[P.how] || "") : "");
   var R = { host: KC.uid, hostNm: KC.name, ct: _btTS(), title: title, sub: P.sub, lv: P.lv, how: P.sub === "a" ? (P.how || "mix") : "", mode: P.mode, n: qs.length, qs: qs, st: "wait", cur: 0, ph: "q", qt: 0, p: {} };
   R.p[KC.uid] = { nm: KC.name };
   // 내가 예전에 만든 방은 정리
@@ -186,10 +194,14 @@ function btJoin(id, mine, watch){
 function btStart(){
   var R = BT.R; if(!R || R.host !== KC.uid) return;
   if(Object.keys(R.p || {}).length < 2 && !confirm("혼자예요. 그래도 시작할까요?")) return;
+  if(R.mode === "chain") return _btChainStart(R);
+  if(R.mode === "cw"){ BT.ref.update({ st: "play", qt: _btTS(), sol: null }); return; }
   BT.ref.update({ st: "play", cur: 0, ph: "q", qt: _btTS(), a: null, bz: null });
 }
 function btAgain(){
   var R = BT.R; if(!R || R.host !== KC.uid) return;
+  if(R.mode === "cw"){ var cw = cwBuild(cwPool(R.lv), R.n); if(!cw) return; BT.ref.update({ st: "wait", cw: cw, n: cw.W.length, sol: null, rd: (R.rd || 1) + 1, qt: 0, saved: null }); return; }
+  if(R.mode === "chain"){ BT.ref.update({ st: "wait", us: null, last: null, ord: null, lf: null, ti: 0, tn: 0, tt: 0, saved: null }); return; }
   var qs = btMakeQs(R.sub, R.lv, R.n, R.how || "");
   BT.ref.update({ st: "wait", cur: 0, ph: "q", qt: 0, a: null, bz: null, qs: qs, saved: null });
 }
@@ -209,6 +221,8 @@ function _btState(R, i){
   return st;
 }
 function btScores(R){
+  if(R.mode === "chain") return _btChainScores(R);
+  if(R.mode === "cw") return _btCwScores(R);
   var sc = {}; Object.keys(R.p || {}).forEach(function(u){ sc[u] = 0; });
   var last = R.st === "end" ? R.n - 1 : (R.ph === "rv" ? R.cur : R.cur - 1);
   for(var i = 0; i <= last && i < R.n; i++){
@@ -221,6 +235,8 @@ function btScores(R){
 // 방장이 문제 넘기기
 function btTick(){
   var R = BT.R; if(!R) return;
+  if(R.mode === "chain") return _btChainTick(R);
+  if(R.mode === "cw") return _btCwTick(R);
   if(R.st === "play" && R.ph === "q" && R.qt){ var t = document.getElementById("btTime"); if(t){ var left = Math.max(0, Math.ceil((R.qt + _btLim(R) - _btNow()) / 1000)); t.textContent = left; t.style.color = left <= 5 ? "#b91c1c" : "#1d4ed8"; } }
   if(R.st === "play" && R.ph === "q" && R.qt){ var Qm = R.qs[R.cur]; if(Qm && Qm.show){ var ph = (_btNow() - R.qt < Qm.show) ? "see" : "hide", pk = R.cur + "|" + R.qt + "|" + ph; if(BT.memK !== pk){ BT.memK = pk; btDraw(); } } }
   if(R.host !== KC.uid || R.st !== "play" || !R.qt) return;
@@ -259,9 +275,11 @@ function btBuzz(){
 
 function btDraw(){
   var R = BT.R, b = _btBox(); if(!R) return;
+  if(R.mode === "chain" && R.st !== "end") return _btChainDraw(R, b);
+  if(R.mode === "cw" && R.st !== "end") return _btCwDraw(R, b);
   var ps = R.p || {}, uids = Object.keys(ps), me = KC.uid, host = R.host === me, sc = btScores(R);
   var nm = function(u){ return esc((ps[u] || {}).nm || "?"); };
-  var head = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:19px">' + (R.mode === "buzz" ? "🔔 " : "⚡ ") + esc(R.title) + '</b>' + BT_B("#475569", "if(confirm('방에서 나갈까요?'" + (host ? "+'\\n(방장이 나가면 방이 닫혀요)'" : "") + ")) btLobby()", "나가기", "font-size:15px;padding:8px 12px") + '</div>';
+  var head = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:19px">' + (R.mode === "cw" ? "" : R.mode === "chain" ? "🗣 " : R.mode === "buzz" ? "🔔 " : "⚡ ") + esc(R.title) + '</b>' + BT_B("#475569", "if(confirm('방에서 나갈까요?'" + (host ? "+'\\n(방장이 나가면 방이 닫혀요)'" : "") + ")) btLobby()", "나가기", "font-size:15px;padding:8px 12px") + '</div>';
   var board = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + uids.slice().sort(function(x, y){ return (sc[y] || 0) - (sc[x] || 0); }).map(function(u){ return '<div style="background:' + (u === me ? "#fef3c7" : "#fff") + ';border-radius:10px;padding:6px 10px;font-weight:800;border:1px solid #e2e8f0">' + (u === R.host ? "👑" : "👦") + ' ' + nm(u) + ' <span style="color:#1d4ed8">' + (sc[u] || 0) + '점</span></div>'; }).join("") + '</div>';
   var h = '<div style="max-width:620px;margin:0 auto">' + head + (BT.watch ? '<div style="background:#0f766e;color:#fff;border-radius:10px;padding:6px 10px;margin-bottom:8px;font-weight:800;text-align:center">👀 관전 중 — 보기만 해요 (점수엔 안 들어가요)</div>' : '');
   if(R.st === "wait"){
@@ -271,7 +289,7 @@ function btDraw(){
   } else if(R.st === "play"){
     var i = R.cur, Q = R.qs[i], s = _btState(R, i), mine = s.A[me], rv = R.ph === "rv";
     h += board + '<div style="display:flex;justify-content:space-between;color:#475569;font-weight:800"><span>' + (i + 1) + ' / ' + R.n + '번</span>' + (rv ? '' : '<span>⏱ <b id="btTime" style="font-size:22px">' + Math.ceil(_btLim(R) / 1000) + '</b>초</span>') + '</div>';
-    h += '<div style="background:#fff;border-radius:16px;padding:22px 10px;text-align:center;font-size:' + (Q.q.length > 12 ? 30 : 46) + 'px;font-weight:900;margin:8px 0 12px' + (Q.col ? ';color:' + Q.col + ';font-size:64px' : '') + '" class="' + (R.sub === "h" ? "hz" : "") + '">' + (Q.top ? '<div style="font-size:18px;color:#475569;margin-bottom:4px">' + esc(Q.top) + '</div>' : '') + (Q.pic ? '<div style="font-size:34px;line-height:1.35;letter-spacing:2px;margin-bottom:8px;word-break:break-all">' + esc(Q.pic) + '</div>' : '') + esc(Q.q) + (Q.say && !rv ? '<div><button onclick="btSay(true)" style="margin-top:10px;border:0;border-radius:12px;padding:10px 18px;font-size:20px;font-weight:900;background:#0f766e;color:#fff">🔊 다시 듣기</button></div>' : '') + '</div>';
+    h += '<div style="background:#fff;border-radius:16px;padding:22px 10px;text-align:center;font-size:' + (Q.q.length > 12 ? 30 : 46) + 'px;font-weight:900;margin:8px 0 12px' + (Q.col ? ';color:' + Q.col + ';font-size:64px' : '') + '" class="' + (R.sub === "h" ? "hz" : "") + '">' + (Q.top ? '<div style="font-size:18px;color:#475569;margin-bottom:4px">' + esc(Q.top) + '</div>' : '') + (Q.pic ? '<div style="font-size:34px;line-height:1.35;letter-spacing:2px;margin-bottom:8px;word-break:break-all">' + esc(Q.pic) + '</div>' : '') + (Q.fl ? '<img src="https://flagcdn.com/w320/' + esc(Q.fl) + '.png" alt="" style="height:130px;max-width:100%;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.25);display:block;margin:0 auto 8px">' : '') + esc(Q.q) + (Q.say && !rv ? '<div><button onclick="btSay(true)" style="margin-top:10px;border:0;border-radius:12px;padding:10px 18px;font-size:20px;font-weight:900;background:#0f766e;color:#fff">🔊 다시 듣기</button></div>' : '') + '</div>';
     var canPick = !BT.watch && !rv && !mine && (R.mode === "speed" || s.holder === me);
     if(R.mode === "buzz" && !rv){
       if(s.holder === me && !mine) h += '<div style="text-align:center;font-size:22px;font-weight:900;color:#b45309;margin-bottom:8px">🔔 내 차례! 답을 골라요</div>';
@@ -497,4 +515,239 @@ function _btGameHtml(R, Q, s, mine, rv, canPick){
     else h += '<div style="text-align:center;font-size:24px;font-weight:900;margin-bottom:6px"><span style="font-size:44px">' + esc(Q.tg) + '</span> 어디 있었지?</div>' + grid(Q.b, true, true);
   }
   return h;
+}
+
+// ════════ 🌍 나라·수도 (대결방 과목) — 자료는 nation-data.js (NAT) ════════
+var BT_NK = [["f", "🏳 국기 → 나라"], ["c", "🏙 나라 → 수도"], ["r", "🔁 수도 → 나라"], ["g", "🚩 국기 → 수도"], ["x", "🔀 섞어서"]];
+var BT_NS = [["1", "주요 국가"], ["2", "덜 알려진 나라"], ["0", "전체"]];
+var BT_NLV = []; BT_NS.forEach(function(sc){ BT_NK.forEach(function(k){ BT_NLV.push({ id: "w" + k[0] + sc[0], t: k[1] + " · " + sc[1] }); }); });
+function _btJo(w){ var c = String(w).charCodeAt(String(w).length - 1) - 0xAC00; return c >= 0 && c < 11172 && c % 28 ? "은" : "는"; }
+function btNationQs(lvId, n){
+  if(typeof NAT === "undefined") return [];
+  var kind = lvId.charAt(1), sc = lvId.charAt(2), L = NAT.filter(function(x){ return sc === "0" || String(x[4]) === sc; }), qs = [], pool = shuffle(L.slice()), j = 0, K = ["f", "c", "r", "g"];
+  var nm = L.map(function(x){ return x[1]; }), cap = L.map(function(x){ return x[2]; });
+  while(qs.length < n && j < n * 3){ var x = pool[j % pool.length], k = kind === "x" ? K[(j + qs.length) % 4] : kind, Q; j++;
+    if(k === "f"){ Q = _btQ("어느 나라일까요?", x[1], _btPick3(x[1], nm)); Q.fl = x[0].toLowerCase(); Q.rs = [{ t: x[1] + ", 수도는 " + x[2] }]; Q.say = [{ t: "이 국기는 어느 나라일까요?" }]; }
+    else if(k === "g"){ Q = _btQ("이 나라의 수도는?", x[2], _btPick3(x[2], cap)); Q.fl = x[0].toLowerCase(); Q.rs = [{ t: x[1] + ", 수도는 " + x[2] }]; Q.say = [{ t: "이 국기 나라의 수도는?" }]; }
+    else if(k === "c"){ Q = _btQ(x[1] + "의 수도는?", x[2], _btPick3(x[2], cap)); Q.rs = [{ t: x[1] + "의 수도는 " + x[2] }]; Q.say = [{ t: x[1] + "의 수도는?" }]; }
+    else { Q = _btQ("🏙 " + x[2] + " — 어느 나라 수도?", x[1], _btPick3(x[1], nm)); Q.rs = [{ t: x[2] + _btJo(x[2]) + " " + x[1] + "의 수도" }]; Q.say = [{ t: x[2] + _btJo(x[2]) + " 어느 나라 수도일까요?" }]; }
+    qs.push(Q); }
+  return qs;
+}
+
+// ════════ 🗣 이어서 대기 — 돌아가며 나라(또는 수도) 이름 하나씩 ════════
+//   방: mode "chain", ck nat|cap, ord[순서], ti(지금 차례 번호), tn(몇 번째 차례), tt(차례 시작), lf{uid:❤️}, us{나라번호:{u,w}}, last{u,w,ok|to}
+//   아이는 자기 칸 p/{uid}/mv = {w, i, tn} 만 씀 (DB 규칙 그대로) → 방장 폰이 확인해서 차례 넘기기·❤️ 빼기
+var BT_CH_LIM = 20000, BT_CH_LIFE = 3;
+function _btChainCreate(){
+  var P = BT.pick, ck = P.ck === "cap" ? "cap" : "nat";
+  var R = { host: KC.uid, hostNm: KC.name, ct: _btTS(), title: (ck === "cap" ? "🏙 수도" : "🏳 나라") + " 이름 이어서 대기", sub: "w", lv: "", how: "", mode: "chain", ck: ck, n: 0, st: "wait", cur: 0, ph: "q", qt: 0, p: {} };
+  R.p[KC.uid] = { nm: KC.name };
+  KC.db.ref("/kids/_battle").once("value").then(function(s){ var all = s.val() || {}; Object.keys(all).forEach(function(id){ if(all[id] && all[id].host === KC.uid) KC.db.ref("/kids/_battle/" + id).remove().catch(function(){}); }); }).catch(function(){})
+    .then(function(){ var r = KC.db.ref("/kids/_battle").push(); return r.set(R).then(function(){ btJoin(r.key, true); }); })
+    .catch(function(e){ alert("방을 못 만들었어요 😢\n" + (e && e.message || e)); });
+}
+function _btChainStart(R){
+  var uids = shuffle(Object.keys(R.p || {})), lf = {}; uids.forEach(function(u){ lf[u] = BT_CH_LIFE; });
+  BT.ref.update({ st: "play", rd: (R.rd || 0) + 1, ord: uids, ti: 0, tn: 0, tt: _btTS(), lf: lf, us: null, last: null });
+}
+function _btAlive(R, lf){ lf = lf || R.lf || {}; return (R.ord || []).filter(function(u){ return (lf[u] || 0) > 0 && (R.p || {})[u]; }); }
+function _btNextTi(R, lf){   // 지금 다음부터 살아 있는 사람
+  var O = R.ord || [], n = O.length; for(var d = 1; d <= n; d++){ var j = (R.ti + d) % n; if((lf[O[j]] || 0) > 0 && (R.p || {})[O[j]]) return j; } return R.ti; }
+function _btChainScores(R){
+  var sc = {}; Object.keys(R.p || {}).forEach(function(u){ sc[u] = 0; });
+  Object.keys(R.us || {}).forEach(function(i){ var u = R.us[i].u; sc[u] = (sc[u] || 0) + 1; });
+  if(R.st === "end" && Object.keys(R.p || {}).length > 1) _btAlive(R).forEach(function(u){ sc[u] = (sc[u] || 0) + 3; });   // 끝까지 살아남으면 +3
+  return sc;
+}
+function _btChainTick(R){
+  var t = document.getElementById("btTime");
+  if(R.st === "play" && t){ var left = Math.max(0, Math.ceil((R.tt + BT_CH_LIM - _btNow()) / 1000)); t.textContent = left; t.style.color = left <= 5 ? "#b91c1c" : "#1d4ed8"; }
+  if(R.host !== KC.uid || R.st !== "play" || !R.tt || !R.ord) return;
+  var now = _btNow(), cur = R.ord[R.ti], mv = ((R.p || {})[cur] || {}).mv, lf = JSON.parse(JSON.stringify(R.lf || {})), up = {}, nUsed = Object.keys(R.us || {}).length;
+  if(mv && mv.tn === R.tn && mv.rd === R.rd && BT.act !== "c" + R.rd + "|" + R.tn){
+    var i = natFind(mv.w, R.ck === "cap");
+    if(i >= 0 && !(R.us || {})[i]){   // 아이 폰이 먼저 걸러서 보통은 맞는 것만 옴 — 이상하면 무시하고 기다림(시간 지나면 ❤️)
+    BT.act = "c" + R.rd + "|" + R.tn;
+    up["us/" + i] = { u: cur, w: NAT[i][R.ck === "cap" ? 2 : 1] }; up.last = { u: cur, w: NAT[i][R.ck === "cap" ? 2 : 1], fl: NAT[i][0].toLowerCase(), ok: 1 };
+    if(nUsed + 1 >= NAT.length) up.st = "end";
+    else { up.ti = _btNextTi(R, lf); up.tn = R.tn + 1; up.tt = _btTS(); }
+    BT.ref.update(up); return; }
+  }
+  if(now - R.tt > BT_CH_LIM && BT.act !== "t" + R.rd + "|" + R.tn){
+    BT.act = "t" + R.rd + "|" + R.tn;
+    lf[cur] = Math.max(0, (lf[cur] || 0) - 1); up["lf/" + cur] = lf[cur]; up.last = { u: cur, to: 1, out: lf[cur] === 0 ? 1 : 0 };
+    var alive = _btAlive(R, lf), many = (R.ord || []).length > 1;
+    if((many && alive.length <= 1) || (!many && lf[cur] === 0)) up.st = "end";
+    else { up.ti = lf[cur] > 0 && !many ? R.ti : _btNextTi(R, lf); up.tn = R.tn + 1; up.tt = _btTS(); }
+    BT.ref.update(up);
+  }
+}
+function btChainSay(){
+  var R = BT.R; if(!R || R.st !== "play" || BT.watch) return;
+  var el = document.getElementById("btTy"), v = el ? String(el.value).trim() : "", fb = document.getElementById("btChFb");
+  if(R.ord[R.ti] !== KC.uid) return;
+  if(!v){ if(el) el.focus(); return; }
+  var i = natFind(v, R.ck === "cap");
+  if(i < 0){ if(fb) fb.innerHTML = '🤔 「' + esc(v) + '」은 ' + (R.ck === "cap" ? "수도" : "나라") + ' 목록에 없어요 — 다시 써 봐요'; if(el){ el.select(); } return; }
+  if((R.us || {})[i]){ if(fb) fb.innerHTML = '🙅 「' + esc(NAT[i][R.ck === "cap" ? 2 : 1]) + '」은 벌써 나왔어요!'; if(el){ el.select(); } return; }
+  KC.db.ref("/kids/_battle/" + BT.room + "/p/" + KC.uid + "/mv").set({ w: v.slice(0, 30), i: i, tn: R.tn, rd: R.rd, t: _btTS() }).catch(function(){});
+  if(fb) fb.innerHTML = '✅ 보냈어요!'; if(el) el.value = "";
+}
+function _btChainDraw(R, b){
+  var ps = R.p || {}, uids = Object.keys(ps), me = KC.uid, host = R.host === me, nm = function(u){ return esc((ps[u] || {}).nm || "?"); }, cap = R.ck === "cap", sc = _btChainScores(R);
+  var h = '<div style="max-width:620px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:19px">🗣 ' + esc(R.title) + '</b>' + BT_B("#475569", "if(confirm('방에서 나갈까요?'" + (host ? "+'\\n(방장이 나가면 방이 닫혀요)'" : "") + ")) btLobby()", "나가기", "font-size:15px;padding:8px 12px") + '</div>';
+  if(BT.watch) h += '<div style="background:#0f766e;color:#fff;border-radius:10px;padding:6px 10px;margin-bottom:8px;font-weight:800;text-align:center">👀 관전 중 — 보기만 해요</div>';
+  if(R.st === "wait"){
+    h += '<div style="background:#fff;border-radius:14px;padding:14px;text-align:center"><div style="font-size:18px;color:#475569;line-height:1.6">돌아가며 <b>' + (cap ? "수도" : "나라") + ' 이름</b>을 하나씩 써요<br>이미 나온 이름은 안 돼요 · ' + (BT_CH_LIM / 1000) + '초 안에 못 쓰면 ❤️ 하나 빠져요<br>❤️ ' + BT_CH_LIFE + '개 다 없어지면 탈락 · <b>마지막까지 남은 사람이 우승!</b></div>'
+      + '<div style="font-size:20px;font-weight:900;margin:14px 0 6px">모인 친구 ' + uids.length + '명</div><div style="font-size:22px;line-height:1.7">' + uids.map(function(u){ return (u === R.host ? "👑 " : "👦 ") + nm(u); }).join("<br>") + '</div>'
+      + (host ? BT_B("#15803d", "btStart()", "▶ 시작하기", "width:100%;margin-top:14px;font-size:24px;padding:16px") : '<div style="margin-top:14px;color:#64748b;font-size:18px">⏳ 방장(' + esc(R.hostNm) + ')이 시작하길 기다려요...</div>') + '</div>';
+    b.innerHTML = h + '</div>'; return;
+  }
+  var cur = (R.ord || [])[R.ti], lf = R.lf || {}, myTurn = cur === me && !BT.watch, U = R.us || {}, used = Object.keys(U);
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + (R.ord || []).filter(function(u){ return ps[u]; }).map(function(u){ var on = u === cur, dead = !(lf[u] > 0);
+    return '<div style="background:' + (on ? "#fde68a" : dead ? "#e2e8f0" : "#fff") + ';border-radius:10px;padding:6px 10px;font-weight:800;border:2px solid ' + (on ? "#f59e0b" : "#e2e8f0") + ';' + (dead ? "opacity:.6;text-decoration:line-through" : "") + '">' + (on ? "👉 " : "") + nm(u) + ' <span style="letter-spacing:-2px">' + "❤️".repeat(Math.max(0, lf[u] || 0)) + '</span> <span style="color:#1d4ed8">' + (sc[u] || 0) + '개</span></div>'; }).join("") + '</div>';
+  var L = R.last;
+  if(L) h += '<div style="text-align:center;font-size:20px;font-weight:900;margin-bottom:8px;color:' + (L.ok ? "#15803d" : "#b91c1c") + '">' + (L.ok ? '⭕ ' + nm(L.u) + ': ' + (L.fl && !cap ? '<img src="https://flagcdn.com/w80/' + esc(L.fl) + '.png" style="height:22px;vertical-align:middle;border:1px solid #cbd5e1"> ' : '') + esc(L.w) : L.to ? '⏰ ' + nm(L.u) + ' 시간 끝! ❤️ 하나 빠짐' + (L.out ? ' — 탈락 😢' : '') : '') + '</div>';
+  h += '<div style="background:#fff;border-radius:16px;padding:16px 10px;text-align:center;margin-bottom:10px"><div style="font-size:' + (myTurn ? 30 : 24) + 'px;font-weight:900;color:' + (myTurn ? "#b45309" : "#1e3a8a") + '">' + (myTurn ? "🗣 내 차례! " + (cap ? "수도" : "나라") + " 이름을 써요" : "🗣 " + nm(cur) + " 차례") + '</div><div style="color:#475569;margin-top:4px">⏱ <b id="btTime" style="font-size:26px">' + Math.max(0, Math.ceil((R.tt + BT_CH_LIM - _btNow()) / 1000)) + '</b>초 · 나온 이름 ' + used.length + '개</div></div>';
+  if(myTurn) h += '<div style="display:flex;gap:8px"><input id="btTy" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="30" placeholder="' + (cap ? "예: 파리" : "예: 프랑스") + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();btChainSay();}" style="flex:1;min-width:0;font-size:28px;padding:12px;border-radius:14px;border:3px solid #b45309;text-align:center;font-weight:900"><button onclick="btChainSay()" style="border:0;border-radius:14px;padding:12px 18px;font-size:22px;font-weight:900;color:#fff;background:#15803d">✅ 내기</button></div><div id="btChFb" style="text-align:center;font-size:18px;font-weight:800;color:#b91c1c;min-height:26px;margin-top:6px"></div>';
+  h += '<div style="background:#fff;border-radius:14px;padding:10px;margin-top:8px"><div style="font-weight:900;margin-bottom:6px">📜 나온 이름</div><div style="display:flex;flex-wrap:wrap;gap:5px">' + (used.length ? used.slice().reverse().map(function(i){ var x = NAT[i]; return '<span style="background:#f1f5f9;border-radius:8px;padding:3px 8px;font-size:15px">' + (x && !cap ? '<img src="https://flagcdn.com/w40/' + x[0].toLowerCase() + '.png" style="height:13px;vertical-align:middle;margin-right:3px">' : '') + esc(U[i].w) + ' <small style="color:#64748b">' + nm(U[i].u) + '</small></span>'; }).join("") : '<span style="color:#94a3b8">아직 없어요</span>') + '</div></div>';
+  var ty0 = document.getElementById("btTy"), keep = ty0 ? ty0.value : "", fb0 = document.getElementById("btChFb"), fbk = fb0 ? fb0.innerHTML : "";
+  b.innerHTML = h + '</div>';
+  var ty1 = document.getElementById("btTy");
+  if(ty1){ if(BT.tyQ === "ch" + R.tn){ ty1.value = keep; var f1 = document.getElementById("btChFb"); if(f1) f1.innerHTML = fbk; } BT.tyQ = "ch" + R.tn; try { ty1.focus(); } catch(e){} }
+  var sk = BT.room + "|ch|" + R.tn;   // 🔊 새로 나온 이름 읽어 주기 · 내 차례 알려 주기
+  if(BT.said !== sk){ BT.said = sk; try { if(synth) synth.cancel(); } catch(e){} if(L && L.ok) speak(L.w, 0.95).then(function(){ if(myTurn) return speak("내 차례!", 1); }); else if(myTurn) speak("내 차례!", 1); }
+}
+
+// ════════ ✏️ 가로세로 낱말 대결 — 뜻풀이 보고 낱말 맞히기 (자료 cw-data.js) ════════
+//   방장이 퍼즐을 만들어 방에 저장(R.cw = {rows, cols, W:[{a 낱말, q 뜻풀이, r, c, d 0가로·1세로, no 번호}]})
+//   아이는 맞힌 것만 자기 칸 p/{uid}/cw/{판}/{낱말번호} = 시각 (DB 규칙 그대로) → 방장 폰이 먼저 맞힌 사람 정함 R.sol/{번호} = {u}
+//   점수 = 먼저 맞힌 낱말의 글자 수 · 다 맞히거나 시간이 끝나면 끝
+var BT_CW_LIM = { 3: 180000, 5: 300000, 8: 480000 };
+// 퍼즐 만들기: 낱말을 하나씩 겹치는 글자에 가로/세로로 끼워 넣기 (여러 번 해 보고 제일 많이 들어간 것)
+function cwBuild(pool, want){
+  var best = null;
+  for(var tr = 0; tr < 40; tr++){
+    var P = shuffle(pool.filter(function(w){ return w[0].length >= 2 && w[0].length <= 5; })), G = {}, W = [], used = {};
+    var at = function(r, c){ return G[r + "," + c]; };
+    var can = function(a, r, c, d){
+      var cross = 0, n = a.length, dr = d ? 1 : 0, dc = d ? 0 : 1;
+      if(at(r - dr, c - dc) || at(r + dr * n, c + dc * n)) return -1;   // 앞뒤가 붙으면 안 됨
+      for(var k = 0; k < n; k++){ var rr = r + dr * k, cc = c + dc * k, g = at(rr, cc);
+        if(g){ if(g.ch !== a[k] || g.d[d]) return -1; cross++; }
+        else if(at(rr + dc, cc + dr) || at(rr - dc, cc - dr)) return -1; }   // 옆에 다른 글자가 붙으면 안 됨
+      return cross;
+    };
+    var put = function(w, r, c, d){ var a = w[0]; for(var k = 0; k < a.length; k++){ var key = (r + (d ? k : 0)) + "," + (c + (d ? 0 : k)); G[key] = G[key] || { ch: a[k], d: {} }; G[key].d[d] = 1; } W.push({ a: a, q: w[1], r: r, c: c, d: d }); used[a] = 1; };
+    put(P[0], 0, 0, 0);
+    for(var round = 0; round < 3 && W.length < want; round++){
+      for(var i = 1; i < P.length && W.length < want; i++){ var w = P[i], a = w[0]; if(used[a]) continue;
+        var opts = [];
+        Object.keys(G).forEach(function(key){ var g = G[key], rc = key.split(",").map(Number);
+          for(var k = 0; k < a.length; k++){ if(a[k] !== g.ch) continue;
+            [0, 1].forEach(function(d){ if(g.d[d]) return; var r = rc[0] - (d ? k : 0), c = rc[1] - (d ? 0 : k), x = can(a, r, c, d); if(x > 0) opts.push([r, c, d, x]); }); } });
+        if(opts.length){ opts.sort(function(p, q){ return q[3] - p[3]; }); var o = opts[0]; put(w, o[0], o[1], o[2]); } } }
+    var keys = Object.keys(G).map(function(k){ return k.split(",").map(Number); }), r0 = Math.min.apply(null, keys.map(function(x){ return x[0]; })), c0 = Math.min.apply(null, keys.map(function(x){ return x[1]; }));
+    var rows = Math.max.apply(null, keys.map(function(x){ return x[0]; })) - r0 + 1, cols = Math.max.apply(null, keys.map(function(x){ return x[1]; })) - c0 + 1;
+    var score = W.length * 10 - Math.abs(rows - cols) - Math.max(rows, cols) * 0.5;
+    if(Math.max(rows, cols) > 13) continue;   // 폰에서 너무 크면 버림
+    if(!best || score > best.score){ W.forEach(function(x){ x.r -= r0; x.c -= c0; }); best = { score: score, rows: rows, cols: cols, W: W }; }
+  }
+  if(!best) return null;
+  // 번호: 시작 칸을 위→아래, 왼→오 순서로
+  var starts = {}; best.W.forEach(function(x){ starts[x.r + "," + x.c] = 1; });
+  var order = Object.keys(starts).map(function(k){ return k.split(",").map(Number); }).sort(function(p, q){ return p[0] - q[0] || p[1] - q[1]; }), num = {};
+  order.forEach(function(rc, i){ num[rc[0] + "," + rc[1]] = i + 1; });
+  best.W.forEach(function(x){ x.no = num[x.r + "," + x.c]; });
+  best.W.sort(function(p, q){ return p.d - q.d || p.no - q.no; });
+  return { rows: best.rows, cols: best.cols, W: best.W };
+}
+function _btCwCreate(){
+  var P = BT.pick, sel = document.getElementById("btLv"); if(sel) P.lv = sel.value;
+  var set = P.lv || "kw", cw = cwBuild(cwPool(set), P.n || 10);
+  if(!cw || cw.W.length < 4){ alert("퍼즐을 못 만들었어요 😢 다른 주제로 해 봐요."); return; }
+  var t = (CW_SETS.filter(function(x){ return x.id === set; })[0] || {}).t || "";
+  var R = { host: KC.uid, hostNm: KC.name, ct: _btTS(), title: "✏️ 가로세로 · " + t, sub: "x", lv: set, how: "", mode: "cw", tm: P.tm || 5, n: cw.W.length, cw: cw, st: "wait", cur: 0, ph: "q", qt: 0, rd: 1, p: {} };
+  R.p[KC.uid] = { nm: KC.name };
+  KC.db.ref("/kids/_battle").once("value").then(function(s){ var all = s.val() || {}; Object.keys(all).forEach(function(id){ if(all[id] && all[id].host === KC.uid) KC.db.ref("/kids/_battle/" + id).remove().catch(function(){}); }); }).catch(function(){})
+    .then(function(){ var r = KC.db.ref("/kids/_battle").push(); return r.set(R).then(function(){ btJoin(r.key, true); }); })
+    .catch(function(e){ alert("방을 못 만들었어요 😢\n" + (e && e.message || e)); });
+}
+function _btCwLim(R){ return BT_CW_LIM[R.tm] || BT_CW_LIM[5]; }
+function _btCwScores(R){
+  var sc = {}; Object.keys(R.p || {}).forEach(function(u){ sc[u] = 0; });
+  Object.keys(R.sol || {}).forEach(function(i){ var u = R.sol[i].u, w = (R.cw.W || [])[i]; if(w) sc[u] = (sc[u] || 0) + w.a.length; });
+  return sc;
+}
+function _btCwTick(R){
+  var t = document.getElementById("btTime");
+  if(R.st === "play" && t && R.qt){ var left = Math.max(0, Math.ceil((R.qt + _btCwLim(R) - _btNow()) / 1000)); t.textContent = Math.floor(left / 60) + ":" + ("0" + left % 60).slice(-2); t.style.color = left <= 30 ? "#b91c1c" : "#1d4ed8"; }
+  if(R.host !== KC.uid || R.st !== "play" || !R.qt) return;
+  var sol = R.sol || {}, up = {}, n = (R.cw.W || []).length, got = Object.keys(sol).length;
+  (R.cw.W || []).forEach(function(w, i){ if(sol[i]) return; var who = null, tm = Infinity;
+    Object.keys(R.p || {}).forEach(function(u){ var a = (((R.p[u] || {}).cw || {})[R.rd] || {})[i]; if(a && a < tm){ tm = a; who = u; } });
+    if(who){ up["sol/" + i] = { u: who }; got++; } });
+  if(got >= n || _btNow() - R.qt > _btCwLim(R)) up.st = "end";
+  if(Object.keys(up).length){ var k = JSON.stringify(up); if(BT.act !== k){ BT.act = k; BT.ref.update(up); } }
+}
+function btCwPick(i){ BT.cwSel = i; BT.cwHint = 0; btDraw(); setTimeout(function(){ var e = document.getElementById("btTy"); if(e) try { e.focus(); } catch(x){} }, 30); }
+function btCwSay(){
+  var R = BT.R; if(!R || R.st !== "play" || BT.watch) return;
+  var i = BT.cwSel, w = (R.cw.W || [])[i], el = document.getElementById("btTy"), fb = document.getElementById("btCwFb");
+  if(!w){ if(fb) fb.textContent = "먼저 아래 열쇠(문제)를 골라요"; return; }
+  var v = el ? String(el.value).replace(/\s/g, "") : "";
+  if(!v){ if(el) el.focus(); return; }
+  if((R.sol || {})[i]){ if(fb) fb.textContent = "벌써 누가 맞혔어요!"; return; }
+  if(v !== w.a){ if(fb){ fb.textContent = "❌ 「" + v + "」 아니에요 — " + w.a.length + "글자예요"; } if(el) el.select(); return; }
+  KC.db.ref("/kids/_battle/" + BT.room + "/p/" + KC.uid + "/cw/" + R.rd + "/" + i).set(_btTS()).catch(function(){});
+  if(fb) fb.innerHTML = '<span style="color:#15803d">⭕ 딩동댕! 「' + esc(w.a) + '」</span>'; if(el) el.value = "";
+  try { speak(w.a, 1); } catch(e){}
+  // 다음 안 푼 문제로
+  var nx = (R.cw.W || []).map(function(x, j){ return j; }).filter(function(j){ return j !== i && !(R.sol || {})[j]; })[0];
+  setTimeout(function(){ if(nx != null){ BT.cwSel = nx; BT.cwHint = 0; btDraw(); } }, 700);
+}
+var BT_CW_COL = ["#fde68a", "#bfdbfe", "#bbf7d0", "#fbcfe8", "#ddd6fe", "#fed7aa", "#a5f3fc", "#e5e7eb"];
+function _btCho(s){ var C = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"; return String(s).split("").map(function(ch){ var c = ch.charCodeAt(0) - 0xAC00; return c >= 0 && c < 11172 ? C[Math.floor(c / 588)] : ch; }).join(""); }
+function _btCwDraw(R, b){
+  var ps = R.p || {}, uids = Object.keys(ps), me = KC.uid, host = R.host === me, nm = function(u){ return esc((ps[u] || {}).nm || "?"); }, sc = _btCwScores(R), cw = R.cw, W = cw.W || [], sol = R.sol || {};
+  var colOf = {}; uids.forEach(function(u, j){ colOf[u] = BT_CW_COL[j % BT_CW_COL.length]; });
+  var h = '<div style="max-width:620px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:19px">' + esc(R.title) + '</b>' + BT_B("#475569", "if(confirm('방에서 나갈까요?'" + (host ? "+'\\n(방장이 나가면 방이 닫혀요)'" : "") + ")) btLobby()", "나가기", "font-size:15px;padding:8px 12px") + '</div>';
+  if(BT.watch) h += '<div style="background:#0f766e;color:#fff;border-radius:10px;padding:6px 10px;margin-bottom:8px;font-weight:800;text-align:center">👀 관전 중 — 보기만 해요</div>';
+  if(R.st === "wait"){
+    h += '<div style="background:#fff;border-radius:14px;padding:14px;text-align:center"><div style="font-size:18px;color:#475569;line-height:1.6">✏️ 뜻풀이(열쇠)를 보고 <b>낱말을 써서</b> 맞혀요<br>낱말 ' + W.length + '개 · ' + R.tm + '분 · <b>먼저 맞힌 사람</b>이 글자 수만큼 점수!</div>'
+      + '<div style="font-size:20px;font-weight:900;margin:14px 0 6px">모인 친구 ' + uids.length + '명</div><div style="font-size:22px;line-height:1.7">' + uids.map(function(u){ return (u === R.host ? "👑 " : "👦 ") + nm(u); }).join("<br>") + '</div>'
+      + (host ? BT_B("#15803d", "btStart()", "▶ 시작하기", "width:100%;margin-top:14px;font-size:24px;padding:16px") : '<div style="margin-top:14px;color:#64748b;font-size:18px">⏳ 방장(' + esc(R.hostNm) + ')이 시작하길 기다려요...</div>') + '</div>';
+    b.innerHTML = h + '</div>'; return;
+  }
+  if(BT.cwRd !== R.rd + "|" + BT.room){ BT.cwRd = R.rd + "|" + BT.room; BT.cwSel = null; }
+  if(BT.cwSel == null || sol[BT.cwSel]){ var f = W.map(function(x, j){ return j; }).filter(function(j){ return !sol[j]; })[0]; BT.cwSel = f == null ? null : f; }
+  var sel = BT.cwSel, sw = W[sel];
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center">' + uids.slice().sort(function(x, y){ return (sc[y] || 0) - (sc[x] || 0); }).map(function(u){ return '<div style="background:' + colOf[u] + ';border-radius:10px;padding:5px 10px;font-weight:800;border:2px solid ' + (u === me ? "#f59e0b" : "#e2e8f0") + '">' + nm(u) + ' <span style="color:#1d4ed8">' + (sc[u] || 0) + '점</span></div>'; }).join("") + '<span style="margin-left:auto;font-weight:800;color:#475569">⏱ <b id="btTime" style="font-size:22px"></b> · ' + Object.keys(sol).length + '/' + W.length + '</span></div>';
+  // 판
+  var cells = {}, starts = {};
+  W.forEach(function(w, i){ for(var k = 0; k < w.a.length; k++){ var key = (w.r + (w.d ? k : 0)) + "," + (w.c + (w.d ? 0 : k)); var c = cells[key] = cells[key] || { ch: w.a[k], by: null, on: false }; if(sol[i]) c.by = sol[i].u; if(i === sel) c.on = true; } starts[w.r + "," + w.c] = w.no; });
+  var sz = Math.max(24, Math.min(44, Math.floor((Math.min(window.innerWidth, 620) - 30) / cw.cols)));
+  h += '<div style="overflow-x:auto;margin-bottom:8px"><table style="border-collapse:collapse;margin:0 auto">';
+  for(var r = 0; r < cw.rows; r++){ h += '<tr>';
+    for(var c = 0; c < cw.cols; c++){ var x = cells[r + "," + c], st = starts[r + "," + c];
+      if(!x){ h += '<td style="width:' + sz + 'px;height:' + sz + 'px"></td>'; continue; }
+      h += '<td style="width:' + sz + 'px;height:' + sz + 'px;border:2px solid #334155;position:relative;text-align:center;vertical-align:middle;font-size:' + Math.round(sz * 0.55) + 'px;font-weight:900;background:' + (x.by ? colOf[x.by] : x.on ? "#fef9c3" : "#fff") + (x.on ? ";outline:3px solid #f59e0b;outline-offset:-3px" : "") + '">' + (st ? '<span style="position:absolute;top:0;left:2px;font-size:' + Math.max(9, Math.round(sz * 0.26)) + 'px;font-weight:700;color:#475569">' + st + '</span>' : '') + (x.by ? esc(x.ch) : '') + '</td>'; }
+    h += '</tr>'; }
+  h += '</table></div>';
+  // 고른 열쇠 + 쓰기
+  if(sw && !BT.watch){
+    h += '<div style="background:#fff;border:3px solid #f59e0b;border-radius:14px;padding:10px;margin-bottom:8px"><div style="font-size:18px;font-weight:900;color:#b45309">' + sw.no + '번 ' + (sw.d ? "세로" : "가로") + ' · ' + sw.a.length + '글자</div><div style="font-size:20px;font-weight:800;margin:4px 0 8px">' + esc(sw.q) + (BT.cwHint ? ' <span style="color:#7c3aed">💡 ' + _btCho(sw.a) + '</span>' : '') + '</div>'
+      + '<div style="display:flex;gap:6px"><input id="btTy" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="10" placeholder="' + "○".repeat(sw.a.length) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();btCwSay();}" style="flex:1;min-width:0;font-size:26px;padding:10px;border-radius:12px;border:3px solid #1e3a8a;text-align:center;font-weight:900"><button onclick="btCwSay()" style="border:0;border-radius:12px;padding:10px 14px;font-size:20px;font-weight:900;color:#fff;background:#15803d">✅</button>' + (BT.cwHint ? '' : '<button onclick="BT.cwHint=1;btDraw()" style="border:0;border-radius:12px;padding:10px;font-size:15px;font-weight:900;color:#fff;background:#7c3aed">💡초성</button>') + '</div><div id="btCwFb" style="text-align:center;font-size:17px;font-weight:800;color:#b91c1c;min-height:24px;margin-top:4px"></div></div>';
+  }
+  // 열쇠 목록
+  var clue = function(d){ return W.map(function(w, i){ return [w, i]; }).filter(function(x){ return x[0].d === d; }).map(function(x){ var w = x[0], i = x[1], s = sol[i];
+    return '<div onclick="' + (s || BT.watch ? '' : 'btCwPick(' + i + ')') + '" style="padding:6px 8px;border-radius:8px;margin-bottom:4px;cursor:' + (s ? "default" : "pointer") + ';background:' + (i === sel ? "#fef3c7" : s ? colOf[s.u] : "#f8fafc") + ';' + (s ? "opacity:.8" : "") + '"><b>' + w.no + '.</b> ' + esc(w.q) + ' <span style="color:#64748b">(' + w.a.length + '글자)</span>' + (s ? ' — <b>' + esc(w.a) + '</b> ⭕ ' + nm(s.u) : '') + '</div>'; }).join(""); };
+  h += '<div style="background:#fff;border-radius:14px;padding:10px"><div style="font-weight:900;color:#1d4ed8;margin-bottom:4px">➡️ 가로 열쇠</div>' + clue(0) + '<div style="font-weight:900;color:#b45309;margin:8px 0 4px">⬇️ 세로 열쇠</div>' + clue(1) + '</div>';
+  var ty0 = document.getElementById("btTy"), keep = ty0 ? ty0.value : "", fb0 = document.getElementById("btCwFb"), fbk = fb0 ? fb0.innerHTML : "", foc = ty0 && document.activeElement === ty0;
+  b.innerHTML = h + '</div>';
+  var ty1 = document.getElementById("btTy");
+  if(ty1 && BT.tyQ === "cw" + sel){ ty1.value = keep; var f1 = document.getElementById("btCwFb"); if(f1) f1.innerHTML = fbk; if(foc) try { ty1.focus(); } catch(e){} }
+  BT.tyQ = "cw" + sel;
+  _btCwTick(R);
 }
