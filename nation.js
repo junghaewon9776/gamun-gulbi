@@ -83,6 +83,10 @@ function naRenderSteps(){
   ];
   var wr = naWrongItems();
   if(wr.length) steps.push({ done: false, opt: true, t: "❌ 틀린 것 다시 풀기 (" + wr.length + "개)", d: wr.slice(0, 6).map(function(a){ return a[1]; }).join(" · ") + (wr.length > 6 ? " …" : ""), c: "#b91c1c", f: "naStart('wrong')" });
+  if(typeof naPaint === "function"){
+    var pn = natPaintable().length;
+    steps.push({ done: false, opt: true, t: "🎨 국기 색칠하기", d: pn ? "칸마다 색을 골라 칠해요 (" + pn + "개)" : "줄무늬·십자 국기를 칠해요", c: "#db2777", f: "naPaint()" });
+    steps.push({ done: false, opt: true, t: "✏️ 기억해서 그리기", d: "국기를 잠깐 보고, 가린 다음 그려요", c: "#9333ea", f: "naDraw()" }); }
   var nextI = steps.findIndex(function(s){ return !s.done && !s.opt; });
   $("naSteps").innerHTML = steps.map(function(s, i){
     return '<button class="step' + (i === nextI ? ' next' : '') + '" style="background:' + s.c + '" onclick="' + s.f + '"><span class="n">' + (i + 1) + '</span><span class="t">' + s.t + '<small>' + esc(s.d) + '</small></span><span class="ck">' + (s.done ? '✅' : (i === nextI ? '👈' : '')) + '</span></button>';
@@ -94,7 +98,7 @@ function naSay(x){ stopAll(); return speak(x[1] + ", 수도는 " + x[2], 0.9); }
 function naCards(){
   $("ncTitle").textContent = ME + " · " + NA.lv.t;
   $("ncList").innerHTML = natItems().map(function(x, i){
-    return '<div class="ncard" onclick="naSay(natItems()[' + i + '])">' + natImg(x, 54) + '<div class="nn">' + esc(x[1]) + '</div><div class="nc">🏙 ' + esc(x[2]) + '</div><div class="nt">' + esc(x[3]) + (NAT_NOTE[x[1]] ? ' · 💡' : '') + '</div>' + (NAT_NOTE[x[1]] ? '<div class="nt" style="color:#0e7490">' + esc(NAT_NOTE[x[1]]) + '</div>' : '') + '</div>';
+    return '<div class="ncard" onclick="naSay(natItems()[' + i + '])">' + natImg(x, 54) + '<div class="nn">' + esc(x[1]) + '</div><div class="nc">🏙 ' + esc(x[2]) + '</div><div class="nt">' + esc(x[3]) + (NAT_NOTE[x[1]] ? ' · 💡' : '') + '</div>' + (NAT_NOTE[x[1]] ? '<div class="nt" style="color:#0e7490">' + esc(NAT_NOTE[x[1]]) + '</div>' : '') + (typeof natTip === "function" && natTip(x) ? '<div class="nt" style="color:#065f46;font-weight:700">💡 ' + esc(natTip(x)) + '</div>' : '') + '</div>';
   }).join("");
   go("vNatCard");
 }
@@ -164,7 +168,7 @@ function naPick(btn){
   }
   if(ok){
     m.right++; m.busy = true; btn.style.background = "#15803d";
-    $("nqFb").innerHTML = '<span style="color:#15803d">⭕ 딩동댕! ' + natImg(x, 26) + ' <b>' + esc(x[1]) + '</b> — 수도 <b>' + esc(x[2]) + '</b></span>' + (NAT_NOTE[x[1]] ? '<div style="font-size:14px;color:#0e7490">💡 ' + esc(NAT_NOTE[x[1]]) + '</div>' : '');
+    $("nqFb").innerHTML = '<span style="color:#15803d">⭕ 딩동댕! ' + natImg(x, 26) + ' <b>' + esc(x[1]) + '</b> — 수도 <b>' + esc(x[2]) + '</b></span>' + (NAT_NOTE[x[1]] ? '<div style="font-size:14px;color:#0e7490">💡 ' + esc(NAT_NOTE[x[1]]) + '</div>' : '') + (typeof natTip === "function" && natTip(x) ? '<div style="font-size:15px;color:#065f46;font-weight:700">🏳 ' + esc(natTip(x)) + '</div>' : '');
     speak(x[1] + ", 수도는 " + x[2], 0.95);
     gainXp(2, "연습", natKey() + "|prac");
     setTimeout(function(){
@@ -173,7 +177,7 @@ function naPick(btn){
     }, 1300);
   } else {
     m.wrong++; m.miss++; btn.style.background = "#b91c1c";
-    $("nqFb").innerHTML = m.miss >= 2 ? '<span style="color:#b91c1c">❌ 정답은 ' + natImg(x, 24) + ' <b>' + esc(x[1]) + '</b> — 수도 <b>' + esc(x[2]) + '</b></span>' : '<span style="color:#b91c1c">❌ 다시 해 봐요!</span>';
+    $("nqFb").innerHTML = m.miss >= 2 ? '<span style="color:#b91c1c">❌ 정답은 ' + natImg(x, 24) + ' <b>' + esc(x[1]) + '</b> — 수도 <b>' + esc(x[2]) + '</b></span>' + (typeof natTip === "function" && natTip(x) ? '<div style="font-size:15px;color:#065f46;font-weight:700">🏳 ' + esc(natTip(x)) + '</div>' : '') : '<span style="color:#b91c1c">❌ 다시 해 봐요!</span>';
     naInfo();
   }
 }
