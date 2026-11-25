@@ -21,7 +21,9 @@ function natJo(w){ var c = String(w).charCodeAt(String(w).length - 1) - 0xAC00; 
 
 (function(){
   var css = document.createElement("style");
-  css.textContent = ".ncard{background:#f0fdf4;border:3px solid #bbf7d0;border-radius:14px;padding:8px 4px;text-align:center;cursor:pointer}"
+  css.textContent = "#ncList{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:430px){#ncList{grid-template-columns:repeat(2,minmax(0,1fr))}}"
+    + ".ncard{min-width:0;overflow:hidden;overflow-wrap:anywhere;word-break:keep-all}.ncard img{max-width:100%;height:auto!important;max-height:54px}"
+    + ".ncard{background:#f0fdf4;border:3px solid #bbf7d0;border-radius:14px;padding:8px 4px;text-align:center;cursor:pointer}"
     + ".ncard .nn{font-size:17px;font-weight:900;color:#14532d;margin-top:4px}.ncard .nc{font-size:14px;font-weight:800;color:#b45309}.ncard .nt{font-size:11.5px;color:#64748b}";
   document.head.appendChild(css);
   var W = document.querySelector(".wrap") || document.body, before = document.getElementById("vSet");
