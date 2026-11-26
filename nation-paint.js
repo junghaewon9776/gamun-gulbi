@@ -79,8 +79,9 @@ function naPaintShow(){
 function naPaintDraw(msg){
   var x = NP.x, sp = NP.sp, tip = natTip(x);
   var h = '<div style="text-align:center;font-size:15px;color:#475569">' + (NP.i + 1) + ' / ' + NP.list.length + ' · 맞힌 것 ' + NP.ok + '</div><div style="text-align:center;font-size:28px;font-weight:900;color:#14532d;margin:4px 0">' + esc(x[1]) + ' 국기</div>';
-  h += '<div style="text-align:center;margin-bottom:8px">' + (NP.hint ? '<div style="background:#ecfdf5;border-radius:10px;padding:6px 10px;font-size:16px;color:#065f46;font-weight:700">💡 ' + esc(tip || "색을 잘 떠올려 봐요!") + '</div>' : '<button class="b-dark" style="font-size:15px;padding:6px 12px" onclick="NP.hint=1;naPaintDraw()">💡 힌트 보기</button>')
-    + (NP.peek && !NP.done && NP.tries < 2 ? '<div style="margin-top:6px">' + natImg(x, 70) + '</div>' : (!NP.done && NP.tries < 2 ? ' <button class="b-dark" style="font-size:15px;padding:6px 12px;margin-top:6px" onclick="NP.peek=1;naPaintDraw()">🏳 국기 보기</button>' : '')) + '</div>';
+  var hb = function(lb){ return '<button class="b-dark" style="font-size:15px;padding:6px 12px" onclick="NP.hint=(NP.hint||0)+1;naPaintDraw()">' + lb + '</button>'; };
+  h += '<div style="text-align:center;margin-bottom:8px">' + (NP.hint ? '<div style="background:#ecfdf5;border-radius:10px;padding:6px 10px;font-size:16px;color:#065f46;font-weight:700">💡 ' + esc(tip || "색을 잘 떠올려 봐요!") + '</div>' : (NP.done ? '' : hb("💡 힌트 보기")))
+    + (NP.hint >= 2 && !NP.done && NP.tries < 2 ? '<div style="margin-top:6px">' + natImg(x, 70) + '</div>' : (NP.hint === 1 && !NP.done && NP.tries < 2 ? '<div style="margin-top:6px">' + hb("💡 힌트 더 보기 (국기 보기)") + '</div>' : '')) + '</div>';
   h += natPaintSvg(sp, NP.fills, NP.done ? "" : "naPaintFill");
   if(!NP.done) h += '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0">' + Object.keys(NAT_PAL).map(function(k){ var on = NP.col === k; return '<button onclick="NP.col=\'' + k + '\';naPaintDraw()" style="width:58px;height:58px;border-radius:50%;border:' + (on ? "5px solid #f59e0b" : "2px solid #94a3b8") + ';background:' + NAT_PAL[k][1] + ';font-size:12px;font-weight:900;color:' + (k === "W" || k === "Y" ? "#111" : "#fff") + '">' + NAT_PAL[k][0] + '</button>'; }).join("") + '</div><div style="text-align:center;color:#64748b;font-size:14px">색을 고르고 → 국기 칸을 눌러 칠해요</div>';
   if(msg) h += '<div class="feedback" style="margin-top:6px">' + msg + '</div>';
@@ -95,7 +96,7 @@ function naPaintCheck(){
   if(!bad){ NP.done = true; NP.ok++; gainXp(3, "국기 색칠", natKey() + "|paint"); speak("딩동댕! " + NP.x[1] + " 국기예요!", 1); naPaintDraw('<span style="color:#15803d">⭕ 딩동댕! 똑같아요!</span>'); return; }
   NP.tries++; naPaintDraw('<span style="color:#b91c1c">❌ ' + bad + '칸의 색이 달라요' + (NP.tries >= 2 ? ' — 아래 진짜 국기를 보고 고쳐 봐요' : ' — 다시 생각해 봐요') + '</span>');
 }
-function naPaintNext(){ NP.hint = 0; NP.peek = 0; if(NP.i < NP.list.length - 1){ NP.i++; naPaintShow(); } else { alert("🎨 다 했어요! " + NP.list.length + "개 중 " + NP.ok + "개 맞혔어요 👏"); go("vNatMode"); } }
+function naPaintNext(){ NP.hint = 0; if(NP.i < NP.list.length - 1){ NP.i++; naPaintShow(); } else { alert("🎨 다 했어요! " + NP.list.length + "개 중 " + NP.ok + "개 맞혔어요 👏"); go("vNatMode"); } }
 
 // ── ✏️ 기억해서 그리기 — 잠깐 보고, 가리고, 그리고, 비교 ──
 var ND_PEEK = 5;
