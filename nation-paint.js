@@ -56,6 +56,7 @@ function natPaintSvg(sp, fills, click){
   return '<svg viewBox="0 0 ' + sp.w + ' ' + sp.h + '" style="width:100%;max-width:' + (sp.w === 200 ? 240 : 340) + 'px;display:block;margin:0 auto;border:2px solid #334155;border-radius:4px;background:#fff;touch-action:manipulation">'
     + sp.S.map(function(s){ var f = fills[s.i] ? NAT_PAL[fills[s.i]][1] : "#f1f5f9"; return '<' + s.tag + ' ' + s.a + ' fill="' + f + '" stroke="#64748b" stroke-width="1.5"' + (click ? ' style="cursor:pointer" onclick="' + click + '(' + s.i + ')"' : '') + '/>'; }).join("") + '</svg>';
 }
+function natHex(c){ return NAT_PAL[c] ? NAT_PAL[c][1] : c; }
 function natPaintable(lv){ return natItems(lv).filter(function(x){ return NAT_PAINT[x[0]]; }); }
 
 (function(){
@@ -78,7 +79,8 @@ function naPaintShow(){
 function naPaintDraw(msg){
   var x = NP.x, sp = NP.sp, tip = natTip(x);
   var h = '<div style="text-align:center;font-size:15px;color:#475569">' + (NP.i + 1) + ' / ' + NP.list.length + ' · 맞힌 것 ' + NP.ok + '</div><div style="text-align:center;font-size:28px;font-weight:900;color:#14532d;margin:4px 0">' + esc(x[1]) + ' 국기</div>';
-  h += '<div style="text-align:center;margin-bottom:8px">' + (NP.hint ? '<div style="background:#ecfdf5;border-radius:10px;padding:6px 10px;font-size:16px;color:#065f46;font-weight:700">💡 ' + esc(tip || "색을 잘 떠올려 봐요!") + '</div>' : '<button class="b-dark" style="font-size:15px;padding:6px 12px" onclick="NP.hint=1;naPaintDraw()">💡 힌트 보기</button>') + '</div>';
+  h += '<div style="text-align:center;margin-bottom:8px">' + (NP.hint ? '<div style="background:#ecfdf5;border-radius:10px;padding:6px 10px;font-size:16px;color:#065f46;font-weight:700">💡 ' + esc(tip || "색을 잘 떠올려 봐요!") + '</div>' : '<button class="b-dark" style="font-size:15px;padding:6px 12px" onclick="NP.hint=1;naPaintDraw()">💡 힌트 보기</button>')
+    + (NP.peek && !NP.done && NP.tries < 2 ? '<div style="margin-top:6px">' + natImg(x, 70) + '</div>' : (!NP.done && NP.tries < 2 ? ' <button class="b-dark" style="font-size:15px;padding:6px 12px;margin-top:6px" onclick="NP.peek=1;naPaintDraw()">🏳 국기 보기</button>' : '')) + '</div>';
   h += natPaintSvg(sp, NP.fills, NP.done ? "" : "naPaintFill");
   if(!NP.done) h += '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0">' + Object.keys(NAT_PAL).map(function(k){ var on = NP.col === k; return '<button onclick="NP.col=\'' + k + '\';naPaintDraw()" style="width:58px;height:58px;border-radius:50%;border:' + (on ? "5px solid #f59e0b" : "2px solid #94a3b8") + ';background:' + NAT_PAL[k][1] + ';font-size:12px;font-weight:900;color:' + (k === "W" || k === "Y" ? "#111" : "#fff") + '">' + NAT_PAL[k][0] + '</button>'; }).join("") + '</div><div style="text-align:center;color:#64748b;font-size:14px">색을 고르고 → 국기 칸을 눌러 칠해요</div>';
   if(msg) h += '<div class="feedback" style="margin-top:6px">' + msg + '</div>';
@@ -93,11 +95,11 @@ function naPaintCheck(){
   if(!bad){ NP.done = true; NP.ok++; gainXp(3, "국기 색칠", natKey() + "|paint"); speak("딩동댕! " + NP.x[1] + " 국기예요!", 1); naPaintDraw('<span style="color:#15803d">⭕ 딩동댕! 똑같아요!</span>'); return; }
   NP.tries++; naPaintDraw('<span style="color:#b91c1c">❌ ' + bad + '칸의 색이 달라요' + (NP.tries >= 2 ? ' — 아래 진짜 국기를 보고 고쳐 봐요' : ' — 다시 생각해 봐요') + '</span>');
 }
-function naPaintNext(){ NP.hint = 0; if(NP.i < NP.list.length - 1){ NP.i++; naPaintShow(); } else { alert("🎨 다 했어요! " + NP.list.length + "개 중 " + NP.ok + "개 맞혔어요 👏"); go("vNatMode"); } }
+function naPaintNext(){ NP.hint = 0; NP.peek = 0; if(NP.i < NP.list.length - 1){ NP.i++; naPaintShow(); } else { alert("🎨 다 했어요! " + NP.list.length + "개 중 " + NP.ok + "개 맞혔어요 👏"); go("vNatMode"); } }
 
 // ── ✏️ 기억해서 그리기 — 잠깐 보고, 가리고, 그리고, 비교 ──
 var ND_PEEK = 5;
-function naDraw(){ NP = { mode: "draw", list: shuffle(natItems()), i: 0, ok: 0, col: "R", size: 10, tool: "pen" }; $("npTitle").textContent = ME + " · ✏️ 기억해서 그리기"; go("vNatPaint"); naDrawPeek(); }
+function naDraw(){ NP = { mode: "draw", list: shuffle(natItems()), i: 0, ok: 0, col: "R", size: 8, tool: "pen" }; $("npTitle").textContent = ME + " · ✏️ 기억해서 그리기"; go("vNatPaint"); naDrawPeek(); }
 function naDrawPeek(){
   var x = NP.list[NP.i], tip = natTip(x); NP.x = x; NP.phase = "peek";
   $("npBody").innerHTML = '<div style="text-align:center;font-size:15px;color:#475569">' + (NP.i + 1) + ' / ' + NP.list.length + '</div><div style="text-align:center;font-size:28px;font-weight:900;color:#14532d;margin:4px 0">' + esc(x[1]) + '</div>'
@@ -111,23 +113,34 @@ function naDrawGo(){
   var tb = function(k, lb){ var on = NP.tool === k; return '<button onclick="NP.tool=\'' + k + '\';naDrawTools()" style="padding:8px 10px;border-radius:10px;border:0;font-weight:900;font-size:15px;background:' + (on ? "#1e3a8a" : "#e2e8f0") + ';color:' + (on ? "#fff" : "#111") + '">' + lb + '</button>'; };
   $("npBody").innerHTML = '<div style="text-align:center;font-size:24px;font-weight:900;color:#14532d;margin-bottom:6px">✏️ ' + esc(NP.x[1]) + ' 국기를 그려요</div>'
     + '<div style="position:relative;max-width:360px;margin:0 auto"><canvas id="ndCv" width="600" height="400" style="width:100%;border:2px solid #334155;border-radius:4px;background:#fff;touch-action:none;display:block"></canvas></div>'
-    + '<div id="ndTools"></div><div class="row" style="margin-top:8px"><button class="b-ok" onclick="naDrawDone()">🏁 다 그렸어요</button><button class="b-dark" onclick="naDrawClear()">🧽 전부 지우기</button></div>';
-  NP._tb = tb; naDrawTools(); naDrawClear(); naDrawBind();
+    + '<div id="ndTools"></div><div class="row" style="margin-top:8px"><button class="b-ok" onclick="naDrawDone()">🏁 다 그렸어요</button><button class="b-dark" onclick="naDrawClear(1)">🧽 전부 지우기</button></div>';
+  NP._tb = tb; NP.hist = []; naDrawTools(); naDrawClear(); naDrawBind();
 }
 function naDrawTools(){
-  var tb = NP._tb, h = '<div style="display:flex;gap:6px;justify-content:center;margin:8px 0;flex-wrap:wrap">' + tb("fill", "🪣 통으로 채우기") + tb("pen", "✏️ 펜") + [6, 14, 28].map(function(s){ var on = NP.size === s && NP.tool === "pen"; return '<button onclick="NP.size=' + s + ';NP.tool=\'pen\';naDrawTools()" style="width:42px;height:42px;border-radius:10px;border:' + (on ? "3px solid #f59e0b" : "1px solid #cbd5e1") + ';background:#fff"><span style="display:inline-block;width:' + Math.round(s / 1.6) + 'px;height:' + Math.round(s / 1.6) + 'px;border-radius:50%;background:#111"></span></button>'; }).join("") + '</div>';
-  h += '<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center">' + Object.keys(NAT_PAL).map(function(k){ var on = NP.col === k; return '<button onclick="NP.col=\'' + k + '\';naDrawTools()" style="width:46px;height:46px;border-radius:50%;border:' + (on ? "5px solid #f59e0b" : "2px solid #94a3b8") + ';background:' + NAT_PAL[k][1] + '"></button>'; }).join("") + '</div>';
+  var tb = NP._tb, h = '<div style="display:flex;gap:6px;justify-content:center;margin:8px 0 4px;flex-wrap:wrap">' + tb("pen", "✏️ 펜") + tb("line", "📏 직선") + tb("fill", "🪣 통 채우기") + '<button onclick="naDrawUndo()" style="padding:8px 10px;border-radius:10px;border:0;font-weight:900;font-size:15px;background:#b45309;color:#fff">↩ 한 획 지우기</button></div>';
+  h += '<div style="display:flex;gap:5px;justify-content:center;margin:4px 0 6px;flex-wrap:wrap;align-items:center"><span style="font-size:13px;color:#475569;font-weight:800">굵기</span>' + [2, 4, 8, 14, 24].map(function(sz){ var on = NP.size === sz; return '<button onclick="NP.size=' + sz + ';if(NP.tool===\'fill\')NP.tool=\'pen\';naDrawTools()" style="width:40px;height:40px;border-radius:10px;border:' + (on ? "3px solid #f59e0b" : "1px solid #cbd5e1") + ';background:#fff"><span style="display:inline-block;width:' + Math.max(3, Math.round(sz / 1.3)) + 'px;height:' + Math.max(3, Math.round(sz / 1.3)) + 'px;border-radius:50%;background:' + natHex(NP.col) + ';border:1px solid #94a3b8"></span></button>'; }).join("") + '</div>';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;align-items:center">' + Object.keys(NAT_PAL).map(function(k){ var on = NP.col === k; return '<button onclick="NP.col=\'' + k + '\';naDrawTools()" title="' + NAT_PAL[k][0] + '" style="width:42px;height:42px;border-radius:50%;border:' + (on ? "5px solid #f59e0b" : "2px solid #94a3b8") + ';background:' + NAT_PAL[k][1] + '"></button>'; }).join("")
+    + '<label title="아무 색이나 고르기" style="display:inline-flex;align-items:center;gap:3px;padding:4px 8px;border-radius:21px;border:' + (NAT_PAL[NP.col] ? "2px solid #94a3b8" : "5px solid #f59e0b") + ';background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);font-weight:900;font-size:13px;color:#fff;text-shadow:0 0 3px #000;cursor:pointer">🌈 다른 색<input type="color" value="' + (NAT_PAL[NP.col] ? "#ff69b4" : NP.col) + '" oninput="NP.col=this.value" onchange="NP.col=this.value;naDrawTools()" style="width:30px;height:30px;border:0;padding:0;background:none"></label></div>';
   var e = document.getElementById("ndTools"); if(e) e.innerHTML = h;
 }
-function naDrawClear(){ var c = document.getElementById("ndCv"); if(!c) return; var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }
+// ↩ 한 획 지우기 — 그리기 전 모습을 쌓아 두었다가 하나씩 되돌림
+function _ndSnap(){ var c = document.getElementById("ndCv"); if(!c) return; NP.hist = NP.hist || []; NP.hist.push(c.getContext("2d").getImageData(0, 0, c.width, c.height)); if(NP.hist.length > 30) NP.hist.shift(); }
+function naDrawUndo(){ var c = document.getElementById("ndCv"); if(!c || !NP.hist || !NP.hist.length){ return; } c.getContext("2d").putImageData(NP.hist.pop(), 0, 0); }
+function naDrawClear(keep){ var c = document.getElementById("ndCv"); if(!c) return; if(keep) _ndSnap(); else NP.hist = []; var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }
 function naDrawBind(){
-  var c = document.getElementById("ndCv"), g = c.getContext("2d"), down = false, last = null;
+  var c = document.getElementById("ndCv"), g = c.getContext("2d"), down = false, last = null, st = null, base = null;
   var pos = function(ev){ var r = c.getBoundingClientRect(); return [(ev.clientX - r.left) * c.width / r.width, (ev.clientY - r.top) * c.height / r.height]; };
-  c.addEventListener("pointerdown", function(ev){ ev.preventDefault(); var p = pos(ev);
-    if(NP.tool === "fill"){ natFlood(c, Math.round(p[0]), Math.round(p[1]), NAT_PAL[NP.col][1]); return; }
-    down = true; last = p; g.fillStyle = NAT_PAL[NP.col][1]; g.beginPath(); g.arc(p[0], p[1], NP.size, 0, 7); g.fill(); try { c.setPointerCapture(ev.pointerId); } catch(e){} });
-  c.addEventListener("pointermove", function(ev){ if(!down) return; var p = pos(ev); g.strokeStyle = NAT_PAL[NP.col][1]; g.lineWidth = NP.size * 2; g.lineCap = "round"; g.beginPath(); g.moveTo(last[0], last[1]); g.lineTo(p[0], p[1]); g.stroke(); last = p; });
-  var up = function(){ down = false; }; c.addEventListener("pointerup", up); c.addEventListener("pointercancel", up);
+  c.addEventListener("pointerdown", function(ev){ ev.preventDefault(); var p = pos(ev), col = natHex(NP.col);
+    _ndSnap();
+    if(NP.tool === "fill"){ natFlood(c, Math.round(p[0]), Math.round(p[1]), col); return; }
+    down = true; last = p; st = p;
+    if(NP.tool === "line"){ base = g.getImageData(0, 0, c.width, c.height); }
+    else { g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], NP.size, 0, 7); g.fill(); }
+    try { c.setPointerCapture(ev.pointerId); } catch(e){} });
+  c.addEventListener("pointermove", function(ev){ if(!down) return; ev.preventDefault(); var p = pos(ev); g.strokeStyle = natHex(NP.col); g.lineWidth = NP.size * 2; g.lineCap = "round";
+    if(NP.tool === "line"){ g.putImageData(base, 0, 0); g.beginPath(); g.moveTo(st[0], st[1]); g.lineTo(p[0], p[1]); g.stroke(); return; }
+    g.beginPath(); g.moveTo(last[0], last[1]); g.lineTo(p[0], p[1]); g.stroke(); last = p; });
+  var up = function(){ down = false; base = null; }; c.addEventListener("pointerup", up); c.addEventListener("pointercancel", up);
 }
 // 🪣 통 채우기 (비슷한 색이 이어진 곳만)
 function natFlood(c, x, y, hex){
@@ -155,3 +168,7 @@ function naDrawRate(ok){
   NP.ok++; gainXp(3, "국기 그리기", natKey() + "|draw");
   if(NP.i < NP.list.length - 1){ NP.i++; naDrawPeek(); } else { alert("✏️ 다 그렸어요! 👏"); go("vNatMode"); }
 }
+
+// 📱 이 화면에선 아래로 끌어 새로고침(당겨서 새로고침) 막기 — 그리다가 실수로 처음으로 돌아가던 것
+var _goNatPaint0 = go;
+go = function(id){ _goNatPaint0(id); var on = id === "vNatPaint"; try { document.documentElement.style.overscrollBehaviorY = on ? "none" : ""; document.body.style.overscrollBehaviorY = on ? "none" : ""; } catch(e){} };
