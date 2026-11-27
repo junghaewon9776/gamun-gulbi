@@ -104,6 +104,9 @@ function _kjDiv(m, S){ if(m.potOf) return ""; var n = _kjPots(m, S), q = _kjQty(
   return n + "솥 · 솥마다 " + _kjNum(q / n) + u; }   // 예: 3.5솥 · 2kg씩 3솥 + 마지막 솥 1kg
 function _kjMatKs(S){ var M = S.mat || {}; return Object.keys(M).sort(function(a, b){ return _kjN(M[a].ord) - _kjN(M[b].ord) || (a < b ? -1 : 1); }); }
 function _kjIsCab(m){ return !!m.main || (_kjRid() === "kimjang" && m.main !== false && String(m.nm || "").replace(/\s/g, "") === "배추"); }   // 주재료 (비용 따로 보여 줌)
+function _kjByM(S){ var m = S.by && (S.mat || {})[S.by]; return m && !m.potOf && _kjN(m.q) > 0 ? m : null; }   // 기준 재료 (예: 밀가루) — 이 양에 맞추고 개수는 '약'
+function _kjPN(S){ var p = _kjPogi(S), U = _kjU(); return _kjByM(S) ? "약 " + Math.round(p).toLocaleString("ko-KR") + U : _kjNum(p) + U; }
+function _kjPH(S){ var m = _kjByM(S); return m ? esc(m.nm) + " " + _kjNum(_kjQty(m, S)) + esc(m.u || "") + " 할 때 양" : _kjNum(_kjPogi(S)) + esc(_kjU()) + "에 필요한 양"; }
 function _kjCost(S){
   var M = S.mat || {}, o = { all: 0, cab: 0, yang: 0, miss: 0, ok: 0, n: 0, mainNm: "", hasMain: false };
   _kjMatKs(S).forEach(function(k){ var m = M[k], am = _kjQty(m, S) * _kjN(m.price); o.n++; if(m.ok) o.ok++;
@@ -144,7 +147,7 @@ function _kjEmpty(){
 function kjSeed(from){
   var y = _kjY(); if(!KJ.ALL || _kjHas(KJ.ALL[y])) return toast("이미 자료가 있어요", true);
   var b0 = _kjN(_kjR().base) || 1, o = { base: b0, pogi: b0, mat: {}, steps: {} };
-  if(from){ var P = KJ.ALL[from]; o.base = _kjBase(P); o.pogi = _kjPogi(P);
+  if(from){ var P = KJ.ALL[from]; o.base = _kjBase(P); o.pogi = _kjPogi(P); if(P.by) o.by = P.by;
     Object.keys(P.mat || {}).forEach(function(k){ var m = Object.assign({}, P.mat[k]); delete m.ok; o.mat[k] = m; });
     Object.keys(P.steps || {}).forEach(function(k){ var s = Object.assign({}, P.steps[k]); delete s.ok; o.steps[k] = s; }); }
   else if(_kjRid() === "kimjang"){ var ids = {}; KJ_MAT0.forEach(function(r, i){ ids[r[0]] = "m" + ("0" + (i + 1)).slice(-2); });
@@ -164,9 +167,19 @@ function dKjMat(){
   var picks = []; [0.25, 0.5, 0.75, 1, 1.5, 2.5].forEach(function(f){ var n = Math.round(b * f); if(n > 0 && picks.indexOf(n) < 0) picks.push(n); });
   // 포기 수
   var st = function(n){ return '<button class="btn" onclick="kjPogi(' + (p + n) + ')" style="padding:6px 10px;font-weight:900;background:#fff;color:#15803d;border:1.5px solid #15803d">' + (n > 0 ? "+" : "") + n + '</button>'; };
+  var bm = _kjByM(S);
+  if(bm){ var bq = _kjQty(bm, S), bw = _kjN(bm.q), bu = esc(bm.u || ""), f = function(x){ return _kjX(Math.round(x * 1000) / 1000); };
+    var sb = function(n){ var v = f(bq + n); return '<button class="btn" onclick="kjBy(' + v + ')" style="padding:6px 10px;font-weight:900;background:#fff;color:#15803d;border:1.5px solid #15803d"' + (v <= 0 ? " disabled" : "") + '>' + (n > 0 ? "+" : "") + _kjNum(n) + '</button>'; };
+    var bp = []; [0.5, 1, 2, 3, 5, 10].forEach(function(x){ var v = f(bw * x); if(v > 0 && bp.indexOf(v) < 0) bp.push(v); });
+    h += '<div class="card" style="margin-bottom:10px;border:2px solid #15803d"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:16px">' + esc(bm.nm) + '</b>' + sb(-bw) + sb(-f(bw / 2))
+      + '<input id="kjPogi" type="number" min="0" step="any" inputmode="decimal" value="' + _kjX(bq) + '" onchange="kjBy(this.value)" onkeydown="if(event.key===\'Enter\')this.blur()" style="width:96px;padding:6px;font-size:24px;font-weight:900;text-align:center;border:2px solid #15803d;border-radius:8px"><b style="font-size:16px">' + bu + '</b>' + sb(f(bw / 2)) + sb(bw)
+      + '<b style="font-size:17px;color:#b45309;margin-left:6px">→ ' + esc(_kjQn()) + ' ' + esc(_kjPN(S)) + '</b></div>';
+    h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center"><span class="mut" style="font-size:12px">바로 고르기</span>' + bp.map(function(v){ var on = Math.abs(v - bq) < 1e-6; return '<button class="btn" onclick="kjBy(' + v + ')" style="padding:3px 11px;font-size:13px;font-weight:800;background:' + (on ? "#15803d" : "#fff") + ';color:' + (on ? "#fff" : "#15803d") + ';border:1.5px solid #15803d">' + _kjNum(v) + bu + '</button>'; }).join("") + '<span class="mut" style="font-size:11.5px;margin-left:4px">' + esc(bm.nm) + ' ' + _kjNum(bw) + bu + '이면 약 ' + _kjNum(b) + esc(U) + ' · 다른 재료는 ' + esc(bm.nm) + ' 양에 맞춰 바뀌어요</span></div></div>';
+  } else {
   h += '<div class="card" style="margin-bottom:10px;border:2px solid #15803d"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:16px">' + esc(_kjQn()) + '</b>' + st(-s2) + st(-s1)
     + '<input id="kjPogi" type="number" min="1" inputmode="numeric" value="' + p + '" onchange="kjPogi(this.value)" onkeydown="if(event.key===\'Enter\')this.blur()" style="width:96px;padding:6px;font-size:24px;font-weight:900;text-align:center;border:2px solid #15803d;border-radius:8px"><b style="font-size:16px">' + esc(U) + '</b>' + st(s1) + st(s2) + '</div>';
   h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center"><span class="mut" style="font-size:12px">바로 고르기</span>' + picks.map(function(n){ var on = n === p; return '<button class="btn" onclick="kjPogi(' + n + ')" style="padding:3px 11px;font-size:13px;font-weight:800;background:' + (on ? "#15803d" : "#fff") + ';color:' + (on ? "#fff" : "#15803d") + ';border:1.5px solid #15803d">' + n + '</button>'; }).join("") + '<span class="mut" style="font-size:11.5px;margin-left:4px">재료 양 기준: ' + _kjNum(b) + esc(U) + (_kjRid() === "kimjang" && b === 200 ? ' (엑셀)' : '') + '</span></div></div>';
+  }
   // 비용 요약
   var box = function(lb, v, c, sub){ return '<div style="flex:1;min-width:' + (mob ? 130 : 150) + 'px;background:#fff;border:1.5px solid ' + c + ';border-radius:10px;padding:8px 10px"><div style="font-size:12px;color:#475569;font-weight:700">' + lb + '</div><div style="font-size:' + (mob ? 18 : 21) + 'px;font-weight:900;color:' + c + '">' + v + '</div>' + (sub ? '<div style="font-size:11.5px;color:#64748b">' + sub + '</div>' : '') + '</div>'; };
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + box("💰 총비용", _kjWon(C.all), "#b91c1c", esc(C.split)) + box(esc(_kjR().ic + " 한 " + U + "당"), _kjWon(C.per), "#15803d", C.hasMain ? esc(C.rest) + "만 " + _kjWon(C.perYang) : "") + box("✅ 준비", C.ok + " / " + C.n, "#1d4ed8", C.miss ? "⚠ 단가 안 넣은 재료 " + C.miss + "개" : "단가 다 넣음") + '</div>';
@@ -182,7 +195,7 @@ function dKjMat(){
         + '<div style="display:flex;align-items:center;gap:6px;margin:4px 0 0 27px;font-size:12.5px"><span class="mut">단가</span>' + pr(k, m) + '<span class="mut">원/' + esc(m.u || "") + '</span><b style="margin-left:auto">' + (am ? _kjWon(am) : '') + '</b></div></div>'; }).join("") + '</div>';
   } else {
     var th = function(t, a){ return '<th style="padding:7px 8px;background:#15803d;color:#fff;font-size:13px;white-space:nowrap;text-align:' + (a || "left") + '">' + t + '</th>'; };
-    h += '<div class="card" style="padding:0;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>' + th("준비", "center") + th("재료") + th(_kjNum(p) + esc(U) + "에 필요한 양", "right") + th("손질") + th("메모") + th("단가 (원)", "right") + th("금액", "right") + (can ? th("") : '') + '</tr></thead><tbody>';
+    h += '<div class="card" style="padding:0;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>' + th("준비", "center") + th("재료") + th(_kjPH(S), "right") + th("손질") + th("메모") + th("단가 (원)", "right") + th("금액", "right") + (can ? th("") : '') + '</tr></thead><tbody>';
     ks.forEach(function(k){ var m = M[k], q = _kjQty(m, S), am = q * _kjN(m.price), td = function(v, a, ex){ return '<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:' + (a || "left") + ';' + (ex || "") + '">' + v + '</td>'; };
       h += '<tr style="' + (m.ok ? "background:#f0fdf4" : "") + '">' + td(ck(k, m), "center") + td('<b' + (m.ok ? ' style="color:#94a3b8;text-decoration:line-through"' : '') + '>' + esc(m.nm) + '</b>') + td('<b style="color:#15803d;font-size:15px">' + _kjNum(q) + '</b> ' + esc(m.u || "") + (_kjDiv(m, S) ? '<div style="font-size:11.5px;color:#b45309;font-weight:800">🍲 ' + _kjDiv(m, S) + '</div>' : ''), "right", "white-space:nowrap") + td(esc(m.how || ""), "", "font-size:13px;color:#334155") + td(esc(m.note || ""), "", "font-size:12.5px;color:#64748b")
         + td(pr(k, m) + ' <span class="mut" style="font-size:11.5px">/' + esc(m.u || "") + '</span>', "right", "white-space:nowrap") + td(am ? '<b>' + _kjWon(am) + '</b>' : '<span class="mut">-</span>', "right", "white-space:nowrap") + (can ? td(_kjB("#475569", "✏", "kjMatEdit('" + k + "')", "padding:3px 8px;font-size:12px")) : '') + '</tr>'; });
@@ -195,17 +208,24 @@ function kjPogi(v){
   if(_kjCan()) _kjPut("pogi", n); else { S.pogi = n; }   // 보기 권한은 이 화면에서만 바꿔 봄
   draw(); var e = document.getElementById("kjPogi"); if(e && document.activeElement !== e) e.blur();
 }
+function kjBy(v){   // 기준 재료(밀가루) 양으로 개수 맞추기
+  var S = _kjS(), m = _kjByM(S), n = _kjN(v); if(!m) return; if(n <= 0){ draw(); return; }
+  var x = Math.round(n / _kjN(m.q) * _kjBase(S) * 1e6) / 1e6; if(Math.abs(x - _kjPogi(S)) < 1e-9){ draw(); return; }
+  if(_kjCan()) _kjPut("pogi", x); else { S.pogi = x; }
+  draw(); var e = document.getElementById("kjPogi"); if(e && document.activeElement !== e) e.blur();
+}
 function kjPrice(k, v){ var n = _kjN(v); _kjPut("mat/" + k + "/price", n || null).then(function(){ draw(); }); }
 function kjOk(k, on){ _kjPut("mat/" + k + "/ok", on ? true : null); var m = (_kjS().mat || {})[k]; clearTimeout(KJ.okT); KJ.okT = setTimeout(draw, 250); }
 function kjMatEdit(k){
   var S = _kjS(), m = k ? (S.mat || {})[k] || {} : { u: "kg" }, p = _kjPogi(S), q = k ? _kjQty(m, S) : "", U = _kjU();
   var I = function(lb, id, v, ph, ty){ return '<label style="display:block;font-size:13px;font-weight:700;margin-bottom:8px">' + lb + '<input id="' + id + '" ' + (ty ? 'type="' + ty + '" inputmode="decimal" ' : '') + 'value="' + esc(v == null ? "" : String(v)) + '" placeholder="' + (ph || "") + '" style="width:100%;padding:8px;font-size:16px;border:1px solid #cbd5e1;border-radius:7px;box-sizing:border-box;font-weight:400"></label>'; };
   var h = '<h3 style="margin:0 0 10px">' + (k ? "재료 고치기" : "+ 재료") + '</h3>' + I("재료 이름", "kjm_nm", m.nm, "예: 굴");
-  h += '<div style="display:flex;gap:6px">' + '<div style="flex:1">' + I(_kjNum(p) + esc(U) + "에 필요한 양", "kjm_q", q, "예: 10", "number") + '</div><div style="flex:1">' + I("단위", "kjm_u", m.u, "kg · 개 · 단") + '</div></div>';
+  h += '<div style="display:flex;gap:6px">' + '<div style="flex:1">' + I(_kjPH(S), "kjm_q", q, "예: 10", "number") + '</div><div style="flex:1">' + I("단위", "kjm_u", m.u, "kg · 개 · 단") + '</div></div>';
   h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:-4px 0 8px">' + KJ_UNIT.map(function(u){ return '<button class="btn" type="button" onclick="document.getElementById(\'kjm_u\').value=\'' + u + '\'" style="padding:3px 9px;font-size:12.5px;background:#f0fdf4;color:#15803d;border:1px solid #86efac">' + u + '</button>'; }).join("") + '</div>';
   h += I("손질 방법", "kjm_how", m.how, "예: 갈기 · 2cm로 썰기") + I("메모", "kjm_note", m.note, "예: 파란 봉지 3봉지") + I("단가 (단위당 원)", "kjm_pr", _kjN(m.price) || "", "예: 25000", "number") + (m.potOf ? '<div class="mut" style="font-size:12.5px;margin-bottom:8px">🍲 이 재료 양은 「' + esc(((S.mat || {})[m.potOf] || {}).nm || "") + '」 솥 수를 저절로 따라가요</div>' : I("솥 하나에 최대 몇 " + esc(m.u || "") + " (넘으면 솥이 늘어요)", "kjm_cap", _kjN(m.cap) || "", "예: 2 — 비우면 안 나눔", "number"));
   h += '<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px"><input id="kjm_main" type="checkbox"' + (k && _kjIsCab(m) ? " checked" : "") + ' style="width:18px;height:18px"> 주재료 <span class="mut" style="font-size:12px">— 비용을 따로 보여 줘요 (예: 김장 배추)</span></label>';
-  h += '<div class="mut" style="font-size:12px;margin-bottom:6px">' + esc(U) + ' 수를 바꾸면 이 양도 같은 비율로 바뀌어요</div>';
+  if(_kjRid() !== "kimjang" && !m.potOf) h += '<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px"><input id="kjm_by" type="checkbox"' + (k && S.by === k ? " checked" : "") + ' style="width:18px;height:18px"> 기준 재료 <span class="mut" style="font-size:12px">— 이 재료 양에 맞춰 계산 · 개수는 약 몇 개로 (예: 밀가루)</span></label>';
+  h += '<div class="mut" style="font-size:12px;margin-bottom:6px">' + (_kjByM(S) ? esc(_kjByM(S).nm) + ' 양' : esc(U) + ' 수') + '를 바꾸면 이 양도 같은 비율로 바뀌어요</div>';
   h += '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:10px"><span>' + (k ? _kjB("#dc2626", "🗑 지우기", "kjMatDel('" + k + "')") : "") + '</span><span style="display:flex;gap:6px">' + _kjB("#475569", "취소", "closePopup()") + _kjB("#16a34a", "💾 저장", "kjMatSave('" + (k || "") + "')", "padding:8px 20px") + '</span></div>';
   openPopup(h, 440);
 }
@@ -219,7 +239,8 @@ function kjMatSave(k){
   if(document.getElementById("kjm_cap")){ var cp = _kjN(g("kjm_cap")); if(cp > 0) o.cap = cp; else delete o.cap; delete o.div; }
   if(!k){ var mx = 0; Object.keys(M).forEach(function(x){ mx = Math.max(mx, _kjN(M[x].ord)); }); o.ord = mx + 1; }
   var id = k || _kjRef(_kjY() + "/mat").push().key;
-  _kjPut("mat/" + id, o, "💾 " + nm).then(function(){ closePopup(); draw(); });
+  var byE = document.getElementById("kjm_by"), byP = !byE ? null : byE.checked ? (S.by === id ? null : id) : (S.by === id ? "" : null);
+  _kjPut("mat/" + id, o, "💾 " + nm).then(function(){ return byP === null ? 0 : _kjPut("by", byP || null); }).then(function(){ closePopup(); draw(); });
 }
 function kjMatDel(k){ var m = (_kjS().mat || {})[k] || {}; if(!confirm((m.nm || "") + " 재료를 지울까요?")) return; _kjPut("mat/" + k, null, "지웠어요").then(function(){ closePopup(); draw(); }); }
 
@@ -324,7 +345,7 @@ function kjPrint(w){
   var cs = "border:1px solid #333;padding:4px 6px;font-size:10.5pt;", hs = cs + "background:#e5e7eb;font-weight:bold;text-align:center;";
   var wd = S.day3 ? _kjMD(S.day3).replace(/^.*\(/, "").replace(")", "") : "";
   var ttl = w === "mat" ? "재료표" : w === "step" ? "준비표" : "";
-  var h = '<div style="font-family:\'Malgun Gothic\',sans-serif;color:#000"><h2 style="text-align:center;margin:0 0 4px;font-size:18pt">' + esc(_kjTitle()) + (ttl ? ' ' + ttl : '') + ' — ' + esc(_kjQn()) + ' ' + _kjNum(p) + esc(U) + '</h2>';
+  var h = '<div style="font-family:\'Malgun Gothic\',sans-serif;color:#000"><h2 style="text-align:center;margin:0 0 4px;font-size:18pt">' + esc(_kjTitle()) + (ttl ? ' ' + ttl : '') + ' — ' + esc(_kjQn()) + ' ' + esc(_kjPN(S)) + (_kjByM(S) ? ' (' + esc(_kjByM(S).nm) + ' ' + _kjNum(_kjQty(_kjByM(S), S)) + esc(_kjByM(S).u || "") + ')' : '') + '</h2>';
   h += '<div style="text-align:center;font-size:10.5pt;margin-bottom:10px">' + (S.day3 ? esc(R.anchor || "마지막 날") + " " + S.day3.replace(/-/g, ".") + " (" + wd + ")" : "") + (w !== "step" ? ' &nbsp; 총비용 <b>' + _kjWon(C.all) + '</b> · 한 ' + esc(U) + '당 <b>' + _kjWon(C.per) + '</b>' + (C.hasMain ? ' (' + esc(C.rest) + '만 ' + _kjWon(C.perYang) + ')' : '') : '') + '</div>';
   if(w !== "step"){
     h += '<table style="width:100%;border-collapse:collapse;margin-bottom:12px"><tr><th style="' + hs + 'width:6%">✔</th><th style="' + hs + '">재료</th><th style="' + hs + '">양</th><th style="' + hs + '">손질</th><th style="' + hs + '">메모</th><th style="' + hs + '">단가</th><th style="' + hs + '">금액</th></tr>';
@@ -347,7 +368,7 @@ function kjPrint(w){
     h += DI.map(function(d){ return '<td style="' + cs + 'vertical-align:top;font-size:10pt;line-height:1.5">' + _kjStepKs(S, d).map(function(k){ return (T[k].ok ? "☑ " : "☐ ") + esc(T[k].nm); }).join("<br>") + '</td>'; }).join("") + '</tr></table>';
   }
   h += '</div>';
-  var tt = _kjTitle() + " " + (ttl ? ttl + " " : "") + _kjNum(p) + U;
+  var tt = _kjTitle() + " " + (ttl ? ttl + " " : "") + _kjPN(S);
   if(typeof _docPrint === "function") _docPrint({ title: tt, html: h, landscape: w === "step" && LAND, key: w === "step" ? (LAND ? "gm_kjStepL" : "gm_kjStepP") : "gm_kjPrint" });
   else { var win = window.open("", "_blank"); if(win){ win.document.write("<title>" + tt + "</title>" + h); win.document.close(); win.print(); } }
 }
@@ -361,7 +382,7 @@ function kjRecEdit(isNew){
   h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:-4px 0 8px">' + KJ_ICON.map(function(x){ return '<button class="btn" type="button" onclick="document.getElementById(\'kjr_ic\').value=\'' + x + '\'" style="padding:2px 7px;font-size:17px;background:#f8fafc;border:1px solid #cbd5e1">' + x + '</button>'; }).join("") + '</div>';
   h += '<div style="display:flex;gap:6px"><div style="flex:1">' + I("무엇을 세나요", "kjr_qnm", R.qnm, "예: 호떡 · 배추") + '</div><div style="flex:1">' + I("세는 단위", "kjr_unit", R.unit, "개 · 포기 · 판") + '</div></div>';
   h += I("재료 양 기준 수량" + (has ? " (" + esc(_kjTitle()) + ")" : ""), "kjr_base", has ? _kjBase(S) : R.base, "예: 20", 'type="number" inputmode="decimal"');
-  h += '<div class="mut" style="font-size:12px;margin:-4px 0 8px">재료 양을 이 수량 기준으로 적어요 (예: 반죽 한 번에 호떡 20개)' + (has ? ' · ⚠ 바꾸면 적어 둔 재료 양이 이 수량 기준으로 다시 읽혀요' : '') + '</div>';
+  h += '<div class="mut" style="font-size:12px;margin:-4px 0 8px">적어 둔 재료 양대로 하면 약 몇 개 나오나요 (예: 밀가루 1kg → 호떡 약 20개) · 재료 고치기에서 「기준 재료」(밀가루)를 고르면 밀가루 양에 맞춰 계산돼요' + (has ? ' · ⚠ 바꾸면 적어 둔 재료 양이 이 수량 기준으로 다시 읽혀요' : '') + '</div>';
   h += I("일정 단계 (쉼표로 나눠서 · 하루에 하나)", "kjr_days", (isNew ? R.days : _kjDN()).join(", "), "예: 준비, 만들기");
   h += I("마지막 날 이름", "kjr_anc", R.anchor, "예: 만드는 날 · 담는 날");
   if(isNew) h += '<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px"><input id="kjr_yr" type="checkbox" style="width:18px;height:18px"> 해마다 따로 적기 <span class="mut" style="font-size:12px">— 김장처럼 해마다 양·단가·날짜가 달라지면</span></label>';
